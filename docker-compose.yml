@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  # Django Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: weldvision-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+      - static_data:/app/staticfiles
+    environment:
+      - DJANGO_SECRET_KEY=dev-secret-key-change-in-production
+      - DEBUG=True
+      - RDK_IP=192.168.1.100
+      - RDK_USERNAME=sunrise
+      - RDK_PASSWORD=sunrise
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+    restart: unless-stopped
+    networks:
+      - weldvision-network
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: weldvision-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - weldvision-network
+
+volumes:
+  media_data:
+  static_data:
+
+networks:
+  weldvision-network:
+    driver: bridge

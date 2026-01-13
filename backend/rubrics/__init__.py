@@ -1,0 +1,1 @@
+"""Rubrics App - Grading configuration"""

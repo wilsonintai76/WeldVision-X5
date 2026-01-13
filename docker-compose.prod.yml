@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database (Production)
+  db:
+    image: postgres:15-alpine
+    container_name: weldvision-db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=weldvision
+      - POSTGRES_USER=weldvision_user
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    restart: always
+    networks:
+      - weldvision-network
+
+  # Django Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: weldvision-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - media_data:/app/media
+      - static_data:/app/staticfiles
+    environment:
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DEBUG=False
+      - DATABASE_URL=postgresql://weldvision_user:${DB_PASSWORD}@db:5432/weldvision
+      - RDK_IP=${RDK_IP}
+      - RDK_USERNAME=${RDK_USERNAME}
+      - RDK_PASSWORD=${RDK_PASSWORD}
+    depends_on:
+      - db
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn weldvision.wsgi:application --bind 0.0.0.0:8000"
+    restart: always
+    networks:
+      - weldvision-network
+
+  # React Frontend (Production Build)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: weldvision-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - weldvision-network
+
+volumes:
+  postgres_data:
+  media_data:
+  static_data:
+
+networks:
+  weldvision-network:
+    driver: bridge

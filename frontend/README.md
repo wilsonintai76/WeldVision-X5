@@ -1,16 +1,84 @@
-# React + Vite
+# WeldVision X5 - Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Industrial edge computing application for weld quality inspection using React, Vite, and Tailwind CSS.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Live Monitoring Dashboard**: Real-time weld inspection with geometric and visual defect tracking
+- **MLOps Center**: Model management and device control interface
+- **Industrial Dark Mode**: High-contrast UI optimized for workshop environments
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 18
+- Vite
+- Tailwind CSS
+- Lucide React (Icons)
+- Recharts (Charts)
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Installation
+
+```bash
+npm install
+```
+
+### Development
+
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:3000`
+
+### Build
+
+```bash
+npm run build
+```
+
+### Preview Production Build
+
+```bash
+npm run preview
+```
+
+## Project Structure
+
+```
+src/
+├── components/
+│   ├── Dashboard.jsx    # Live monitoring view
+│   └── MLOps.jsx        # Model management & device control
+├── App.jsx              # Main app with sidebar navigation
+├── main.jsx             # React entry point
+└── index.css            # Tailwind directives
+```
+
+## Features Overview
+
+### Dashboard (Live Monitoring)
+- Video feed placeholder (awaiting RDK X5 connection)
+- Live metrics cards:
+  - Reinforcement Height (1-3mm validation)
+  - Bead Width (8-12mm validation)
+  - Visual defect counts (Porosity, Spatter, Slag, Burn-Through)
+- Mock data generation for UI testing (updates every second)
+- Bottom statistics panel
+
+### MLOps Center
+- Model table with deployment actions
+- API status indicator
+- Device information panel
+- Device control (reboot functionality)
+- System statistics (CPU, Memory, Temperature, Uptime)
+
+## Mock Data Mode
+
+The Dashboard includes a `useEffect` hook that generates random metric values every second for testing purposes:
+- Height: 2.1mm ± 0.1mm
+- Width: 10.0-12.0mm
+- Defects: Random counts (0-5)
+
+This allows UI testing without RDK X5 device connection.

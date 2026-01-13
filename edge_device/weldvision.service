@@ -1,0 +1,19 @@
+[Unit]
+Description=WeldVision X5 Edge Device Service
+After=network.target
+
+[Service]
+Type=simple
+User=sunrise
+WorkingDirectory=/home/sunrise/welding_app
+ExecStart=/usr/bin/python3 /home/sunrise/welding_app/main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables (optional)
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target

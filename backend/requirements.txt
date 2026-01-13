@@ -1,0 +1,16 @@
+# Django Core
+Django
+djangorestframework
+django-cors-headers
+
+# Database
+# psycopg2-binary  # Only needed for PostgreSQL (production)
+
+# Image Processing
+Pillow
+
+# SSH/SCP for MLOps Deployment
+paramiko
+
+# Utilities
+python-dotenv
