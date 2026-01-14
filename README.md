@@ -1,8 +1,53 @@
 # WeldVision X5
 
-Industrial edge computing application for weld quality inspection using AI and computer vision.
+Industrial edge computing application for weld quality inspection using AI and computer vision on RDK X5.
 
-## System Architecture
+## 📦 Project Structure
+
+This project is organized into deployment-ready components:
+
+- **[welding_server/](welding_server/)** - Deploy to PC/Server (Backend API + Frontend Dashboard)
+- **[edge_device/](edge_device/)** - Deploy to RDK X5 (Real-time AI inference)
+- **[docs/](docs/)** - Complete system documentation
+
+## 🚀 Quick Start
+
+### 1. Start the Server (PC)
+
+```bash
+cd welding_server
+docker-compose up -d
+```
+
+Access:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000/api/
+
+### 2. Deploy to Edge Device (RDK X5)
+
+```bash
+# Copy edge device files to RDK X5
+scp -r edge_device/* sunrise@192.168.1.100:~/weldvision/
+
+# SSH into RDK X5
+ssh sunrise@192.168.1.100
+
+# Start the service
+cd ~/weldvision
+python3 main.py
+```
+
+## 📚 Documentation
+
+Complete guides for setup, deployment, and operation:
+
+- **[Prerequisites](docs/PREREQUISITES.md)** - Hardware & software requirements (Desktop + RDK X5)
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - What runs where and how to connect everything
+- **[Quick Start](docs/QUICKSTART.md)** - Fast setup guide (Docker or native)
+- **[Stereo Calibration](docs/STEREO_CALIBRATION_SETUP.md)** - Camera calibration procedure
+- **Guide & Help** - In-app documentation (access after starting at http://localhost:3000)
+
+## 🏗️ System Architecture
 
 ```
 ┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
@@ -19,9 +64,11 @@ Industrial edge computing application for weld quality inspection using AI and c
 
 ### Prerequisites
 
-- Docker Desktop (Windows/Mac) or Docker Engine (Linux)
+Before you begin, ensure you have the required hardware and software. See **[PREREQUISITES.md](PREREQUISITES.md)** for complete requirements:
+- Desktop/Server with Docker Desktop or Docker Engine
 - Docker Compose v2.0+
 - Git
+- (Optional) RDK X5 edge device for inference
 
 ### 1. Clone Repository
 
