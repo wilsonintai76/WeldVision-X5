@@ -48,6 +48,42 @@ class StereoCalibrationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+    @action(detail=False, methods=['post'])
+    def calibrate(self, request):
+        """
+        Create a new calibration from captured stereo image data.
+        
+        In production, this would trigger OpenCV stereoCalibrate using
+        uploaded image pairs. For now, it creates a calibration record
+        and stores placeholder calibration data.
+        """
+        name = request.data.get('name')
+        if not name:
+            return Response({'detail': 'name is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        rows = request.data.get('checkerboard_rows', 6)
+        cols = request.data.get('checkerboard_cols', 9)
+        square_size = request.data.get('square_size', 25.0)
+        image_count = request.data.get('image_count', 0)
+        
+        # Create calibration record with placeholder data
+        # In production: run cv2.stereoCalibrate on captured images
+        calibration = StereoCalibration.objects.create(
+            name=name,
+            board_width=cols,
+            board_height=rows,
+            square_size_mm=square_size,
+            calibration_data={
+                'status': 'pending',
+                'image_count': image_count,
+                'message': 'Calibration data placeholder. Run stereo_calibrate.py on RDK to compute real parameters.'
+            },
+            is_active=False
+        )
+        
+        serializer = self.get_serializer(calibration)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
 class StudentViewSet(viewsets.ModelViewSet):
     """ViewSet for Student CRUD operations"""

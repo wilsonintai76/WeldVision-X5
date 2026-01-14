@@ -9,6 +9,9 @@ django-cors-headers
 # Image Processing
 Pillow
 
+# PDF Generation
+reportlab
+
 # SSH/SCP for MLOps Deployment
 paramiko
 

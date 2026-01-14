@@ -1521,7 +1521,7 @@ function Labeling({ initialView = 'datasets' }) {
                       onChange={async (e) => {
                         const newSplit = e.target.value
                         try {
-                          const res = await fetch(`http://localhost:8000/api/images/${selectedImage.id}/`, {
+                          const res = await fetch(`http://localhost:8000/api/labeled-images/${selectedImage.id}/`, {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ split: newSplit })

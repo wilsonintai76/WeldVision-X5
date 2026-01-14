@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Camera, AlertTriangle, CheckCircle, XCircle, User, Users, Play, Square, ClipboardCheck, Star } from 'lucide-react'
+import { Camera, AlertTriangle, CheckCircle, XCircle, User, Users, Play, Square, ClipboardCheck, Star, Download, FileText } from 'lucide-react'
 
 function Dashboard() {
   const [students, setStudents] = useState([])
@@ -128,7 +128,7 @@ function Dashboard() {
     setIsEvaluating(true)
   }
 
-  const stopEvaluation = () => {
+  const stopEvaluation = async () => {
     setIsEvaluating(false)
     // Calculate rubric-based score
     if (selectedStudent && selectedRubric) {
@@ -145,9 +145,37 @@ function Dashboard() {
       const avgScore = totalWeight > 0 ? (totalWeighted / totalWeight) : 0
       const passed = avgScore >= selectedRubric.passing_score
       
+      // Save to backend
+      let savedEvaluationId = null
+      try {
+        const res = await fetch('http://localhost:8000/api/student-evaluations/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            student: selectedStudent.id,
+            rubric: selectedRubric.id,
+            total_score: avgScore,
+            passed: passed,
+            ai_metrics: metrics,
+            criterion_scores: Object.entries(criterionScores).map(([criterionId, score]) => ({
+              criterion: parseInt(criterionId),
+              score: score
+            }))
+          })
+        })
+        if (res.ok) {
+          const data = await res.json()
+          savedEvaluationId = data.id
+        }
+      } catch (error) {
+        console.error('Error saving evaluation:', error)
+      }
+      
       const result = {
+        id: savedEvaluationId,
         student: selectedStudent,
         rubric: selectedRubric.name,
+        rubricId: selectedRubric.id,
         timestamp: new Date().toISOString(),
         metrics: { ...metrics },
         criterionScores: { ...criterionScores },
@@ -158,6 +186,54 @@ function Dashboard() {
       
       // Reset scores for next evaluation
       initCriterionScores(selectedRubric)
+    }
+  }
+
+  const downloadEvaluationPdf = async (evaluationId) => {
+    if (!evaluationId) {
+      alert('Evaluation not saved to server. Please try again.')
+      return
+    }
+    try {
+      const res = await fetch(`http://localhost:8000/api/student-evaluations/${evaluationId}/report_pdf/`)
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `evaluation_${evaluationId}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        a.remove()
+      } else {
+        alert('Failed to generate PDF')
+      }
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('Error downloading PDF')
+    }
+  }
+
+  const downloadStudentSummaryPdf = async (studentId) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/student-evaluations/student_report_pdf/?student_id=${studentId}`)
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `student_report_${studentId}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        a.remove()
+      } else {
+        alert('Failed to generate PDF')
+      }
+    } catch (error) {
+      console.error('Error downloading PDF:', error)
+      alert('Error downloading PDF')
     }
   }
 
@@ -308,6 +384,15 @@ function Dashboard() {
                   <span className="text-slate-300 text-sm">{selectedStudent.class_group_name}</span>
                 </div>
               )}
+              {/* Download Student Summary Report */}
+              <button
+                onClick={() => downloadStudentSummaryPdf(selectedStudent.student_id)}
+                className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                title="Download Student Progress Report"
+              >
+                <FileText className="w-4 h-4" />
+                Download Report
+              </button>
             </div>
           </div>
         )}
@@ -517,6 +602,7 @@ function Dashboard() {
                   <th className="text-left py-2 px-3 text-sm font-semibold text-slate-300">Time</th>
                   <th className="text-center py-2 px-3 text-sm font-semibold text-slate-300">Score</th>
                   <th className="text-center py-2 px-3 text-sm font-semibold text-slate-300">Result</th>
+                  <th className="text-center py-2 px-3 text-sm font-semibold text-slate-300">Report</th>
                 </tr>
               </thead>
               <tbody>
@@ -558,6 +644,19 @@ function Dashboard() {
                         <span className="px-3 py-1 bg-red-900/50 text-red-400 rounded text-sm font-medium">
                           FAIL
                         </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      {result.id ? (
+                        <button
+                          onClick={() => downloadEvaluationPdf(result.id)}
+                          className="p-2 hover:bg-slate-700 rounded transition-colors text-blue-400 hover:text-blue-300"
+                          title="Download PDF Report"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <span className="text-slate-600 text-xs">-</span>
                       )}
                     </td>
                   </tr>

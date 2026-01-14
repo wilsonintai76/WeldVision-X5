@@ -218,3 +218,56 @@ class StudentEvaluationViewSet(viewsets.ModelViewSet):
         evaluations = self.queryset.filter(student__student_id=student_id)
         serializer = self.get_serializer(evaluations, many=True)
         return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def report_pdf(self, request, pk=None):
+        """
+        Generate a PDF report for a single evaluation.
+        
+        GET /api/student-evaluations/{id}/report_pdf/
+        """
+        from django.http import HttpResponse
+        from .reports import generate_evaluation_report
+        
+        evaluation = self.get_object()
+        include_details = request.query_params.get('details', 'true').lower() == 'true'
+        
+        pdf_buffer = generate_evaluation_report(evaluation, include_details=include_details)
+        
+        filename = f"evaluation_{evaluation.student.student_id}_{evaluation.created_at.strftime('%Y%m%d_%H%M')}.pdf"
+        
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+    
+    @action(detail=False, methods=['get'])
+    def student_report_pdf(self, request):
+        """
+        Generate a summary PDF report for all evaluations of a student.
+        
+        GET /api/student-evaluations/student_report_pdf/?student_id=STU001
+        """
+        from django.http import HttpResponse
+        from core.models import Student
+        from .reports import generate_student_summary_report
+        
+        student_id = request.query_params.get('student_id')
+        if not student_id:
+            return Response({'detail': 'student_id query parameter required'}, status=400)
+        
+        try:
+            student = Student.objects.get(student_id=student_id)
+        except Student.DoesNotExist:
+            return Response({'detail': 'Student not found'}, status=404)
+        
+        evaluations = self.queryset.filter(student=student)
+        
+        pdf_buffer = generate_student_summary_report(student, evaluations)
+        
+        from datetime import datetime
+        filename = f"student_report_{student.student_id}_{datetime.now().strftime('%Y%m%d')}.pdf"
+        
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
