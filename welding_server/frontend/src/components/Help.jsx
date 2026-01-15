@@ -773,8 +773,8 @@ docker-compose logs -f`}
             />
             <ResourceLink
               title="RDK X5 Documentation"
-              description="Official hardware documentation (English)"
-              href="https://developer.d-robotics.cc/en"
+              description="Official RDK hardware documentation"
+              href="https://d-robotics.github.io/rdk_doc/en/RDK"
             />
             <ResourceLink
               title="OpenCV Calibration Guide"
