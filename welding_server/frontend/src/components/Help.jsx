@@ -7,6 +7,7 @@ import {
   GitBranch, 
   Rocket, 
   AlertCircle,
+  AlertTriangle,
   CheckCircle,
   Info,
   ExternalLink,
@@ -23,6 +24,7 @@ function Help() {
     gettingStarted: true,
     calibration: false,
     mlops: false,
+    reports: false,
     edgeDevice: false,
     troubleshooting: false
   })
@@ -333,12 +335,75 @@ function Help() {
                 <p className="text-slate-300 text-sm mb-2">
                   Train YOLO models on your annotated dataset.
                 </p>
+                <div className="bg-yellow-950/20 border border-yellow-600 rounded-lg p-4 mb-3">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-yellow-400 mt-0.5" />
+                    <div>
+                      <p className="text-yellow-200 font-semibold text-sm mb-1">Hardware Requirements Check</p>
+                      <p className="text-yellow-100 text-sm">
+                        The system automatically checks your hardware capabilities before training. If your PC/laptop 
+                        doesn&apos;t meet minimum requirements (especially GPU), consider using cloud training platforms.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-slate-300 text-sm mb-2 font-semibold">Minimum Requirements:</p>
+                <ul className="space-y-1 text-sm text-slate-400 mb-3">
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400">•</span>
+                    <strong>CPU:</strong> 4+ cores recommended
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400">•</span>
+                    <strong>RAM:</strong> 8GB minimum, 16GB recommended
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400">•</span>
+                    <strong>GPU:</strong> NVIDIA GPU with 6GB+ VRAM highly recommended (training on CPU is very slow)
+                  </li>
+                </ul>
+                <p className="text-slate-300 text-sm mb-2 font-semibold">Alternative Training Options:</p>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="bg-slate-800 rounded p-3 border border-slate-700">
+                    <p className="text-white font-semibold text-sm">Google Colab</p>
+                    <p className="text-xs text-slate-400 mt-1">Free GPU training</p>
+                    <a href="https://colab.research.google.com/" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">
+                      colab.research.google.com →
+                    </a>
+                  </div>
+                  <div className="bg-slate-800 rounded p-3 border border-slate-700">
+                    <p className="text-white font-semibold text-sm">Roboflow Train</p>
+                    <p className="text-xs text-slate-400 mt-1">Automated YOLO training</p>
+                    <a href="https://roboflow.com/" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">
+                      roboflow.com →
+                    </a>
+                  </div>
+                  <div className="bg-slate-800 rounded p-3 border border-slate-700">
+                    <p className="text-white font-semibold text-sm">Ultralytics HUB</p>
+                    <p className="text-xs text-slate-400 mt-1">Official YOLOv8 platform</p>
+                    <a href="https://hub.ultralytics.com/" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline">
+                      hub.ultralytics.com →
+                    </a>
+                  </div>
+                  <div className="bg-slate-800 rounded p-3 border border-slate-700">
+                    <p className="text-white font-semibold text-sm">Import Models</p>
+                    <p className="text-xs text-slate-400 mt-1">Bring pre-trained models</p>
+                    <p className="text-xs text-green-400">Upload .pt files</p>
+                  </div>
+                </div>
                 <CodeBlock 
-                  code={`# Via MLOps interface
-1. Select dataset
+                  code={`# Local Training (if system meets requirements)
+1. Select dataset in MLOps
 2. Configure training parameters
-3. Click "Start Training"
-4. Monitor progress in real-time`}
+3. System checks hardware automatically
+4. Click "Start Training" if capable
+5. Monitor progress in real-time
+
+# Or use cloud platforms and import:
+1. Train on Colab/Roboflow/Ultralytics HUB
+2. Download trained .pt file
+3. Upload to WeldVision MLOps
+4. Convert and deploy to RDK X5`}
                 />
               </div>
 
@@ -358,6 +423,171 @@ python backend/mlops/scripts/convert_to_bin.py \\
 2. Select target edge device
 3. Click "Deploy Model"`}
                 />
+              </div>
+            </div>
+          </Section>
+
+          {/* Report Generation */}
+          <Section
+            title="Report Generation"
+            icon={<Download className="w-5 h-5" />}
+            expanded={expandedSections.reports}
+            onToggle={() => toggleSection('reports')}
+          >
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-white font-semibold mb-2">Overview</h3>
+                <p className="text-slate-300 text-sm mb-3">
+                  Generate comprehensive PDF reports for student evaluations, including individual assessments, 
+                  student progress summaries, and class-wide performance reports.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-white font-semibold mb-2">1. Individual Evaluation Report</h3>
+                <p className="text-slate-300 text-sm mb-2">
+                  Generate a detailed PDF for a single evaluation with rubric scores and AI metrics.
+                </p>
+                <ul className="space-y-1 text-sm text-slate-400">
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400">•</span>
+                    Complete the evaluation in <strong>Dashboard</strong>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400">•</span>
+                    Click <strong>"Download Report"</strong> button after finishing
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400">•</span>
+                    Includes: Student info, rubric breakdown, AI metrics, weld images
+                  </li>
+                </ul>
+                <div className="mt-3 bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="text-xs text-blue-200">
+                      <strong>New Feature:</strong> Reports now include weld images with AI detection boundaries 
+                      (red boxes for defects, green for acceptable areas)
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-white font-semibold mb-2">2. Student Summary Report</h3>
+                <p className="text-slate-300 text-sm mb-2">
+                  Generate a progress report showing all evaluations for a specific student.
+                </p>
+                <ul className="space-y-1 text-sm text-slate-400">
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400">•</span>
+                    Navigate to <strong>Dashboard → Student Selection</strong>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400">•</span>
+                    Select a student from the dropdown
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400">•</span>
+                    Click <strong>"Student Report"</strong> button
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400">•</span>
+                    Includes: Evaluation history, statistics, pass rate, score trends
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="text-white font-semibold mb-2">3. Class Report (NEW)</h3>
+                <p className="text-slate-300 text-sm mb-2">
+                  Generate a comprehensive report for an entire class with all student performance data.
+                </p>
+                <ul className="space-y-1 text-sm text-slate-400">
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400">•</span>
+                    Navigate to <strong>Dashboard → Class Group Selector</strong>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400">•</span>
+                    Select a class from the dropdown
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400">•</span>
+                    Click the blue <strong>"Class Report"</strong> button that appears
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-blue-400">•</span>
+                    Includes: Student performance table, class statistics, performance distribution
+                  </li>
+                </ul>
+                <div className="mt-3 bg-slate-800 rounded-lg p-3 border border-slate-700">
+                  <h4 className="text-white text-sm font-semibold mb-2">Report Contents:</h4>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
+                    <div className="flex items-start gap-1">
+                      <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
+                      Student ID & Name
+                    </div>
+                    <div className="flex items-start gap-1">
+                      <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
+                      Total Evaluations
+                    </div>
+                    <div className="flex items-start gap-1">
+                      <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
+                      Latest Score
+                    </div>
+                    <div className="flex items-start gap-1">
+                      <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
+                      Pass Rate %
+                    </div>
+                    <div className="flex items-start gap-1">
+                      <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
+                      Pass/Fail Status
+                    </div>
+                    <div className="flex items-start gap-1">
+                      <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
+                      Class Average
+                    </div>
+                    <div className="flex items-start gap-1">
+                      <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
+                      Overall Pass Rate
+                    </div>
+                    <div className="flex items-start gap-1">
+                      <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0 mt-0.5" />
+                      Performance Distribution
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-white font-semibold mb-2">Report Features</h3>
+                <ul className="space-y-2 text-sm text-slate-300">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <strong>Professional Formatting:</strong> Clean tables with color-coded status (Green = Pass, Red = Fail)
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <strong>Weld Images:</strong> Original image + AI detection heatmap with bounding boxes
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <strong>Comprehensive Data:</strong> Rubric scores, AI metrics, geometric measurements
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <strong>Auto-naming:</strong> Files named with student ID or class name and date
+                    </div>
+                  </li>
+                </ul>
               </div>
             </div>
           </Section>

@@ -45,6 +45,8 @@ Complete guides for setup, deployment, and operation:
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - What runs where and how to connect everything
 - **[Quick Start](docs/QUICKSTART.md)** - Fast setup guide (Docker or native)
 - **[Stereo Calibration](docs/STEREO_CALIBRATION_SETUP.md)** - Camera calibration procedure
+- **[Training Options](docs/TRAINING_OPTIONS.md)** - 🆕 GPU requirements & cloud training alternatives
+- **[System Check Guide](docs/SYSTEM_CHECK_USER_GUIDE.md)** - 🆕 Understanding hardware capability detection
 - **Guide & Help** - In-app documentation (access after starting at http://localhost:3000)
 
 ## 🏗️ System Architecture
@@ -231,10 +233,14 @@ npm run dev
 - `POST /api/deploy-model/` - Deploy to RDK X5
 - `POST /api/reboot-device/` - Reboot RDK X5
 - `GET /api/device-status/` - Device status
+- `GET /api/system-check/` - 🆕 Check hardware training capability
+- `GET /api/training-recommendation/` - 🆕 Get training recommendation
+- `POST /api/upload-model/` - 🆕 Upload pre-trained models (.pt, .onnx, .bin)
+- `GET /api/convertible-models/` - 🆕 List models available for conversion
 
 ### MLOps (Train / Convert / Jobs)
 - `POST /api/train-model/` - Start training job (runs on PC/server)
-- `POST /api/convert-model/` - Export/convert job (`format: onnx` or `format: bin`)
+- `POST /api/convert-model/` - Export/convert job (supports `model_id`, `source_job_id`, or `weights_path`)
 - `GET /api/jobs/` - List jobs and statuses
 - `GET /api/jobs/{id}/logs/` - Tail stdout/stderr logs
 - `POST /api/register-artifact/` - Save a succeeded job artifact into `AIModel`

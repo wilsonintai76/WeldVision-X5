@@ -237,6 +237,33 @@ function Dashboard() {
     }
   }
 
+  const downloadClassReportPdf = async (classId) => {
+    if (!classId) {
+      alert('Please select a class first')
+      return
+    }
+    try {
+      const res = await fetch(`http://localhost:8000/api/student-evaluations/class_report_pdf/?class_id=${classId}`)
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        const className = classGroups.find(c => c.id === classId)?.name || 'class'
+        a.download = `class_report_${className.replace(/\s/g, '_')}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        a.remove()
+      } else {
+        alert('Failed to generate class report PDF')
+      }
+    } catch (error) {
+      console.error('Error downloading class report PDF:', error)
+      alert('Error downloading class report PDF')
+    }
+  }
+
   const handleRubricChange = (e) => {
     const rubricId = Number(e.target.value)
     const rubric = rubrics.find(r => r.id === rubricId)
@@ -283,16 +310,28 @@ function Dashboard() {
             <Users className="w-5 h-5 text-slate-400" />
             <div>
               <label className="text-xs text-slate-400 block mb-1">Class Group</label>
-              <select
-                value={selectedClass || ''}
-                onChange={handleClassChange}
-                className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm min-w-[180px]"
-              >
-                <option value="">All Classes</option>
-                {classGroups.map(group => (
-                  <option key={group.id} value={group.id}>{group.name}</option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <select
+                  value={selectedClass || ''}
+                  onChange={handleClassChange}
+                  className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm min-w-[180px]"
+                >
+                  <option value="">All Classes</option>
+                  {classGroups.map(group => (
+                    <option key={group.id} value={group.id}>{group.name}</option>
+                  ))}
+                </select>
+                {selectedClass && (
+                  <button
+                    onClick={() => downloadClassReportPdf(selectedClass)}
+                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 text-sm"
+                    title="Download Class Report"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Class Report
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 

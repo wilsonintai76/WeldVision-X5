@@ -15,5 +15,8 @@ reportlab
 # SSH/SCP for MLOps Deployment
 paramiko
 
+# System Monitoring
+psutil
+
 # Utilities
 python-dotenv

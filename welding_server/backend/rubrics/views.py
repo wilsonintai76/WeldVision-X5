@@ -270,4 +270,32 @@ class StudentEvaluationViewSet(viewsets.ModelViewSet):
         response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
-
+    
+    @action(detail=False, methods=['get'])
+    def class_report_pdf(self, request):
+        """
+        Generate a PDF report for an entire class showing all students and their evaluations.
+        
+        GET /api/student-evaluations/class_report_pdf/?class_id=1
+        """
+        from django.http import HttpResponse
+        from core.models import ClassGroup
+        from .reports import generate_class_report
+        
+        class_id = request.query_params.get('class_id')
+        if not class_id:
+            return Response({'detail': 'class_id query parameter required'}, status=400)
+        
+        try:
+            class_group = ClassGroup.objects.get(id=class_id)
+        except ClassGroup.DoesNotExist:
+            return Response({'detail': 'Class not found'}, status=404)
+        
+        pdf_buffer = generate_class_report(class_group)
+        
+        from datetime import datetime
+        filename = f"class_report_{class_group.name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf"
+        
+        response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response

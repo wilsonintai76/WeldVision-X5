@@ -15,6 +15,7 @@ from .models import AIModel, DeploymentLog, MLJob
 from .serializers import (
     AIModelSerializer,
     AIModelListSerializer,
+    AIModelUploadSerializer,
     DeploymentLogSerializer,
     MLJobSerializer,
 )
@@ -25,6 +26,7 @@ from .utils import (
     RDKDeploymentError
 )
 from .job_runner import start_subprocess_job
+from .system_check import check_system_resources, get_training_recommendation
 import logging
 
 logger = logging.getLogger(__name__)
@@ -265,22 +267,37 @@ def convert_model(request):
 
     Body:
     {
-      "source_job_id": 123,         // optional (uses its best.pt)
-      "weights_path": ".../best.pt", // optional
-      "format": "onnx",            // optional
-      "imgsz": 640,                 // optional
+      "source_job_id": 123,          // optional - uses training job's best.pt
+      "model_id": 456,               // optional - uses uploaded model file
+      "weights_path": ".../best.pt", // optional - manual path
+      "format": "onnx",              // optional (default: onnx)
+      "imgsz": 640,                  // optional
       "name": "weld-yolo",
-      "version": "1.0.0-onnx"      // optional
+      "version": "1.0.0-onnx"        // optional
     }
+    
+    Priority: model_id > source_job_id > weights_path
     """
     source_job_id = request.data.get('source_job_id')
+    model_id = request.data.get('model_id')
     weights_path = request.data.get('weights_path')
     export_format = request.data.get('format', 'onnx')
     imgsz = int(request.data.get('imgsz', 640))
     name = request.data.get('name', 'weldvision-yolo')
     version = request.data.get('version', '')
 
-    if source_job_id and not weights_path:
+    # Priority 1: Use uploaded model
+    if model_id and not weights_path:
+        try:
+            model = AIModel.objects.get(id=model_id)
+            weights_path = model.model_file.path
+            if not name or name == 'weldvision-yolo':
+                name = model.name
+        except AIModel.DoesNotExist:
+            return Response({'error': f'model_id {model_id} not found'}, status=404)
+    
+    # Priority 2: Use training job artifact
+    elif source_job_id and not weights_path:
         try:
             src_job = MLJob.objects.get(id=source_job_id)
         except MLJob.DoesNotExist:
@@ -288,7 +305,7 @@ def convert_model(request):
         weights_path = src_job.artifact_path
 
     if not weights_path:
-        return Response({'error': 'weights_path or source_job_id is required'}, status=400)
+        return Response({'error': 'weights_path, model_id, or source_job_id is required'}, status=400)
 
     job = MLJob.objects.create(
         job_type=MLJob.Type.EXPORT,
@@ -511,3 +528,128 @@ def device_status(request):
     
     result = check_rdk_status(ip, username, password)
     return Response(result)
+
+
+@api_view(['GET'])
+def system_requirements_check(request):
+    """
+    Check if system meets requirements for ML training
+    
+    GET /api/mlops/system-check/
+    
+    Returns detailed system information and recommendations
+    """
+    try:
+        check_result = check_system_resources()
+        return Response(check_result)
+    except Exception as e:
+        logger.error(f"System check failed: {e}")
+        return Response({
+            'error': str(e),
+            'message': 'Failed to check system requirements'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def training_recommendation(request):
+    """
+    Get simple recommendation for training capability
+    
+    GET /api/mlops/training-recommendation/
+    
+    Returns yes/no recommendation with message
+    """
+    try:
+        recommendation = get_training_recommendation()
+        return Response(recommendation)
+    except Exception as e:
+        logger.error(f"Training recommendation failed: {e}")
+        return Response({
+            'error': str(e),
+            'message': 'Failed to get training recommendation'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+def upload_pretrained_model(request):
+    """
+    Upload a pre-trained model (.pt, .onnx, .bin) file
+    
+    POST /api/mlops/upload-model/
+    
+    FormData:
+    - model_file: The model file (.pt, .onnx, or .bin)
+    - name: Model name (default: 'uploaded-model')
+    - version: Version string (must be unique)
+    - description: Optional description
+    
+    Use this endpoint to upload models trained externally (e.g., Google Colab, Roboflow)
+    """
+    try:
+        serializer = AIModelUploadSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Create the model with uploaded status
+        model = serializer.save(status='uploaded')
+        
+        # Calculate file size
+        if model.model_file:
+            model.file_size_mb = round(model.model_file.size / (1024 * 1024), 2)
+            model.save(update_fields=['file_size_mb'])
+        
+        logger.info(f"Pre-trained model uploaded: {model.name} v{model.version}")
+        
+        return Response({
+            'success': True,
+            'message': f"Model '{model.name}' v{model.version} uploaded successfully",
+            'model': AIModelSerializer(model, context={'request': request}).data
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        logger.error(f"Model upload failed: {e}")
+        return Response({
+            'error': str(e),
+            'message': 'Failed to upload model'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def list_convertible_models(request):
+    """
+    List models that can be converted (uploaded .pt files)
+    
+    GET /api/mlops/convertible-models/
+    
+    Returns list of models with .pt extension that can be converted to other formats
+    """
+    try:
+        # Get all models with .pt extension
+        models = AIModel.objects.all().order_by('-created_at')
+        convertible = []
+        
+        for model in models:
+            if model.model_file:
+                file_ext = model.model_file.name.split('.')[-1].lower()
+                convertible.append({
+                    'id': model.id,
+                    'name': model.name,
+                    'version': model.version,
+                    'file_type': file_ext,
+                    'file_size_mb': model.file_size_mb,
+                    'created_at': model.created_at,
+                    'can_convert_to_onnx': file_ext == 'pt',
+                    'can_convert_to_bin': file_ext in ['pt', 'onnx'],
+                    'is_deployed': model.is_deployed,
+                    'status': model.status,
+                })
+        
+        return Response(convertible)
+        
+    except Exception as e:
+        logger.error(f"Failed to list convertible models: {e}")
+        return Response({
+            'error': str(e),
+            'message': 'Failed to list convertible models'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

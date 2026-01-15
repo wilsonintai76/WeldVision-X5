@@ -108,6 +108,15 @@ class StudentEvaluation(models.Model):
         null=True,
         related_name='evaluations'
     )
+    # Link to assessment with images
+    assessment = models.ForeignKey(
+        'results.Assessment',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='evaluations',
+        help_text="Reference to assessment with images"
+    )
     evaluator = models.CharField(max_length=200, blank=True, help_text="Instructor/Evaluator name")
     
     # Overall results
