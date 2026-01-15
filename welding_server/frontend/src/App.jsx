@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { 
   Upload, 
   Image, 
@@ -18,7 +19,8 @@ import {
   Users,
   Wifi,
   ClipboardCheck,
-  BookOpen
+  BookOpen,
+  Home
 } from 'lucide-react'
 import Dashboard from './components/Dashboard'
 import MLOps from './components/MLOps'
@@ -29,8 +31,10 @@ import Analytics from './components/Analytics'
 import Rubrics from './components/Rubrics'
 import Settings from './components/Settings'
 import Help from './components/Help'
+import LandingPage from './components/LandingPage'
 
-function App() {
+function MainApp() {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('dashboard')
   const [expandedSections, setExpandedSections] = useState({
     mlops: true,
@@ -63,6 +67,17 @@ function App() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4">
+          {/* Home - Back to Landing */}
+          <div className="px-3 mb-2">
+            <button
+              onClick={() => navigate('/')}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all text-slate-400 hover:bg-slate-800 hover:text-white"
+            >
+              <Home className="w-4 h-4" />
+              <span className="text-sm">Home</span>
+            </button>
+          </div>
+
           {/* Live Monitoring - Top Level */}
           <div className="px-3 mb-4">
             <button
@@ -295,6 +310,23 @@ function App() {
         {activeTab === 'help' && <Help />}
       </main>
     </div>
+  )
+}
+
+function LandingWrapper() {
+  const navigate = useNavigate()
+  return <LandingPage onEnterApp={() => navigate('/app')} />
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingWrapper />} />
+        <Route path="/app" element={<MainApp />} />
+        <Route path="/app/*" element={<MainApp />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
