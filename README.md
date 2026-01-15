@@ -2,68 +2,225 @@
 
 Industrial edge computing application for weld quality inspection using AI and computer vision on RDK X5.
 
-## 📦 Project Structure
+---
 
-This project is organized into deployment-ready components:
+## 🎯 First Time? Start Here!
 
-- **[welding_server/](welding_server/)** - Deploy to PC/Server (Backend API + Frontend Dashboard)
-- **[edge_device/](edge_device/)** - Deploy to RDK X5 (Real-time AI inference)
-- **[docs/](docs/)** - Complete system documentation
+This guide will help you set up WeldVision X5 from scratch, even if you've never used Docker before.
 
-## 🚀 Quick Start
+### What You'll Set Up
 
-### Easy Start (Non-Technical Users)
+| Component | Runs On | Purpose |
+|-----------|---------|---------|
+| **Server** (Backend + Dashboard) | Your PC/Laptop | Web interface, database, model training |
+| **Edge Device** | RDK X5 | Real-time camera & AI inference |
+
+---
+
+## 📋 Step 1: Prerequisites (PC/Laptop)
+
+### 1.1 Install Docker Desktop
+
+Docker runs WeldVision X5 in containers - no complex installation needed!
 
 **Windows:**
-1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and start it
-2. Double-click `start-weldvision.bat`
-3. Wait for the browser to open automatically
-4. To stop: Double-click `stop-weldvision.bat`
+1. Download [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/)
+2. Run the installer (requires admin rights)
+3. Restart your computer when prompted
+4. Start Docker Desktop from the Start menu
+5. Wait for the whale icon 🐳 in the system tray to show "Docker Desktop is running"
 
-**Mac/Linux:**
+**Mac:**
+1. Download [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/)
+2. Drag Docker to Applications
+3. Start Docker from Applications
+4. Wait for the whale icon to appear in the menu bar
+
+**Linux (Ubuntu/Debian):**
 ```bash
-chmod +x start-weldvision.sh stop-weldvision.sh
-./start-weldvision.sh
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# Add your user to docker group (logout/login after)
+sudo usermod -aG docker $USER
+
+# Install Docker Compose
+sudo apt install docker-compose-plugin
+```
+
+### 1.2 Verify Docker Installation
+
+Open a terminal/command prompt and run:
+```bash
+docker --version
+docker compose version
+```
+
+You should see version numbers (e.g., Docker 24.x, Docker Compose v2.x).
+
+> 💡 **Troubleshooting**: If you get "docker not found", restart your computer and make sure Docker Desktop is running.
+
+---
+
+## 📋 Step 2: Download WeldVision X5
+
+### Option A: Download ZIP (Easiest)
+1. Go to [github.com/wilsonintai76/WeldVision-X5](https://github.com/wilsonintai76/WeldVision-X5)
+2. Click the green **Code** button → **Download ZIP**
+3. Extract to a folder (e.g., `C:\WeldVision-X5` or `~/WeldVision-X5`)
+
+### Option B: Git Clone (For Developers)
+```bash
+git clone https://github.com/wilsonintai76/WeldVision-X5.git
+cd WeldVision-X5
 ```
 
 ---
 
-### 1. Start the Server (PC) - Manual Method
+## 📋 Step 3: Start the Server (PC)
 
+### Easy Start (Recommended)
+
+**Windows:**
+1. Make sure Docker Desktop is running (whale icon 🐳 in system tray)
+2. Open the `WeldVision-X5` folder
+3. Double-click `start-weldvision.bat`
+4. Wait for the browser to open automatically (about 1-2 minutes first time)
+
+**Mac/Linux:**
 ```bash
-cd welding_server
-docker-compose up -d
+cd WeldVision-X5
+chmod +x start-weldvision.sh
+./start-weldvision.sh
 ```
 
-Access:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000/api/
-
-### 2. Deploy to Edge Device (RDK X5)
+### Manual Start (If Easy Start Doesn't Work)
 
 ```bash
-# Copy edge device files to RDK X5
-scp -r edge_device/* sunrise@192.168.1.100:~/weldvision/
+cd WeldVision-X5/welding_server
+docker compose up -d
+```
 
-# SSH into RDK X5
-ssh sunrise@192.168.1.100
+Then open your browser to: **http://localhost:3000**
 
-# Start the service
+### What You Should See
+
+1. **Landing Page** - Welcome screen with documentation links
+2. Click **"Enter Dashboard"** to access the main application
+
+> 💡 **First time**: The initial startup takes 2-5 minutes as Docker downloads and builds the images.
+
+---
+
+## 📋 Step 4: Set Up Edge Device (RDK X5)
+
+The RDK X5 is the edge device that runs real-time AI inference on camera feeds.
+
+### 4.1 Connect RDK X5 to Network
+
+1. Connect RDK X5 to the same network as your PC via Ethernet
+2. Power on the RDK X5
+3. Find the RDK X5's IP address (check your router or use `ping sunrise.local`)
+
+Default credentials:
+- **Username:** `sunrise`
+- **Password:** `sunrise`
+
+### 4.2 Transfer Files to RDK X5
+
+**Option A: Using SCP (Command Line)**
+```bash
+# From your PC, in the WeldVision-X5 folder
+scp -r edge_device/* sunrise@<RDK_IP>:~/weldvision/
+```
+
+**Option B: Using USB Drive**
+1. Copy the `edge_device` folder to a USB drive
+2. Insert USB into RDK X5
+3. Copy files to `~/weldvision/`
+
+**Option C: Using SD Card**
+1. Copy files to the SD card from your PC
+2. Insert SD card into RDK X5
+3. Copy files: `cp /media/sunrise/SDCARD/edge_device/* ~/weldvision/`
+
+### 4.3 Install Dependencies on RDK X5
+
+SSH into the RDK X5:
+```bash
+ssh sunrise@<RDK_IP>
+# Password: sunrise
+```
+
+Install Python dependencies:
+```bash
 cd ~/weldvision
+pip3 install -r requirements.txt
+```
+
+### 4.4 Configure Server Connection
+
+Edit the main.py to point to your PC's IP:
+```bash
+nano main.py
+```
+
+Find and update this line:
+```python
+SERVER_URL = "http://YOUR_PC_IP:8000"  # Replace with your PC's IP
+```
+
+Save: `Ctrl+O`, `Enter`, `Ctrl+X`
+
+### 4.5 Start the Edge Service
+
+**Manual Start (Testing):**
+```bash
 python3 main.py
 ```
 
-## 📚 Documentation
+**Auto-Start on Boot (Production):**
+```bash
+sudo cp weldvision.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable weldvision
+sudo systemctl start weldvision
+```
 
-Complete guides for setup, deployment, and operation:
+---
 
-- **[Prerequisites](docs/PREREQUISITES.md)** - Hardware & software requirements (Desktop + RDK X5)
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - What runs where and how to connect everything
-- **[Quick Start](docs/QUICKSTART.md)** - Fast setup guide (Docker or native)
-- **[Stereo Calibration](docs/STEREO_CALIBRATION_SETUP.md)** - Camera calibration procedure
-- **[Training Options](docs/TRAINING_OPTIONS.md)** - 🆕 GPU requirements & cloud training alternatives
-- **[System Check Guide](docs/SYSTEM_CHECK_USER_GUIDE.md)** - 🆕 Understanding hardware capability detection
-- **Guide & Help** - In-app documentation (access after starting at http://localhost:3000)
+## ✅ Step 5: Verify Everything Works
+
+### Check Server Status
+1. Open http://localhost:3000 in your browser
+2. You should see the WeldVision X5 landing page
+3. The "System Status" section should show:
+   - ✅ Backend Server: Connected
+   - ⚠️ Edge Device: (will show connected after RDK setup)
+
+### Check Edge Device
+1. Go to **Dashboard** → **System** → **Edge Management**
+2. You should see your RDK X5 listed and connected
+
+### Test Camera Feed
+1. Go to **Live Monitoring**
+2. You should see the camera feed from the RDK X5
+
+---
+
+## 📚 More Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [Prerequisites](docs/PREREQUISITES.md) | Detailed hardware & software requirements |
+| [Deployment Guide](docs/DEPLOYMENT.md) | What runs where & network configuration |
+| [Quick Start](docs/QUICKSTART.md) | Fast setup for technical users |
+| [Stereo Calibration](docs/STEREO_CALIBRATION_SETUP.md) | Camera calibration for depth measurement |
+| [Training Options](docs/TRAINING_OPTIONS.md) | GPU requirements & cloud training |
+| [RDK X5 Official Docs](https://d-robotics.github.io/rdk_doc/en/RDK) | Official hardware documentation |
+
+---
 
 ## 🏗️ System Architecture
 
@@ -76,394 +233,144 @@ Complete guides for setup, deployment, and operation:
 │ • YOLOv8        │         │ • MLOps API     │         │ • MLOps Center  │
 │ • Depth CV      │         │ • File Storage  │         │ • Visualization │
 └─────────────────┘         └─────────────────┘         └─────────────────┘
+        │                           │                           │
+        └───────────────────────────┴───────────────────────────┘
+                            Same Network (LAN)
 ```
 
-## Quick Start with Docker
+---
 
-### Prerequisites
+## 🛠️ Common Commands
 
-Before you begin, ensure you have the required hardware and software. See **[PREREQUISITES.md](PREREQUISITES.md)** for complete requirements:
-- Desktop/Server with Docker Desktop or Docker Engine
-- Docker Compose v2.0+
-- Git
-- (Optional) RDK X5 edge device for inference
-
-### 1. Clone Repository
+### Start/Stop Server
 
 ```bash
-git clone https://github.com/wilsonintai76/WeldVision-X5.git
-cd WeldVision-X5
+# Start (from WeldVision-X5/welding_server folder)
+docker compose up -d
+
+# Stop
+docker compose down
+
+# View logs
+docker compose logs -f
+
+# Restart
+docker compose restart
 ```
 
-### 2. Start All Services
+### Create Admin Account
 
 ```bash
-# Build and start all containers
-docker-compose up --build
-
-# Or run in background
-docker-compose up -d --build
+docker compose exec backend python manage.py createsuperuser
 ```
 
-This will:
-- ✅ Build backend and frontend images
-- ✅ Run Django migrations automatically
-- ✅ Start backend on `http://localhost:8000`
-- ✅ Start frontend on `http://localhost:3000`
-
-### 3. Create Django Superuser
+### Edge Device Commands
 
 ```bash
-# Access backend container
-docker-compose exec backend python manage.py createsuperuser
+# Check service status
+sudo systemctl status weldvision
 
-# Follow prompts to create admin account
+# View logs
+sudo journalctl -u weldvision -f
+
+# Restart service
+sudo systemctl restart weldvision
 ```
 
-### 4. Access the Application
+---
 
-- **Frontend Dashboard**: http://localhost:3000
-- **Backend API**: http://localhost:8000/api/
-- **Django Admin**: http://localhost:8000/admin/
+## 🔧 Troubleshooting
 
-## Docker Commands
+### Docker Desktop Won't Start (Windows)
+- Enable WSL 2: Open PowerShell as Admin → `wsl --install`
+- Enable virtualization in BIOS (VT-x or AMD-V)
+- Restart your computer
 
-### Start Services
-
+### "Port 3000 already in use"
 ```bash
-# Start all services
-docker-compose up
-
-# Start in background (detached mode)
-docker-compose up -d
-
-# Rebuild images and start
-docker-compose up --build
-```
-
-### Stop Services
-
-```bash
-# Stop all services
-docker-compose down
-
-# Stop and remove volumes (WARNING: deletes database)
-docker-compose down -v
-```
-
-### View Logs
-
-```bash
-# All services
-docker-compose logs -f
-
-# Specific service
-docker-compose logs -f backend
-docker-compose logs -f frontend
-```
-
-### Run Commands in Containers
-
-```bash
-# Django migrations
-docker-compose exec backend python manage.py migrate
-
-# Create superuser
-docker-compose exec backend python manage.py createsuperuser
-
-# Django shell
-docker-compose exec backend python manage.py shell
-
-# Access backend bash
-docker-compose exec backend bash
-
-# Access frontend bash
-docker-compose exec frontend sh
-```
-
-### Restart Services
-
-```bash
-# Restart all
-docker-compose restart
-
-# Restart specific service
-docker-compose restart backend
-```
-
-## Manual Setup (Without Docker)
-
-### Backend Setup
-
-```bash
-cd backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Create .env file
-cp .env.example .env
-
-# Run migrations
-python manage.py migrate
-
-# Create superuser
-python manage.py createsuperuser
-
-# Start server
-python manage.py runserver 0.0.0.0:8000
-```
-
-### Frontend Setup
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-## API Endpoints
-
-### Core (Students & Classes)
-- `GET/POST /api/students/` - Student management
-- `GET/POST /api/classes/` - Class management
-
-### Results (Assessments)
-- `GET/POST /api/assessments/` - Assessment records
-- `POST /api/upload-assessment/` - Upload from RDK X5
-
-### Rubrics (Grading)
-- `GET/POST /api/rubrics/` - Rubric configuration
-- `GET /api/rubrics/active/` - Active rubric
-
-### MLOps (Model Deployment)
-- `GET/POST /api/models/` - Model management
-- `POST /api/deploy-model/` - Deploy to RDK X5
-- `POST /api/reboot-device/` - Reboot RDK X5
-- `GET /api/device-status/` - Device status
-- `GET /api/system-check/` - 🆕 Check hardware training capability
-- `GET /api/training-recommendation/` - 🆕 Get training recommendation
-- `POST /api/upload-model/` - 🆕 Upload pre-trained models (.pt, .onnx, .bin)
-- `GET /api/convertible-models/` - 🆕 List models available for conversion
-
-### MLOps (Train / Convert / Jobs)
-- `POST /api/train-model/` - Start training job (runs on PC/server)
-- `POST /api/convert-model/` - Export/convert job (supports `model_id`, `source_job_id`, or `weights_path`)
-- `GET /api/jobs/` - List jobs and statuses
-- `GET /api/jobs/{id}/logs/` - Tail stdout/stderr logs
-- `POST /api/register-artifact/` - Save a succeeded job artifact into `AIModel`
-
-## Converting ONNX -> RDK `.bin` (hb_mapper)
-
-RDK X5 runs quantized `.bin` models via Horizon BPU (`hobot_dnn`). The `.bin` must be produced from ONNX using Horizon OpenExplorer (OE) toolchain:
-
-- Tool: `hb_mapper` (command: `makert`)
-- Runs on: your PC/laptop/server (commonly inside Horizon-provided Docker), not on the RDK
-
-To enable `format: "bin"` conversion from the backend, set `HORIZON_BIN_COMPILE_COMMAND` in [backend/.env.example](backend/.env.example) (copy to `backend/.env`).
-
-## RDK X5 Edge Device Setup
-
-### Copy Files to Device
-
-```bash
-# SSH into RDK X5
-ssh sunrise@192.168.1.100
-
-# Create directory
-mkdir -p /home/sunrise/welding_app
-
-# Copy files from your machine
-scp edge_device/main.py sunrise@192.168.1.100:/home/sunrise/welding_app/
-scp edge_device/requirements.txt sunrise@192.168.1.100:/home/sunrise/welding_app/
-```
-
-### Install Dependencies
-
-```bash
-ssh sunrise@192.168.1.100
-cd /home/sunrise/welding_app
-pip3 install -r requirements.txt
-```
-
-### Configure Server URL
-
-Edit `main.py`:
-```python
-SERVER_URL = "http://192.168.1.100:8000"  # Your laptop/server IP
-```
-
-### Run Edge Script
-
-```bash
-# Manual start
-python3 main.py
-
-# Auto-start with systemd
-sudo cp edge_device/weldvision.service /etc/systemd/system/
-sudo systemctl enable weldvision
-sudo systemctl start weldvision
-```
-
-## Project Structure
-
-```
-WeldVision-X5/
-├── backend/                 # Django REST API
-│   ├── weldvision/         # Project settings
-│   ├── core/               # Students & Classes
-│   ├── results/            # Assessments
-│   ├── rubrics/            # Grading configuration
-│   ├── mlops/              # Model deployment
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── manage.py
-│
-├── frontend/               # React UI
-│   ├── src/
-│   │   ├── components/    # Dashboard, MLOps
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── package.json
-│   ├── Dockerfile
-│   └── vite.config.js
-│
-├── edge_device/           # RDK X5 Python script
-│   ├── main.py           # Main inference loop
-│   ├── modules/          # Buffering, streaming, stereo depth
-│   ├── tools/            # Stereo calibration helper
-│   ├── requirements.txt
-│   └── weldvision.service
-│
-└── docker-compose.yml    # Orchestration
-```
-
-## Development Workflow
-
-### 1. Start Docker Services
-
-```bash
-docker-compose up -d
-```
-
-### 2. Make Code Changes
-
-- Backend: Edit files in `backend/` (auto-reloads)
-- Frontend: Edit files in `frontend/src/` (hot-reload)
-
-### 3. View Logs
-
-```bash
-docker-compose logs -f
-```
-
-### 4. Run Migrations After Model Changes
-
-```bash
-docker-compose exec backend python manage.py makemigrations
-docker-compose exec backend python manage.py migrate
-```
-
-### 5. Stop Services
-
-```bash
-docker-compose down
-```
-
-## Troubleshooting
-
-### Port Already in Use
-
-```bash
-# Windows - Kill process on port 8000
-netstat -ano | findstr :8000
+# Windows
+netstat -ano | findstr :3000
 taskkill /PID <PID> /F
 
-# Linux/Mac
-lsof -ti:8000 | xargs kill -9
-```
-
-### Database Issues
-
-```bash
-# Reset database
-docker-compose down -v
-docker-compose up -d
-docker-compose exec backend python manage.py migrate
-docker-compose exec backend python manage.py createsuperuser
+# Mac/Linux
+lsof -ti:3000 | xargs kill -9
 ```
 
 ### Frontend Not Loading
+```bash
+docker compose build --no-cache frontend
+docker compose up -d frontend
+```
+
+### Edge Device Not Connecting
+1. Check both devices are on the same network
+2. Verify the SERVER_URL in main.py matches your PC's IP
+3. Check firewall allows port 8000
+
+### Reset Everything
+```bash
+docker compose down -v
+docker compose up -d --build
+docker compose exec backend python manage.py migrate
+```
+
+---
+
+## 📦 Project Structure
+
+```
+WeldVision-X5/
+├── start-weldvision.bat    # 🖱️ Easy start (Windows)
+├── stop-weldvision.bat     # 🖱️ Easy stop (Windows)
+├── start-weldvision.sh     # 🖱️ Easy start (Mac/Linux)
+├── stop-weldvision.sh      # 🖱️ Easy stop (Mac/Linux)
+├── docs/                   # 📚 Documentation
+├── welding_server/         # 🖥️ Deploy to PC
+│   ├── backend/           # Django REST API
+│   ├── frontend/          # React Dashboard
+│   └── docker-compose.yml
+└── edge_device/           # 📡 Deploy to RDK X5
+    ├── main.py
+    ├── modules/
+    └── requirements.txt
+```
+
+---
+
+## 🧑‍💻 For Developers
+
+### Development Mode
 
 ```bash
-# Rebuild frontend
-docker-compose build frontend
-docker-compose up -d frontend
+cd welding_server
+docker compose up -d
+
+# Backend auto-reloads on file changes
+# Frontend has hot-reload enabled
 ```
 
-### Backend Migrations
+### Run Migrations
 
 ```bash
-# Check migration status
-docker-compose exec backend python manage.py showmigrations
-
-# Run migrations
-docker-compose exec backend python manage.py migrate
-
-# Create new migration
-docker-compose exec backend python manage.py makemigrations
+docker compose exec backend python manage.py makemigrations
+docker compose exec backend python manage.py migrate
 ```
 
-## Production Deployment
+### API Documentation
 
-### Environment Variables
+- Endpoints: http://localhost:8000/api/
+- Admin Panel: http://localhost:8000/admin/
 
-Create `.env` file in project root:
+---
 
-```env
-# Django
-DJANGO_SECRET_KEY=your-production-secret-key
-DEBUG=False
-ALLOWED_HOSTS=your-domain.com,192.168.1.100
-
-# RDK X5
-RDK_IP=192.168.1.100
-RDK_USERNAME=sunrise
-RDK_PASSWORD=your-secure-password
-
-# Database (optional - for PostgreSQL)
-DATABASE_URL=postgresql://user:password@localhost/dbname
-```
-
-### Use Production Compose
-
-```bash
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-## Tech Stack
-
-- **Frontend**: React 18, Vite, Tailwind CSS, Lucide Icons, Recharts
-- **Backend**: Django 4.2, Django REST Framework, Paramiko (SSH/SCP)
-- **Edge**: Python, OpenCV, YOLOv8, hobot_dnn, libsrcampy
-- **DevOps**: Docker, Docker Compose
-
-## License
+## 📄 License
 
 MIT
 
-## Contributors
+## 👥 Contributors
 
 - Wilson Intai (@wilsonintai76)
 
-## Support
+## 🆘 Support
 
-For issues and questions, please open a GitHub issue.
+For issues and questions, please [open a GitHub issue](https://github.com/wilsonintai76/WeldVision-X5/issues).
