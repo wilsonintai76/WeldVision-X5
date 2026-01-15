@@ -12,7 +12,23 @@ This project is organized into deployment-ready components:
 
 ## 🚀 Quick Start
 
-### 1. Start the Server (PC)
+### Easy Start (Non-Technical Users)
+
+**Windows:**
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and start it
+2. Double-click `start-weldvision.bat`
+3. Wait for the browser to open automatically
+4. To stop: Double-click `stop-weldvision.bat`
+
+**Mac/Linux:**
+```bash
+chmod +x start-weldvision.sh stop-weldvision.sh
+./start-weldvision.sh
+```
+
+---
+
+### 1. Start the Server (PC) - Manual Method
 
 ```bash
 cd welding_server
