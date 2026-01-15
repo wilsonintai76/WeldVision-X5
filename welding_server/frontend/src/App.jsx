@@ -320,9 +320,9 @@ function MainApp() {
                 {canManageUsers && (
                   <>
                     <button
-                      onClick={() => setActiveTab('classes')}
+                      onClick={() => setActiveTab('class-groups')}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                        activeTab === 'classes'
+                        activeTab === 'class-groups'
                           ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
                           : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
                       }`}
@@ -405,7 +405,7 @@ function MainApp() {
         {activeTab === 'students' && canCreateEvaluation && <Management />}
         {activeTab === 'rubrics' && canCreateEvaluation && <Rubrics />}
         {activeTab === 'edge' && canAccessMLOps && <EdgeManagement />}
-        {activeTab === 'classes' && canManageUsers && <ClassManagement />}
+        {activeTab === 'class-groups' && canManageUsers && <ClassManagement />}
         {activeTab === 'users' && canManageUsers && <UserManagement />}
         {activeTab === 'help' && <Help />}
       </main>

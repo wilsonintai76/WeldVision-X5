@@ -95,6 +95,26 @@ class StudentViewSet(viewsets.ModelViewSet):
             return StudentListSerializer
         return StudentSerializer
 
+    def perform_create(self, serializer):
+        """Create student and associated user account"""
+        from accounts.models import User
+        
+        student = serializer.save()
+        
+        # Check if user already exists
+        if not User.objects.filter(username=student.student_id).exists():
+            # Create user account with default password = registration number
+            user = User.objects.create_user(
+                username=student.student_id,
+                password=student.student_id,  # Default password
+                first_name=student.name.split(' ')[0] if student.name else '',
+                last_name=' '.join(student.name.split(' ')[1:]) if student.name and len(student.name.split(' ')) > 1 else '',
+                role=User.Role.STUDENT,
+                is_approved=True,  # Auto-approve since instructor created
+                must_change_password=True,  # Must change on first login
+                student_profile=student
+            )
+
     @action(detail=False, methods=['get'])
     def by_class(self, request):
         """Get students filtered by class group"""
@@ -105,6 +125,81 @@ class StudentViewSet(viewsets.ModelViewSet):
             students = self.queryset.all()
         serializer = StudentListSerializer(students, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def bulk_import(self, request):
+        """Bulk import students from CSV/Excel file"""
+        import csv
+        import io
+        from accounts.models import User
+        
+        file = request.FILES.get('file')
+        class_id = request.data.get('class_id')
+        
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not class_id:
+            return Response({'error': 'class_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            class_group = ClassGroup.objects.get(id=class_id)
+        except ClassGroup.DoesNotExist:
+            return Response({'error': 'Class not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Read file content
+        file_content = file.read().decode('utf-8-sig')  # Handle BOM
+        reader = csv.DictReader(io.StringIO(file_content))
+        
+        created = []
+        skipped = []
+        errors = []
+        
+        for row_num, row in enumerate(reader, start=2):
+            student_id = row.get('student_id', row.get('reg_no', row.get('registration_number', ''))).strip()
+            name = row.get('name', row.get('full_name', '')).strip()
+            
+            if not student_id or not name:
+                errors.append(f"Row {row_num}: Missing student_id or name")
+                continue
+            
+            # Check if student already exists
+            if Student.objects.filter(student_id=student_id).exists():
+                skipped.append(f"{student_id} - {name} (already exists)")
+                continue
+            
+            try:
+                # Create student
+                student = Student.objects.create(
+                    student_id=student_id,
+                    name=name,
+                    class_group=class_group
+                )
+                
+                # Create user account if doesn't exist
+                if not User.objects.filter(username=student_id).exists():
+                    name_parts = name.split(' ', 1)
+                    User.objects.create_user(
+                        username=student_id,
+                        password=student_id,
+                        first_name=name_parts[0],
+                        last_name=name_parts[1] if len(name_parts) > 1 else '',
+                        role=User.Role.STUDENT,
+                        is_approved=True,
+                        must_change_password=True,
+                        student_profile=student
+                    )
+                
+                created.append(f"{student_id} - {name}")
+            except Exception as e:
+                errors.append(f"Row {row_num}: {str(e)}")
+        
+        return Response({
+            'message': f'Imported {len(created)} students',
+            'created': created,
+            'skipped': skipped,
+            'errors': errors
+        })
 
 
 class ClassGroupViewSet(viewsets.ModelViewSet):

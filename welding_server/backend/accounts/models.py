@@ -25,6 +25,11 @@ class User(AbstractUser):
         help_text="User must be approved by admin to access the system"
     )
     
+    must_change_password = models.BooleanField(
+        default=False,
+        help_text="User must change password on next login"
+    )
+    
     # Link to Student model for student users
     student_profile = models.OneToOneField(
         'core.Student',

@@ -143,6 +143,26 @@ export const coreAPI = {
     }
     return { success: true };
   },
+  
+  async bulkImportStudents(file, classId) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('class_id', classId);
+    
+    const csrfToken = getCSRFToken();
+    const response = await fetch(`${API_BASE}/students/bulk_import/`, {
+      method: 'POST',
+      headers: csrfToken ? { 'X-CSRFToken': csrfToken } : {},
+      body: formData,
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Failed to import students');
+    }
+    return response.json();
+  },
 };
 
 export default coreAPI;

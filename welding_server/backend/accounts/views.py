@@ -11,7 +11,8 @@ from django.middleware.csrf import get_token
 from .models import User, AuditLog
 from .serializers import (
     UserSerializer, UserProfileSerializer, LoginSerializer,
-    RegisterSerializer, ChangePasswordSerializer, AuditLogSerializer
+    RegisterSerializer, ChangePasswordSerializer, AuditLogSerializer,
+    ForgotPasswordSerializer, ForceChangePasswordSerializer
 )
 from .permissions import IsAuthenticated, IsAdmin, CanManageUsers
 
@@ -119,6 +120,7 @@ class ChangePasswordView(APIView):
         )
         if serializer.is_valid():
             request.user.set_password(serializer.validated_data['new_password'])
+            request.user.must_change_password = False  # Clear the flag
             request.user.save()
             
             # Log password change
@@ -132,6 +134,63 @@ class ChangePasswordView(APIView):
             )
             
             return Response({'message': 'Password changed successfully'})
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ForgotPasswordView(APIView):
+    """Reset password to default (registration number)"""
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        serializer = ForgotPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.user
+            # Reset password to username (registration number)
+            user.set_password(user.username)
+            user.must_change_password = True
+            user.save()
+            
+            # Log password reset
+            AuditLog.log(
+                user, AuditLog.Action.UPDATE,
+                model_name='User',
+                object_id=user.id,
+                object_repr=str(user),
+                details={'action': 'password_reset_to_default'},
+                request=request
+            )
+            
+            return Response({
+                'message': 'Password has been reset to your registration number. You will be required to change it on next login.'
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ForceChangePasswordView(APIView):
+    """Force change password (for users with must_change_password flag)"""
+    permission_classes = [DRFIsAuthenticated]  # Allow even unapproved users
+    
+    def post(self, request):
+        serializer = ForceChangePasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            request.user.set_password(serializer.validated_data['new_password'])
+            request.user.must_change_password = False
+            request.user.save()
+            
+            # Log password change
+            AuditLog.log(
+                request.user, AuditLog.Action.UPDATE,
+                model_name='User',
+                object_id=request.user.id,
+                object_repr=str(request.user),
+                details={'action': 'forced_password_change'},
+                request=request
+            )
+            
+            return Response({
+                'message': 'Password changed successfully',
+                'user': UserProfileSerializer(request.user).data
+            })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

@@ -9,6 +9,8 @@ from .views import (
     RegisterView,
     ProfileView,
     ChangePasswordView,
+    ForgotPasswordView,
+    ForceChangePasswordView,
     CheckAuthView,
     UserListView,
     UserDetailView,
@@ -26,6 +28,8 @@ urlpatterns = [
     path('auth/register/', RegisterView.as_view(), name='register'),
     path('auth/check/', CheckAuthView.as_view(), name='check_auth'),
     path('auth/available-classes/', AvailableClassesView.as_view(), name='available_classes'),
+    path('auth/forgot-password/', ForgotPasswordView.as_view(), name='forgot_password'),
+    path('auth/force-change-password/', ForceChangePasswordView.as_view(), name='force_change_password'),
     
     # Profile
     path('auth/profile/', ProfileView.as_view(), name='profile'),

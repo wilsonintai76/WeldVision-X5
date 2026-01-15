@@ -69,10 +69,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
-            'role', 'is_approved', 'date_joined', 'student_profile',
+            'role', 'is_approved', 'must_change_password', 'date_joined', 'student_profile',
             'student_name', 'permissions'
         ]
-        read_only_fields = ['id', 'username', 'role', 'is_approved', 'date_joined']
+        read_only_fields = ['id', 'username', 'role', 'is_approved', 'must_change_password', 'date_joined']
     
     def get_student_name(self, obj):
         if obj.student_profile:
@@ -135,6 +135,18 @@ class RegisterSerializer(serializers.ModelSerializer):
         # Validate full_name
         if not data.get('full_name', '').strip():
             raise serializers.ValidationError({"full_name": "Full name is required."})
+        
+        # Check if username (reg no / staff id) already exists
+        username = data.get('username', '').strip()
+        if User.objects.filter(username=username).exists():
+            # Check if it's a student created by instructor
+            existing_user = User.objects.get(username=username)
+            if existing_user.role == User.Role.STUDENT and existing_user.must_change_password:
+                raise serializers.ValidationError({
+                    "username": f"An account with this registration number already exists. "
+                               f"Please use the login page with your default password (your registration number)."
+                })
+            raise serializers.ValidationError({"username": "An account with this ID already exists."})
         
         # Students and instructors need approval, admins can only be created by other admins
         if data.get('role') == User.Role.ADMIN:
@@ -215,3 +227,29 @@ class AuditLogSerializer(serializers.ModelSerializer):
                   'model_name', 'object_id', 'object_repr', 'details',
                   'ip_address', 'timestamp']
         read_only_fields = fields
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    """Serializer for forgot password (reset to default)"""
+    username = serializers.CharField()
+    
+    def validate_username(self, value):
+        try:
+            user = User.objects.get(username=value)
+            if user.role != User.Role.STUDENT:
+                raise serializers.ValidationError("Password reset is only available for students. Contact admin for other roles.")
+            self.user = user
+        except User.DoesNotExist:
+            raise serializers.ValidationError("User not found with this registration number.")
+        return value
+
+
+class ForceChangePasswordSerializer(serializers.Serializer):
+    """Serializer for forced password change"""
+    new_password = serializers.CharField(write_only=True, validators=[validate_password])
+    new_password_confirm = serializers.CharField(write_only=True)
+    
+    def validate(self, data):
+        if data['new_password'] != data['new_password_confirm']:
+            raise serializers.ValidationError({"new_password_confirm": "Passwords do not match."})
+        return data

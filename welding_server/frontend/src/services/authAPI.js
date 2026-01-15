@@ -211,6 +211,35 @@ export const authAPI = {
     }
     return response.json();
   },
+  
+  // Forgot password - reset to default
+  async forgotPassword(username) {
+    const response = await authFetch('/auth/forgot-password/', {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.username?.[0] || data.detail || 'Password reset failed');
+    }
+    return data;
+  },
+  
+  // Force change password (for must_change_password users)
+  async forceChangePassword(newPassword, newPasswordConfirm) {
+    const response = await authFetch('/auth/force-change-password/', {
+      method: 'POST',
+      body: JSON.stringify({
+        new_password: newPassword,
+        new_password_confirm: newPasswordConfirm,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.new_password?.[0] || data.new_password_confirm?.[0] || data.detail || 'Password change failed');
+    }
+    return data;
+  },
 };
 
 export default authAPI;
