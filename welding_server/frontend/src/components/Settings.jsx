@@ -162,7 +162,7 @@ function Settings() {
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-blue-300 font-semibold">Calibration Image Capture Procedure</h3>
                 <a 
-                  href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/STEREO_CALIBRATION_SETUP.md" 
+                  href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/docs/STEREO_CALIBRATION_SETUP.md" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"

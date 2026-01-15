@@ -55,7 +55,7 @@ function Help() {
         {/* Quick Links */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <a
-            href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/PREREQUISITES.md"
+            href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/docs/PREREQUISITES.md"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg p-4 transition-colors group"
@@ -69,7 +69,7 @@ function Help() {
           </a>
 
           <a
-            href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/DEPLOYMENT.md"
+            href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/docs/DEPLOYMENT.md"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg p-4 transition-colors group"
@@ -97,7 +97,7 @@ function Help() {
           </a>
 
           <a
-            href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/QUICKSTART.md"
+            href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/docs/QUICKSTART.md"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg p-4 transition-colors group"
@@ -178,7 +178,7 @@ function Help() {
                   </p>
                 </div>
                 <a
-                  href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/STEREO_CALIBRATION_SETUP.md"
+                  href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/docs/STEREO_CALIBRATION_SETUP.md"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300"
@@ -764,12 +764,12 @@ docker-compose logs -f`}
             <ResourceLink
               title="Prerequisites Guide"
               description="Complete hardware & software setup"
-              href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/PREREQUISITES.md"
+              href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/docs/PREREQUISITES.md"
             />
             <ResourceLink
               title="Deployment Guide"
               description="What runs where & connection guide"
-              href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/DEPLOYMENT.md"
+              href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/docs/DEPLOYMENT.md"
             />
             <ResourceLink
               title="RDK X5 Documentation"
