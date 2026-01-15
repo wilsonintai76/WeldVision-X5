@@ -30,7 +30,7 @@ function Login() {
     clearError();
 
     if (!username.trim()) {
-      setLocalError('Username is required');
+      setLocalError('Registration Number or Staff ID is required');
       return;
     }
     if (!password) {
@@ -61,7 +61,7 @@ function Login() {
           <h1 className="text-3xl font-bold text-white">
             WeldVision <span className="text-emerald-400">X5</span>
           </h1>
-          <p className="text-slate-400 mt-2">Sign in to your account</p>
+          <p className="text-slate-400 mt-2">Sign in with your Reg No. or Staff ID</p>
         </div>
 
         {/* Login Form */}
@@ -78,7 +78,7 @@ function Login() {
             {/* Username */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Username
+                Registration No. / Staff ID
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
@@ -87,7 +87,7 @@ function Login() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg py-3 pl-11 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                  placeholder="Enter your username"
+                  placeholder="Enter your Reg No. or Staff ID"
                   disabled={loading}
                   autoComplete="username"
                 />

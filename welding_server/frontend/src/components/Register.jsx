@@ -28,8 +28,7 @@ function Register() {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
-    first_name: '',
-    last_name: '',
+    full_name: '',
     password: '',
     password_confirm: '',
     role: 'student',
@@ -68,8 +67,12 @@ function Register() {
     clearError();
 
     // Validation
+    if (!formData.full_name.trim()) {
+      setLocalError('Full name is required');
+      return;
+    }
     if (!formData.username.trim()) {
-      setLocalError('Username is required');
+      setLocalError(formData.role === 'student' ? 'Registration Number is required' : 'Staff ID is required');
       return;
     }
     if (formData.role === 'student' && !formData.class_id) {
@@ -195,42 +198,30 @@ function Register() {
               </div>
             </div>
 
-            {/* Name Fields */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  First Name
-                </label>
+            {/* Full Name */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Full Name *
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <input
                   type="text"
-                  name="first_name"
-                  value={formData.first_name}
+                  name="full_name"
+                  value={formData.full_name}
                   onChange={handleChange}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                  placeholder="John"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-11 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                  placeholder="Enter your full name"
                   disabled={loading}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  name="last_name"
-                  value={formData.last_name}
-                  onChange={handleChange}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 px-4 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                  placeholder="Doe"
-                  disabled={loading}
+                  autoComplete="name"
                 />
               </div>
             </div>
 
-            {/* Username */}
+            {/* Registration Number / Staff ID */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Username *
+                {formData.role === 'student' ? 'Registration Number' : 'Staff ID'} *
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
@@ -240,11 +231,16 @@ function Register() {
                   value={formData.username}
                   onChange={handleChange}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-11 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                  placeholder="Choose a username"
+                  placeholder={formData.role === 'student' ? 'e.g., 2026001234' : 'e.g., STAFF001'}
                   disabled={loading}
                   autoComplete="username"
                 />
               </div>
+              <p className="text-slate-500 text-xs mt-1">
+                {formData.role === 'student' 
+                  ? 'Your registration number will be used to login' 
+                  : 'Your staff ID will be used to login'}
+              </p>
             </div>
 
             {/* Class Selection (Students Only) */}

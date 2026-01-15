@@ -121,15 +121,20 @@ class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
     password_confirm = serializers.CharField(write_only=True)
     class_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    full_name = serializers.CharField(write_only=True, required=True)
     
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'password_confirm', 
-                  'first_name', 'last_name', 'role', 'class_id']
+                  'full_name', 'role', 'class_id']
     
     def validate(self, data):
         if data['password'] != data['password_confirm']:
             raise serializers.ValidationError({"password_confirm": "Passwords do not match."})
+        
+        # Validate full_name
+        if not data.get('full_name', '').strip():
+            raise serializers.ValidationError({"full_name": "Full name is required."})
         
         # Students and instructors need approval, admins can only be created by other admins
         if data.get('role') == User.Role.ADMIN:
@@ -153,6 +158,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
         class_id = validated_data.pop('class_id', None)
+        full_name = validated_data.pop('full_name', '').strip()
+        
+        # Parse full_name into first_name and last_name
+        name_parts = full_name.split(' ', 1)
+        validated_data['first_name'] = name_parts[0]
+        validated_data['last_name'] = name_parts[1] if len(name_parts) > 1 else ''
         
         user = User(**validated_data)
         user.set_password(password)
@@ -164,8 +175,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             from core.models import Student, ClassGroup
             class_group = ClassGroup.objects.get(id=class_id)
             student = Student.objects.create(
-                student_id=user.username,  # Use username as student_id
-                name=f"{user.first_name} {user.last_name}".strip() or user.username,
+                student_id=user.username,  # Use username (reg number) as student_id
+                name=full_name,
                 class_group=class_group,
                 email=user.email
             )
