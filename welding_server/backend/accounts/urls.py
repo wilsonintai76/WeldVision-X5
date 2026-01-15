@@ -15,6 +15,7 @@ from .views import (
     ApproveUserView,
     PendingUsersView,
     AuditLogListView,
+    AvailableClassesView,
 )
 
 urlpatterns = [
@@ -24,6 +25,7 @@ urlpatterns = [
     path('auth/logout/', LogoutView.as_view(), name='logout'),
     path('auth/register/', RegisterView.as_view(), name='register'),
     path('auth/check/', CheckAuthView.as_view(), name='check_auth'),
+    path('auth/available-classes/', AvailableClassesView.as_view(), name='available_classes'),
     
     # Profile
     path('auth/profile/', ProfileView.as_view(), name='profile'),

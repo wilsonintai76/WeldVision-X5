@@ -1,165 +1,123 @@
 import { useState, useEffect } from 'react'
-import { Users, GraduationCap, Plus, Edit2, Trash2, X, Save } from 'lucide-react'
+import { Users, GraduationCap, Plus, Edit2, Trash2, X, Save, AlertCircle, RefreshCw } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import coreAPI from '../services/coreAPI'
 
 function Management() {
+  const { user, permissions } = useAuth()
   const [activeTab, setActiveTab] = useState('students')
   const [students, setStudents] = useState([])
   const [classes, setClasses] = useState([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [selectedClassId, setSelectedClassId] = useState('')
   
   // Modals
   const [showStudentModal, setShowStudentModal] = useState(false)
-  const [showClassModal, setShowClassModal] = useState(false)
   const [editingStudent, setEditingStudent] = useState(null)
-  const [editingClass, setEditingClass] = useState(null)
 
   // Form data
   const [studentForm, setStudentForm] = useState({
     student_id: '',
     name: '',
-    class_group: ''
-  })
-  
-  const [classForm, setClassForm] = useState({
-    name: '',
-    description: '',
-    instructor: '',
-    semester: ''
+    class_group: '',
+    email: ''
   })
 
   // Fetch data
   useEffect(() => {
-    fetchStudents()
     fetchClasses()
   }, [])
 
+  useEffect(() => {
+    if (selectedClassId) {
+      fetchStudents()
+    }
+  }, [selectedClassId])
+
   const fetchStudents = async () => {
+    setLoading(true)
+    setError(null)
     try {
-      const response = await fetch('http://localhost:8000/api/students/')
-      const data = await response.json()
+      const data = selectedClassId 
+        ? await coreAPI.getStudentsByClass(selectedClassId)
+        : await coreAPI.getStudents()
       setStudents(data)
-    } catch (error) {
-      console.error('Error fetching students:', error)
+    } catch (err) {
+      setError(err.message)
+      console.error('Error fetching students:', err)
+    } finally {
+      setLoading(false)
     }
   }
 
   const fetchClasses = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/classes/')
-      const data = await response.json()
+      const data = await coreAPI.getClasses()
       setClasses(data)
-    } catch (error) {
-      console.error('Error fetching classes:', error)
+      
+      // For instructors, auto-select their first class
+      if (permissions.is_instructor && !permissions.is_admin && data.length > 0) {
+        // Filter to classes assigned to this instructor if available
+        const instructorClasses = data.filter(c => 
+          user.assigned_class_names && user.assigned_class_names.includes(c.name)
+        )
+        if (instructorClasses.length > 0) {
+          setSelectedClassId(instructorClasses[0].id.toString())
+        } else if (data.length > 0) {
+          setSelectedClassId(data[0].id.toString())
+        }
+      }
+    } catch (err) {
+      setError(err.message)
+      console.error('Error fetching classes:', err)
     }
   }
 
   // Student CRUD
   const handleCreateStudent = async () => {
     setLoading(true)
+    setError(null)
     try {
-      const response = await fetch('http://localhost:8000/api/students/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(studentForm)
-      })
-      if (response.ok) {
-        fetchStudents()
-        setShowStudentModal(false)
-        resetStudentForm()
-      }
-    } catch (error) {
-      console.error('Error creating student:', error)
+      await coreAPI.createStudent(studentForm)
+      fetchStudents()
+      setShowStudentModal(false)
+      resetStudentForm()
+    } catch (err) {
+      setError(err.message)
+      console.error('Error creating student:', err)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleUpdateStudent = async () => {
     setLoading(true)
+    setError(null)
     try {
-      const response = await fetch(`http://localhost:8000/api/students/${editingStudent.id}/`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(studentForm)
-      })
-      if (response.ok) {
-        fetchStudents()
-        setShowStudentModal(false)
-        setEditingStudent(null)
-        resetStudentForm()
-      }
-    } catch (error) {
-      console.error('Error updating student:', error)
+      await coreAPI.updateStudent(editingStudent.id, studentForm)
+      fetchStudents()
+      setShowStudentModal(false)
+      setEditingStudent(null)
+      resetStudentForm()
+    } catch (err) {
+      setError(err.message)
+      console.error('Error updating student:', err)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleDeleteStudent = async (id) => {
     if (!confirm('Are you sure you want to delete this student?')) return
     
+    setError(null)
     try {
-      const response = await fetch(`http://localhost:8000/api/students/${id}/`, {
-        method: 'DELETE'
-      })
-      if (response.ok) {
-        fetchStudents()
-      }
-    } catch (error) {
-      console.error('Error deleting student:', error)
-    }
-  }
-
-  // Class CRUD
-  const handleCreateClass = async () => {
-    setLoading(true)
-    try {
-      const response = await fetch('http://localhost:8000/api/classes/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(classForm)
-      })
-      if (response.ok) {
-        fetchClasses()
-        setShowClassModal(false)
-        resetClassForm()
-      }
-    } catch (error) {
-      console.error('Error creating class:', error)
-    }
-    setLoading(false)
-  }
-
-  const handleUpdateClass = async () => {
-    setLoading(true)
-    try {
-      const response = await fetch(`http://localhost:8000/api/classes/${editingClass.id}/`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(classForm)
-      })
-      if (response.ok) {
-        fetchClasses()
-        setShowClassModal(false)
-        setEditingClass(null)
-        resetClassForm()
-      }
-    } catch (error) {
-      console.error('Error updating class:', error)
-    }
-    setLoading(false)
-  }
-
-  const handleDeleteClass = async (id) => {
-    if (!confirm('Are you sure you want to delete this class?')) return
-    
-    try {
-      const response = await fetch(`http://localhost:8000/api/classes/${id}/`, {
-        method: 'DELETE'
-      })
-      if (response.ok) {
-        fetchClasses()
-      }
-    } catch (error) {
-      console.error('Error deleting class:', error)
+      await coreAPI.deleteStudent(id)
+      fetchStudents()
+    } catch (err) {
+      setError(err.message)
+      console.error('Error deleting student:', err)
     }
   }
 
@@ -170,7 +128,8 @@ function Management() {
       setStudentForm({
         student_id: student.student_id,
         name: student.name,
-        class_group: student.class_group || ''
+        class_group: student.class_group || '',
+        email: student.email || ''
       })
     } else {
       setEditingStudent(null)

@@ -153,6 +153,19 @@ class CheckAuthView(APIView):
         return Response({'authenticated': False})
 
 
+class AvailableClassesView(APIView):
+    """Get available classes for student registration"""
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        from core.models import ClassGroup
+        from core.serializers import ClassGroupSerializer
+        
+        classes = ClassGroup.objects.all().order_by('name')
+        serializer = ClassGroupSerializer(classes, many=True)
+        return Response(serializer.data)
+
+
 # Admin Views for User Management
 
 class UserListView(generics.ListCreateAPIView):

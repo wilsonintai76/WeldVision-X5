@@ -202,6 +202,15 @@ export const authAPI = {
     }
     return response.json();
   },
+  
+  // Get available classes for registration
+  async getAvailableClasses() {
+    const response = await authFetch('/auth/available-classes/');
+    if (!response.ok) {
+      throw new Error('Failed to get available classes');
+    }
+    return response.json();
+  },
 };
 
 export default authAPI;

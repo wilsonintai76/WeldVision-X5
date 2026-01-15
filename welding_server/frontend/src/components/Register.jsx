@@ -1,9 +1,10 @@
 /**
  * Register Page Component
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import authAPI from '../services/authAPI';
 import { 
   Cpu, 
   UserPlus, 
@@ -16,7 +17,8 @@ import {
   Loader2,
   CheckCircle,
   GraduationCap,
-  BookOpen
+  BookOpen,
+  ChevronDown
 } from 'lucide-react';
 
 function Register() {
@@ -31,10 +33,29 @@ function Register() {
     password: '',
     password_confirm: '',
     role: 'student',
+    class_id: '',
   });
+  const [classes, setClasses] = useState([]);
+  const [loadingClasses, setLoadingClasses] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    loadClasses();
+  }, []);
+
+  const loadClasses = async () => {
+    setLoadingClasses(true);
+    try {
+      const data = await authAPI.getAvailableClasses();
+      setClasses(data);
+    } catch (err) {
+      console.error('Failed to load classes:', err);
+    } finally {
+      setLoadingClasses(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -51,8 +72,8 @@ function Register() {
       setLocalError('Username is required');
       return;
     }
-    if (!formData.email.trim()) {
-      setLocalError('Email is required');
+    if (formData.role === 'student' && !formData.class_id) {
+      setLocalError('Students must select a class');
       return;
     }
     if (!formData.password) {
@@ -69,7 +90,12 @@ function Register() {
     }
 
     try {
-      await register(formData);
+      // Convert class_id to integer or null
+      const dataToSubmit = {
+        ...formData,
+        class_id: formData.class_id ? parseInt(formData.class_id) : null,
+      };
+      await register(dataToSubmit);
       setSuccess(true);
     } catch (err) {
       setLocalError(err.message);
@@ -221,25 +247,38 @@ function Register() {
               </div>
             </div>
 
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Email *
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-11 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                  placeholder="you@example.com"
-                  disabled={loading}
-                  autoComplete="email"
-                />
+            {/* Class Selection (Students Only) */}
+            {formData.role === 'student' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Select Your Class *
+                </label>
+                <div className="relative">
+                  <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                  <select
+                    name="class_id"
+                    value={formData.class_id}
+                    onChange={handleChange}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-11 pr-10 text-white appearance-none focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                    disabled={loading || loadingClasses}
+                  >
+                    <option value="">-- Select a class --</option>
+                    {classes.map(cls => (
+                      <option key={cls.id} value={cls.id}>
+                        {cls.name} {cls.semester && `(${cls.semester})`}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none" />
+                </div>
+                {loadingClasses && (
+                  <p className="text-slate-500 text-xs mt-1">Loading classes...</p>
+                )}
+                {!loadingClasses && classes.length === 0 && (
+                  <p className="text-amber-400 text-xs mt-1">No classes available. Contact your administrator.</p>
+                )}
               </div>
-            </div>
+            )}
 
             {/* Password */}
             <div>

@@ -37,6 +37,7 @@ import LandingPage from './components/LandingPage'
 import Login from './components/Login'
 import Register from './components/Register'
 import UserManagement from './components/UserManagement'
+import ClassManagement from './components/ClassManagement'
 
 // Auth Context
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -317,17 +318,31 @@ function MainApp() {
 
                 {/* Admin Only: User Management */}
                 {canManageUsers && (
-                  <button
-                    onClick={() => setActiveTab('users')}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                      activeTab === 'users'
-                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                    }`}
-                  >
-                    <Shield className="w-4 h-4" />
-                    <span className="text-sm">User Management</span>
-                  </button>
+                  <>
+                    <button
+                      onClick={() => setActiveTab('classes')}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
+                        activeTab === 'classes'
+                          ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
+                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                      }`}
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      <span className="text-sm">Class Management</span>
+                    </button>
+
+                    <button
+                      onClick={() => setActiveTab('users')}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
+                        activeTab === 'users'
+                          ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
+                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                      }`}
+                    >
+                      <Shield className="w-4 h-4" />
+                      <span className="text-sm">User Management</span>
+                    </button>
+                  </>
                 )}
               </div>
             )}
@@ -390,6 +405,7 @@ function MainApp() {
         {activeTab === 'students' && canCreateEvaluation && <Management />}
         {activeTab === 'rubrics' && canCreateEvaluation && <Rubrics />}
         {activeTab === 'edge' && canAccessMLOps && <EdgeManagement />}
+        {activeTab === 'classes' && canManageUsers && <ClassManagement />}
         {activeTab === 'users' && canManageUsers && <UserManagement />}
         {activeTab === 'help' && <Help />}
       </main>

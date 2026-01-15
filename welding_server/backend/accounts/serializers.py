@@ -120,11 +120,12 @@ class RegisterSerializer(serializers.ModelSerializer):
     """Serializer for user registration"""
     password = serializers.CharField(write_only=True, validators=[validate_password])
     password_confirm = serializers.CharField(write_only=True)
+    class_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'password_confirm', 
-                  'first_name', 'last_name', 'role']
+                  'first_name', 'last_name', 'role', 'class_id']
     
     def validate(self, data):
         if data['password'] != data['password_confirm']:
@@ -134,16 +135,42 @@ class RegisterSerializer(serializers.ModelSerializer):
         if data.get('role') == User.Role.ADMIN:
             raise serializers.ValidationError({"role": "Cannot register as admin. Contact system administrator."})
         
+        # Students must select a class
+        if data.get('role') == User.Role.STUDENT and not data.get('class_id'):
+            raise serializers.ValidationError({"class_id": "Students must select a class."})
+        
+        # Validate class exists if provided
+        if data.get('class_id'):
+            from core.models import ClassGroup
+            try:
+                ClassGroup.objects.get(id=data['class_id'])
+            except ClassGroup.DoesNotExist:
+                raise serializers.ValidationError({"class_id": "Invalid class selected."})
+        
         return data
     
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
+        class_id = validated_data.pop('class_id', None)
         
         user = User(**validated_data)
         user.set_password(password)
         user.is_approved = False  # Requires admin approval
         user.save()
+        
+        # Create student profile if student role and class selected
+        if user.role == User.Role.STUDENT and class_id:
+            from core.models import Student, ClassGroup
+            class_group = ClassGroup.objects.get(id=class_id)
+            student = Student.objects.create(
+                student_id=user.username,  # Use username as student_id
+                name=f"{user.first_name} {user.last_name}".strip() or user.username,
+                class_group=class_group,
+                email=user.email
+            )
+            user.student_profile = student
+            user.save()
         
         return user
 
