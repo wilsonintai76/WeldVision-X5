@@ -38,11 +38,11 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = useCallback(async (username, password) => {
+  const login = useCallback(async (credentials) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await authAPI.login(username, password);
+      const data = await authAPI.login(credentials);
       setUser(data.user);
       return data;
     } catch (err) {

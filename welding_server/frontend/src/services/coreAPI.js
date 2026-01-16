@@ -163,6 +163,176 @@ export const coreAPI = {
     }
     return response.json();
   },
+  
+  // Instructors
+  async getInstructors() {
+    const response = await apiFetch('/users/?role=instructor');
+    if (!response.ok) {
+      throw new Error('Failed to get instructors');
+    }
+    return response.json();
+  },
+
+  // Sessions (Academic Semesters)
+  async getSessions() {
+    const response = await apiFetch('/sessions/');
+    if (!response.ok) {
+      throw new Error('Failed to get sessions');
+    }
+    return response.json();
+  },
+
+  async getActiveSession() {
+    const response = await apiFetch('/sessions/active/');
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error('Failed to get active session');
+    }
+    return response.json();
+  },
+
+  async createSession(data) {
+    const response = await apiFetch('/sessions/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to create session');
+    }
+    return response.json();
+  },
+
+  async updateSession(id, data) {
+    const response = await apiFetch(`/sessions/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update session');
+    }
+    return response.json();
+  },
+
+  async deleteSession(id) {
+    const response = await apiFetch(`/sessions/${id}/`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to delete session');
+    }
+    return { success: true };
+  },
+
+  async setActiveSession(id) {
+    const response = await apiFetch(`/sessions/${id}/set_active/`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to set active session');
+    }
+    return response.json();
+  },
+
+  // Courses
+  async getCourses(filters = {}) {
+    const params = new URLSearchParams(filters);
+    const response = await apiFetch(`/courses/?${params}`);
+    if (!response.ok) {
+      throw new Error('Failed to get courses');
+    }
+    return response.json();
+  },
+
+  async getCourse(id) {
+    const response = await apiFetch(`/courses/${id}/`);
+    if (!response.ok) {
+      throw new Error('Failed to get course');
+    }
+    return response.json();
+  },
+
+  async createCourse(data) {
+    const response = await apiFetch('/courses/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to create course');
+    }
+    return response.json();
+  },
+
+  async updateCourse(id, data) {
+    const response = await apiFetch(`/courses/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update course');
+    }
+    return response.json();
+  },
+
+  async deleteCourse(id) {
+    const response = await apiFetch(`/courses/${id}/`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to delete course');
+    }
+    return { success: true };
+  },
+
+  async getCourseStudents(courseId) {
+    const response = await apiFetch(`/courses/${courseId}/students/`);
+    if (!response.ok) {
+      throw new Error('Failed to get course students');
+    }
+    return response.json();
+  },
+
+  async enrollStudents(courseId, studentIds) {
+    const response = await apiFetch(`/courses/${courseId}/enroll/`, {
+      method: 'POST',
+      body: JSON.stringify({ student_ids: studentIds }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to enroll students');
+    }
+    return response.json();
+  },
+
+  async unenrollStudents(courseId, studentIds) {
+    const response = await apiFetch(`/courses/${courseId}/unenroll/`, {
+      method: 'POST',
+      body: JSON.stringify({ student_ids: studentIds }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to unenroll students');
+    }
+    return response.json();
+  },
+
+  async importPDF(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const csrfToken = getCSRFToken();
+    const response = await fetch(`${API_BASE}/courses/import_pdf/`, {
+      method: 'POST',
+      headers: csrfToken ? { 'X-CSRFToken': csrfToken } : {},
+      body: formData,
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Failed to import PDF');
+    }
+    return response.json();
+  },
 };
 
 export default coreAPI;

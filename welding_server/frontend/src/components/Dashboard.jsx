@@ -1,6 +1,23 @@
 import { useState, useEffect } from 'react'
 import { Camera, AlertTriangle, CheckCircle, XCircle, User, Users, Play, Square, ClipboardCheck, Star, Download, FileText } from 'lucide-react'
 
+// Helper to get CSRF token
+function getCSRFToken() {
+  const name = 'csrftoken';
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
 function Dashboard() {
   const [students, setStudents] = useState([])
   const [classGroups, setClassGroups] = useState([])
@@ -11,7 +28,7 @@ function Dashboard() {
   const [isEvaluating, setIsEvaluating] = useState(false)
   const [evaluationResults, setEvaluationResults] = useState([])
   const [criterionScores, setCriterionScores] = useState({})
-  
+
   const [metrics, setMetrics] = useState({
     height: 2.1,
     width: 10.2,
@@ -32,7 +49,7 @@ function Dashboard() {
 
   const fetchRubrics = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/assessment-rubrics/')
+      const res = await fetch('/api/assessment-rubrics/', { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
         const rubricList = Array.isArray(data) ? data : (data.results || [])
@@ -60,7 +77,7 @@ function Dashboard() {
 
   const fetchClassGroups = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/classes/')
+      const res = await fetch('/api/classes/', { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
         setClassGroups(Array.isArray(data) ? data : (data.results || []))
@@ -72,10 +89,10 @@ function Dashboard() {
 
   const fetchStudents = async (classId = null) => {
     try {
-      const url = classId 
-        ? `http://localhost:8000/api/students/by_class/?class_id=${classId}`
-        : 'http://localhost:8000/api/students/'
-      const res = await fetch(url)
+      const url = classId
+        ? `/api/students/by_class/?class_id=${classId}`
+        : '/api/students/'
+      const res = await fetch(url, { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
         setStudents(Array.isArray(data) ? data : (data.results || []))
@@ -88,7 +105,7 @@ function Dashboard() {
   // Mock Data Generator - Updates every second when evaluating
   useEffect(() => {
     if (!isEvaluating) return
-    
+
     const interval = setInterval(() => {
       setMetrics({
         height: parseFloat((2.1 + (Math.random() - 0.5) * 0.2).toFixed(2)),
@@ -135,22 +152,27 @@ function Dashboard() {
       const criteria = selectedRubric.criteria || []
       let totalWeighted = 0
       let totalWeight = 0
-      
+
       criteria.forEach(c => {
         const score = criterionScores[c.id] || 3
         totalWeighted += score * c.weight
         totalWeight += c.weight
       })
-      
+
       const avgScore = totalWeight > 0 ? (totalWeighted / totalWeight) : 0
       const passed = avgScore >= selectedRubric.passing_score
-      
+
       // Save to backend
       let savedEvaluationId = null
       try {
-        const res = await fetch('http://localhost:8000/api/student-evaluations/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const csrfToken = getCSRFToken();
+        const res = await fetch('/api/student-evaluations/', {
+          credentials: 'include', method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          },
+          credentials: 'include',
           body: JSON.stringify({
             student: selectedStudent.id,
             rubric: selectedRubric.id,
@@ -170,7 +192,7 @@ function Dashboard() {
       } catch (error) {
         console.error('Error saving evaluation:', error)
       }
-      
+
       const result = {
         id: savedEvaluationId,
         student: selectedStudent,
@@ -183,7 +205,7 @@ function Dashboard() {
         passed
       }
       setEvaluationResults(prev => [result, ...prev].slice(0, 10))
-      
+
       // Reset scores for next evaluation
       initCriterionScores(selectedRubric)
     }
@@ -195,7 +217,7 @@ function Dashboard() {
       return
     }
     try {
-      const res = await fetch(`http://localhost:8000/api/student-evaluations/${evaluationId}/report_pdf/`)
+      const res = await fetch(`/api/student-evaluations/${evaluationId}/report_pdf/`, { credentials: 'include' })
       if (res.ok) {
         const blob = await res.blob()
         const url = window.URL.createObjectURL(blob)
@@ -217,7 +239,7 @@ function Dashboard() {
 
   const downloadStudentSummaryPdf = async (studentId) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/student-evaluations/student_report_pdf/?student_id=${studentId}`)
+      const res = await fetch(`/api/student-evaluations/student_report_pdf/?student_id=${studentId}`, { credentials: 'include' })
       if (res.ok) {
         const blob = await res.blob()
         const url = window.URL.createObjectURL(blob)
@@ -243,7 +265,7 @@ function Dashboard() {
       return
     }
     try {
-      const res = await fetch(`http://localhost:8000/api/student-evaluations/class_report_pdf/?class_id=${classId}`)
+      const res = await fetch(`/api/student-evaluations/class_report_pdf/?class_id=${classId}`, { credentials: 'include' })
       if (res.ok) {
         const blob = await res.blob()
         const url = window.URL.createObjectURL(blob)
@@ -290,168 +312,86 @@ function Dashboard() {
 
   return (
     <div className="p-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold text-white">Live Monitoring</h2>
-          <p className="text-slate-400 mt-1">Real-time weld quality inspection & student evaluation</p>
+      {/* Top Bar - Student Selection */}
+      <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-wrap gap-4 items-center justify-between">
+        <div className="flex gap-4 flex-1">
+          <div className="w-48">
+            <label className="text-xs text-slate-500 mb-1 block">Class Group</label>
+            <select
+              className="w-full bg-slate-800 border-slate-700 rounded-lg text-sm text-white"
+              onChange={handleClassChange}
+              value={selectedClass || ''}
+            >
+              <option value="">All Classes</option>
+              {classGroups.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div className="flex-1 max-w-md">
+            <label className="text-xs text-slate-500 mb-1 block">Student</label>
+            <select
+              className="w-full bg-slate-800 border-slate-700 rounded-lg text-sm text-white"
+              onChange={(e) => {
+                const s = students.find(s => s.id === Number(e.target.value))
+                setSelectedStudent(s)
+              }}
+              value={selectedStudent?.id || ''}
+            >
+              <option value="">Select Student...</option>
+              {students.map(s => <option key={s.id} value={s.id}>{s.student_id} - {s.name}</option>)}
+            </select>
+          </div>
+          <div className="flex-1 max-w-md">
+            <label className="text-xs text-slate-500 mb-1 block">Assessment Rubric</label>
+            <select
+              className="w-full bg-slate-800 border-slate-700 rounded-lg text-sm text-white"
+              onChange={handleRubricChange}
+              value={selectedRubric?.id || ''}
+            >
+              <option value="">Select Rubric...</option>
+              {rubrics.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </div>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-industrial-slate rounded-lg">
-          <div className={`w-3 h-3 rounded-full ${isEvaluating ? 'bg-green-500 animate-pulse' : 'bg-slate-500'}`}></div>
-          <span className="text-sm text-slate-300 font-medium">{isEvaluating ? 'Evaluating' : 'Idle'}</span>
+
+        {/* Evaluation Controls */}
+        <div className="flex gap-3">
+          {!isEvaluating ? (
+            <button
+              onClick={startEvaluation}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2 rounded-lg font-medium transition-all shadow-lg shadow-emerald-600/20"
+            >
+              <Play className="w-4 h-4" />
+              Start Evaluation
+            </button>
+          ) : (
+            <button
+              onClick={stopEvaluation}
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-lg font-medium transition-all shadow-lg shadow-red-600/20"
+            >
+              <Square className="w-4 h-4" />
+              Stop & Save
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Student Selection Panel */}
-      <div className="bg-industrial-slate rounded-lg border border-industrial-gray p-4">
-        <div className="flex items-center gap-6">
-          {/* Class Group Selector */}
-          <div className="flex items-center gap-3">
-            <Users className="w-5 h-5 text-slate-400" />
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">Class Group</label>
-              <div className="flex gap-2">
-                <select
-                  value={selectedClass || ''}
-                  onChange={handleClassChange}
-                  className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm min-w-[180px]"
-                >
-                  <option value="">All Classes</option>
-                  {classGroups.map(group => (
-                    <option key={group.id} value={group.id}>{group.name}</option>
-                  ))}
-                </select>
-                {selectedClass && (
-                  <button
-                    onClick={() => downloadClassReportPdf(selectedClass)}
-                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 text-sm"
-                    title="Download Class Report"
-                  >
-                    <FileText className="w-4 h-4" />
-                    Class Report
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Feed / Upload Area */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-black rounded-xl border border-slate-800 aspect-video relative overflow-hidden group">
 
-          {/* Student Selector */}
-          <div className="flex items-center gap-3">
-            <User className="w-5 h-5 text-slate-400" />
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">Student</label>
-              <select
-                value={selectedStudent?.id || ''}
-                onChange={(e) => {
-                  const student = students.find(s => s.id === Number(e.target.value))
-                  setSelectedStudent(student || null)
-                }}
-                className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm min-w-[200px]"
-              >
-                <option value="">Select Student...</option>
-                {students.map(student => (
-                  <option key={student.id} value={student.id}>
-                    {student.student_id} - {student.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
 
-          {/* Rubric Selector */}
-          <div className="flex items-center gap-3">
-            <ClipboardCheck className="w-5 h-5 text-slate-400" />
-            <div>
-              <label className="text-xs text-slate-400 block mb-1">Assessment Rubric</label>
-              <select
-                value={selectedRubric?.id || ''}
-                onChange={handleRubricChange}
-                className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm min-w-[200px]"
-              >
-                <option value="">Select Rubric...</option>
-                {rubrics.map(rubric => (
-                  <option key={rubric.id} value={rubric.id}>
-                    {rubric.name} {rubric.is_active ? '(Active)' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Evaluation Controls */}
-          <div className="flex items-center gap-2 ml-auto">
-            {!isEvaluating ? (
-              <button
-                onClick={startEvaluation}
-                disabled={!selectedStudent || !selectedRubric}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium transition-colors ${
-                  selectedStudent && selectedRubric
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                    : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                }`}
-              >
-                <Play className="w-5 h-5" />
-                Start Evaluation
-              </button>
-            ) : (
-              <button
-                onClick={stopEvaluation}
-                className="flex items-center gap-2 px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
-              >
-                <Square className="w-5 h-5" />
-                Stop & Save
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Selected Student Info */}
-        {selectedStudent && (
-          <div className="mt-4 pt-4 border-t border-slate-700">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-emerald-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-lg">
-                  {selectedStudent.name.charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <div>
-                <p className="text-white font-semibold">{selectedStudent.name}</p>
-                <p className="text-slate-400 text-sm">ID: {selectedStudent.student_id}</p>
-              </div>
-              {selectedStudent.class_group_name && (
-                <div className="ml-4 px-3 py-1 bg-slate-800 rounded-lg">
-                  <span className="text-slate-300 text-sm">{selectedStudent.class_group_name}</span>
+            {/* LIVE CAMERA VIEW */}
+            <div className="w-full h-full flex flex-col items-center justify-center text-slate-500">
+              <Camera className="w-16 h-16 mb-4 opacity-50" />
+              <p className="text-lg font-medium">Camera Feed</p>
+              <p className="text-sm opacity-60">Awaiting RDK X5 Connection</p>
+              {isEvaluating && (
+                <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 bg-red-500/20 text-red-400 rounded-full animate-pulse border border-red-500/30">
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <span className="text-xs font-semibold">LIVE RECORDING</span>
                 </div>
               )}
-              {/* Download Student Summary Report */}
-              <button
-                onClick={() => downloadStudentSummaryPdf(selectedStudent.student_id)}
-                className="ml-auto flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-                title="Download Student Progress Report"
-              >
-                <FileText className="w-4 h-4" />
-                Download Report
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-3 gap-6">
-        {/* Left: Video Feed */}
-        <div className="col-span-2">
-          <div className="bg-black rounded-lg border-2 border-industrial-gray aspect-video flex items-center justify-center relative">
-            {isEvaluating && selectedStudent && (
-              <div className="absolute top-4 left-4 bg-red-600 px-3 py-1 rounded text-white text-sm font-medium flex items-center gap-2">
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                REC - {selectedStudent.name}
-              </div>
-            )}
-            <div className="text-center">
-              <Camera className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-              <p className="text-slate-500 text-lg font-medium">Camera Feed</p>
-              <p className="text-slate-600 text-sm mt-2">Awaiting RDK X5 Connection</p>
             </div>
           </div>
         </div>
@@ -461,11 +401,10 @@ function Dashboard() {
           <h3 className="text-xl font-semibold text-white mb-4">Live Metrics</h3>
 
           {/* Reinforcement Height Card */}
-          <div className={`p-4 rounded-lg border-2 transition-all ${
-            isHeightValid 
-              ? 'bg-green-950/30 border-green-600' 
-              : 'bg-red-950/30 border-red-600'
-          }`}>
+          <div className={`p-4 rounded-lg border-2 transition-all ${isHeightValid
+            ? 'bg-green-950/30 border-green-600'
+            : 'bg-red-950/30 border-red-600'
+            }`}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-slate-300">Reinforcement Height</span>
               {isHeightValid ? (
@@ -483,11 +422,10 @@ function Dashboard() {
           </div>
 
           {/* Bead Width Card */}
-          <div className={`p-4 rounded-lg border-2 transition-all ${
-            isWidthValid 
-              ? 'bg-green-950/30 border-green-600' 
-              : 'bg-red-950/30 border-red-600'
-          }`}>
+          <div className={`p-4 rounded-lg border-2 transition-all ${isWidthValid
+            ? 'bg-green-950/30 border-green-600'
+            : 'bg-red-950/30 border-red-600'
+            }`}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-slate-300">Bead Width</span>
               {isWidthValid ? (
@@ -509,10 +447,9 @@ function Dashboard() {
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle className="w-5 h-5 text-yellow-500" />
               <span className="text-sm font-medium text-slate-300">Visual Defects</span>
-              <span className={`ml-auto px-2 py-0.5 rounded text-xs font-medium ${
-                getTotalDefects() === 0 ? 'bg-green-900 text-green-300' : 
+              <span className={`ml-auto px-2 py-0.5 rounded text-xs font-medium ${getTotalDefects() === 0 ? 'bg-green-900 text-green-300' :
                 getTotalDefects() < 5 ? 'bg-yellow-900 text-yellow-300' : 'bg-red-900 text-red-300'
-              }`}>
+                }`}>
                 {getTotalDefects()} total
               </span>
             </div>
@@ -550,20 +487,19 @@ function Dashboard() {
                 })()}
               </span>
               <span className="text-slate-500">/5</span>
-              <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
-                (() => {
-                  const criteria = selectedRubric.criteria || []
-                  let totalWeighted = 0
-                  let totalWeight = 0
-                  criteria.forEach(c => {
-                    const score = criterionScores[c.id] || 3
-                    totalWeighted += score * c.weight
-                    totalWeight += c.weight
-                  })
-                  const avg = totalWeight > 0 ? (totalWeighted / totalWeight) : 0
-                  return avg >= selectedRubric.passing_score ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'
-                })()
-              }`}>
+              <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${(() => {
+                const criteria = selectedRubric.criteria || []
+                let totalWeighted = 0
+                let totalWeight = 0
+                criteria.forEach(c => {
+                  const score = criterionScores[c.id] || 3
+                  totalWeighted += score * c.weight
+                  totalWeight += c.weight
+                })
+                const avg = totalWeight > 0 ? (totalWeighted / totalWeight) : 0
+                return avg >= selectedRubric.passing_score ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'
+              })()
+                }`}>
                 {(() => {
                   const criteria = selectedRubric.criteria || []
                   let totalWeighted = 0
@@ -579,7 +515,7 @@ function Dashboard() {
               </span>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {(selectedRubric.criteria || []).map(criterion => (
               <div key={criterion.id} className="bg-slate-800 rounded-lg p-4">
@@ -590,26 +526,25 @@ function Dashboard() {
                 {criterion.description && (
                   <p className="text-slate-400 text-sm mb-3">{criterion.description}</p>
                 )}
-                
+
                 {/* Likert Scale Buttons */}
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map(score => (
                     <button
                       key={score}
                       onClick={() => updateCriterionScore(criterion.id, score)}
-                      className={`flex-1 py-2 px-1 text-sm font-medium rounded transition-all ${
-                        criterionScores[criterion.id] === score
-                          ? score <= 2 ? 'bg-red-600 text-white' 
-                            : score === 3 ? 'bg-yellow-600 text-white'
+                      className={`flex-1 py-2 px-1 text-sm font-medium rounded transition-all ${criterionScores[criterion.id] === score
+                        ? score <= 2 ? 'bg-red-600 text-white'
+                          : score === 3 ? 'bg-yellow-600 text-white'
                             : 'bg-green-600 text-white'
-                          : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
-                      }`}
+                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                        }`}
                     >
                       {score}
                     </button>
                   ))}
                 </div>
-                
+
                 {/* Score Description */}
                 <div className="mt-2 text-xs text-slate-500 min-h-[2.5rem]">
                   {criterionScores[criterion.id] === 1 && (criterion.likert_1 || 'Very Poor')}
@@ -621,7 +556,7 @@ function Dashboard() {
               </div>
             ))}
           </div>
-          
+
           <p className="text-slate-500 text-sm mt-4 text-center">
             Passing Score: {selectedRubric.passing_score} / 5
           </p>
@@ -667,9 +602,8 @@ function Dashboard() {
                       {new Date(result.timestamp).toLocaleTimeString()}
                     </td>
                     <td className="py-3 px-3 text-center">
-                      <span className={`text-lg font-bold ${
-                        result.passed ? 'text-green-400' : 'text-red-400'
-                      }`}>
+                      <span className={`text-lg font-bold ${result.passed ? 'text-green-400' : 'text-red-400'
+                        }`}>
                         {result.avgScore}
                       </span>
                       <span className="text-slate-500 text-xs">/5</span>
@@ -709,13 +643,13 @@ function Dashboard() {
       {/* Bottom Stats */}
       <div className="grid grid-cols-4 gap-4">
         <StatCard title="Students Today" value={evaluationResults.length.toString()} trend="" />
-        <StatCard title="Pass Rate" value={evaluationResults.length > 0 
-          ? `${Math.round((evaluationResults.filter(r => r.passed).length / evaluationResults.length) * 100)}%` 
+        <StatCard title="Pass Rate" value={evaluationResults.length > 0
+          ? `${Math.round((evaluationResults.filter(r => r.passed).length / evaluationResults.length) * 100)}%`
           : 'N/A'} trend="" />
-        <StatCard title="Avg. Height" value={evaluationResults.length > 0 
-          ? `${(evaluationResults.reduce((sum, r) => sum + r.metrics.height, 0) / evaluationResults.length).toFixed(2)}mm` 
+        <StatCard title="Avg. Height" value={evaluationResults.length > 0
+          ? `${(evaluationResults.reduce((sum, r) => sum + r.metrics.height, 0) / evaluationResults.length).toFixed(2)}mm`
           : 'N/A'} trend="" />
-        <StatCard title="Total Defects" value={evaluationResults.reduce((sum, r) => 
+        <StatCard title="Total Defects" value={evaluationResults.reduce((sum, r) =>
           sum + Object.values(r.metrics.defects).reduce((a, b) => a + b, 0), 0).toString()} trend="" />
       </div>
     </div>
@@ -727,9 +661,8 @@ function DefectRow({ label, count }) {
   return (
     <div className="flex items-center justify-between text-sm">
       <span className="text-slate-400">{label}</span>
-      <span className={`font-mono font-semibold ${
-        count > 0 ? 'text-red-400' : 'text-green-400'
-      }`}>
+      <span className={`font-mono font-semibold ${count > 0 ? 'text-red-400' : 'text-green-400'
+        }`}>
         {count}
       </span>
     </div>
@@ -744,9 +677,8 @@ function StatCard({ title, value, trend }) {
       <div className="flex items-baseline justify-between">
         <p className="text-2xl font-bold text-white">{value}</p>
         {trend && (
-          <span className={`text-xs font-medium ${
-            isPositive ? 'text-green-400' : 'text-slate-400'
-          }`}>
+          <span className={`text-xs font-medium ${isPositive ? 'text-green-400' : 'text-slate-400'
+            }`}>
             {trend}
           </span>
         )}
@@ -756,3 +688,5 @@ function StatCard({ title, value, trend }) {
 }
 
 export default Dashboard
+
+

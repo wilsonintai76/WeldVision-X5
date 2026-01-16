@@ -31,11 +31,11 @@ function LandingPage({ onEnterApp }) {
   const checkSystemStatus = async () => {
     setIsChecking(true)
     
-    // Check backend
+    // Check backend using CSRF endpoint (public, no auth required)
     try {
-      const response = await fetch('http://localhost:8000/api/', { 
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
+      const response = await fetch('/api/auth/csrf/', { credentials: 'include', method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'include'
       })
       if (response.ok) {
         setSystemStatus(prev => ({
@@ -57,9 +57,9 @@ function LandingPage({ onEnterApp }) {
 
     // Check edge device (placeholder - would need actual edge device endpoint)
     try {
-      const edgeResponse = await fetch('http://localhost:8000/api/edge/status/', {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
+      const edgeResponse = await fetch('/api/edge/status/', { credentials: 'include', method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'include'
       })
       if (edgeResponse.ok) {
         const data = await edgeResponse.json()
@@ -331,3 +331,5 @@ function FooterLink({ href, children }) {
 }
 
 export default LandingPage
+
+

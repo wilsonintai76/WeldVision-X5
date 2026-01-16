@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom'
-import { 
-  Upload, 
-  Image, 
-  Database, 
-  BarChart3, 
-  Tag, 
-  Rocket, 
+import {
+  Upload,
+  Image,
+  Database,
+  BarChart3,
+  Tag,
+  Rocket,
   Sliders,
   ChevronDown,
   ChevronRight,
@@ -20,13 +20,13 @@ import {
   LogOut,
   User,
   Shield,
-  Loader2
+  Loader2,
+  History as HistoryIcon
 } from 'lucide-react'
 
 // Components
 import Dashboard from './components/Dashboard'
 import MLOps from './components/MLOps'
-import Management from './components/Management'
 import EdgeManagement from './components/EdgeManagement'
 import Labeling from './components/Labeling'
 import Analytics from './components/Analytics'
@@ -37,7 +37,8 @@ import LandingPage from './components/LandingPage'
 import Login from './components/Login'
 import Register from './components/Register'
 import UserManagement from './components/UserManagement'
-import ClassManagement from './components/ClassManagement'
+import CourseManagement from './components/CourseManagement'
+import History from './components/History'
 
 // Auth Context
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -45,7 +46,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 // Protected Route Component
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth()
-  
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -56,18 +57,18 @@ function ProtectedRoute({ children }) {
       </div>
     )
   }
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
   }
-  
+
   return children
 }
 
 function MainApp() {
   const navigate = useNavigate()
   const { user, logout, permissions } = useAuth()
-  
+
   const [activeTab, setActiveTab] = useState('dashboard')
   const [expandedSections, setExpandedSections] = useState({
     mlops: true,
@@ -126,14 +127,27 @@ function MainApp() {
           <div className="px-3 mb-4">
             <button
               onClick={() => setActiveTab('dashboard')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all ${
-                activeTab === 'dashboard'
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/25'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all ${activeTab === 'dashboard'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/25'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`}
             >
               <Monitor className="w-5 h-5" />
               <span className="font-medium text-sm">Live Monitoring</span>
+            </button>
+          </div>
+
+          {/* History - Top Level */}
+          <div className="px-3 mb-4">
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all ${activeTab === 'history'
+                ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`}
+            >
+              <HistoryIcon className="w-5 h-5" />
+              <span className="font-medium text-sm">Assessment History</span>
             </button>
           </div>
 
@@ -157,14 +171,13 @@ function MainApp() {
                   {/* DATA Subsection */}
                   <div className="py-2">
                     <p className="px-3 text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Data</p>
-                    
+
                     <button
                       onClick={() => setActiveTab('upload')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                        activeTab === 'upload'
-                          ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                      }`}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'upload'
+                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
+                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                        }`}
                     >
                       <Upload className="w-4 h-4" />
                       <span className="text-sm">Upload Data</span>
@@ -172,11 +185,10 @@ function MainApp() {
 
                     <button
                       onClick={() => setActiveTab('annotate')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                        activeTab === 'annotate'
-                          ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                      }`}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'annotate'
+                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
+                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                        }`}
                     >
                       <Image className="w-4 h-4" />
                       <span className="text-sm">Annotate</span>
@@ -184,11 +196,10 @@ function MainApp() {
 
                     <button
                       onClick={() => setActiveTab('datasets')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                        activeTab === 'datasets'
-                          ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                      }`}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'datasets'
+                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
+                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                        }`}
                     >
                       <Database className="w-4 h-4" />
                       <span className="text-sm">Datasets</span>
@@ -196,11 +207,10 @@ function MainApp() {
 
                     <button
                       onClick={() => setActiveTab('analytics')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                        activeTab === 'analytics'
-                          ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                      }`}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'analytics'
+                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
+                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                        }`}
                     >
                       <BarChart3 className="w-4 h-4" />
                       <span className="text-sm">Analytics</span>
@@ -208,11 +218,10 @@ function MainApp() {
 
                     <button
                       onClick={() => setActiveTab('classes')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                        activeTab === 'classes'
-                          ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                      }`}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'classes'
+                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
+                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                        }`}
                     >
                       <Tag className="w-4 h-4" />
                       <span className="text-sm">Classes & Tags</span>
@@ -223,14 +232,13 @@ function MainApp() {
                   {canAccessMLOps && (
                     <div className="py-2 border-t border-slate-800">
                       <p className="px-3 text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Model Pipeline</p>
-                      
+
                       <button
                         onClick={() => setActiveTab('mlops')}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                          activeTab === 'mlops'
-                            ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                            : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                        }`}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'mlops'
+                          ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
+                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                          }`}
                       >
                         <Rocket className="w-4 h-4" />
                         <span className="text-sm">Train → Convert → Deploy</span>
@@ -263,11 +271,10 @@ function MainApp() {
                   <>
                     <button
                       onClick={() => setActiveTab('calibration')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                        activeTab === 'calibration'
-                          ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                      }`}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'calibration'
+                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
+                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                        }`}
                     >
                       <Sliders className="w-4 h-4" />
                       <span className="text-sm">Stereo Calibration</span>
@@ -275,11 +282,10 @@ function MainApp() {
 
                     <button
                       onClick={() => setActiveTab('edge')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                        activeTab === 'edge'
-                          ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                      }`}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'edge'
+                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
+                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                        }`}
                     >
                       <Wifi className="w-4 h-4" />
                       <span className="text-sm">Edge Management</span>
@@ -287,32 +293,32 @@ function MainApp() {
                   </>
                 )}
 
-                {/* Instructor+ : Students & Rubrics */}
+                {/* Instructor+ : Course & Students, Rubrics */}
                 {canCreateEvaluation && (
                   <>
                     <button
-                      onClick={() => setActiveTab('students')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                        activeTab === 'students'
-                          ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                      }`}
+                      onClick={() => setActiveTab('courses')}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'courses'
+                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
+                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                        }`}
                     >
-                      <Users className="w-4 h-4" />
-                      <span className="text-sm">Student Management</span>
+                      <BookOpen className="w-4 h-4" />
+                      <span className="text-sm">Course & Students</span>
                     </button>
 
                     <button
                       onClick={() => setActiveTab('rubrics')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                        activeTab === 'rubrics'
-                          ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                      }`}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'rubrics'
+                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
+                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                        }`}
                     >
                       <ClipboardCheck className="w-4 h-4" />
                       <span className="text-sm">Assessment Rubrics</span>
                     </button>
+
+
                   </>
                 )}
 
@@ -320,24 +326,11 @@ function MainApp() {
                 {canManageUsers && (
                   <>
                     <button
-                      onClick={() => setActiveTab('class-groups')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                        activeTab === 'class-groups'
-                          ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                      }`}
-                    >
-                      <BookOpen className="w-4 h-4" />
-                      <span className="text-sm">Class Management</span>
-                    </button>
-
-                    <button
                       onClick={() => setActiveTab('users')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                        activeTab === 'users'
-                          ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                          : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                      }`}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'users'
+                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
+                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+                        }`}
                     >
                       <Shield className="w-4 h-4" />
                       <span className="text-sm">User Management</span>
@@ -353,11 +346,10 @@ function MainApp() {
             <div className="px-3 mt-4">
               <button
                 onClick={() => setActiveTab('help')}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all ${
-                  activeTab === 'help'
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all ${activeTab === 'help'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
               >
                 <BookOpen className="w-5 h-5" />
                 <span className="font-medium text-sm">Guide & Help</span>
@@ -380,7 +372,7 @@ function MainApp() {
               </div>
             </div>
           </div>
-          
+
           {/* Logout Button */}
           <button
             onClick={handleLogout}
@@ -402,21 +394,25 @@ function MainApp() {
         {activeTab === 'classes' && <Labeling initialView="classes" />}
         {activeTab === 'mlops' && canAccessMLOps && <MLOps />}
         {activeTab === 'calibration' && canAccessMLOps && <Settings />}
-        {activeTab === 'students' && canCreateEvaluation && <Management />}
+
+        {/* Course & Student Management */}
+        {activeTab === 'courses' && (canManageUsers || canCreateEvaluation) && <CourseManagement />}
+
+        {/* Other Components */}
         {activeTab === 'rubrics' && canCreateEvaluation && <Rubrics />}
+        {activeTab === 'history' && <History />}
         {activeTab === 'edge' && canAccessMLOps && <EdgeManagement />}
-        {activeTab === 'class-groups' && canManageUsers && <ClassManagement />}
         {activeTab === 'users' && canManageUsers && <UserManagement />}
         {activeTab === 'help' && <Help />}
       </main>
-    </div>
+    </div >
   )
 }
 
 function LandingWrapper() {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
-  
+
   const handleEnterApp = () => {
     if (isAuthenticated) {
       navigate('/app')
@@ -424,23 +420,18 @@ function LandingWrapper() {
       navigate('/login')
     }
   }
-  
+
   return <LandingPage onEnterApp={handleEnterApp} />
 }
 
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<LandingWrapper />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/app" element={
-            <ProtectedRoute>
-              <MainApp />
-            </ProtectedRoute>
-          } />
           <Route path="/app/*" element={
             <ProtectedRoute>
               <MainApp />

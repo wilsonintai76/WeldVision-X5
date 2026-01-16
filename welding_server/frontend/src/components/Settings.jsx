@@ -24,7 +24,7 @@ function Settings() {
   const fetchCalibrations = async () => {
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:8000/api/stereo-calibrations/')
+      const response = await fetch('/api/stereo-calibrations/', { credentials: 'include' })
       const data = await response.json()
       setCalibrations(data)
     } catch (error) {
@@ -40,8 +40,8 @@ function Settings() {
 
     try {
       const url = editingCalibration
-        ? `http://localhost:8000/api/stereo-calibrations/${editingCalibration.id}/`
-        : 'http://localhost:8000/api/stereo-calibrations/'
+        ? `/api/stereo-calibrations/${editingCalibration.id}/`
+        : '/api/stereo-calibrations/'
       
       const method = editingCalibration ? 'PUT' : 'POST'
 
@@ -73,8 +73,7 @@ function Settings() {
 
     setLoading(true)
     try {
-      const response = await fetch(`http://localhost:8000/api/stereo-calibrations/${id}/`, {
-        method: 'DELETE',
+      const response = await fetch(`/api/stereo-calibrations/${id}/`, { credentials: 'include', method: 'DELETE',
       })
 
       if (response.ok) {
@@ -90,8 +89,7 @@ function Settings() {
   const handleSetActive = async (id) => {
     setLoading(true)
     try {
-      const response = await fetch(`http://localhost:8000/api/stereo-calibrations/${id}/set_active/`, {
-        method: 'POST',
+      const response = await fetch(`/api/stereo-calibrations/${id}/set_active/`, { credentials: 'include', method: 'POST',
       })
 
       if (response.ok) {
@@ -497,3 +495,5 @@ function Settings() {
 }
 
 export default Settings
+
+

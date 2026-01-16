@@ -29,7 +29,7 @@ function Analytics() {
 
   const fetchAnalytics = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/datasets/')
+      const res = await fetch('/api/datasets/', { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
         setDatasets(data)
@@ -308,3 +308,5 @@ function Analytics() {
 }
 
 export default Analytics
+
+

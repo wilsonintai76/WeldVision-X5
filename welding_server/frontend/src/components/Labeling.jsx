@@ -139,7 +139,7 @@ function Labeling({ initialView = 'datasets' }) {
 
   const fetchDefectClasses = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/defect-classes/')
+      const response = await fetch('/api/defect-classes/', { credentials: 'include' })
       const data = await response.json()
       setDefectClasses(data)
     } catch (error) {
@@ -149,7 +149,7 @@ function Labeling({ initialView = 'datasets' }) {
 
   const fetchDatasets = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/datasets/')
+      const response = await fetch('/api/datasets/', { credentials: 'include' })
       const data = await response.json()
       setDatasets(data)
     } catch (error) {
@@ -159,7 +159,7 @@ function Labeling({ initialView = 'datasets' }) {
 
   const fetchImages = async (datasetId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/labeled-images/?dataset=${datasetId}`)
+      const response = await fetch(`/api/labeled-images/?dataset=${datasetId}`, { credentials: 'include' })
       const data = await response.json()
       setImages(data)
     } catch (error) {
@@ -169,7 +169,7 @@ function Labeling({ initialView = 'datasets' }) {
 
   const fetchAnnotations = async (imageId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/annotations/?image=${imageId}`)
+      const response = await fetch(`/api/annotations/?image=${imageId}`, { credentials: 'include' })
       const data = await response.json()
       setAnnotations(data)
     } catch (error) {
@@ -180,8 +180,7 @@ function Labeling({ initialView = 'datasets' }) {
   const createDataset = async (e) => {
     e.preventDefault()
     try {
-      const response = await fetch('http://localhost:8000/api/datasets/', {
-        method: 'POST',
+      const response = await fetch('/api/datasets/', { credentials: 'include', method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...datasetForm,
@@ -208,11 +207,10 @@ function Labeling({ initialView = 'datasets' }) {
     e.preventDefault()
     try {
       const url = editingClass 
-        ? `http://localhost:8000/api/defect-classes/${editingClass.id}/`
-        : 'http://localhost:8000/api/defect-classes/'
+        ? `/api/defect-classes/${editingClass.id}/`
+        : '/api/defect-classes/'
       
-      const response = await fetch(url, {
-        method: editingClass ? 'PUT' : 'POST',
+      const response = await fetch(url, { credentials: 'include', method: editingClass ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...classForm,
@@ -251,8 +249,7 @@ function Labeling({ initialView = 'datasets' }) {
     if (!confirm('Are you sure you want to delete this defect class?')) return
     
     try {
-      const response = await fetch(`http://localhost:8000/api/defect-classes/${classId}/`, {
-        method: 'DELETE'
+      const response = await fetch(`/api/defect-classes/${classId}/`, { credentials: 'include', method: 'DELETE'
       })
       if (response.ok) {
         await fetchDefectClasses()
@@ -271,8 +268,7 @@ function Labeling({ initialView = 'datasets' }) {
     if (!selectedDataset) return
     
     try {
-      const response = await fetch(`http://localhost:8000/api/datasets/${selectedDataset.id}/`, {
-        method: 'PATCH',
+      const response = await fetch(`/api/datasets/${selectedDataset.id}/`, { credentials: 'include', method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           class_ids: selectedClassIds
@@ -327,8 +323,7 @@ function Labeling({ initialView = 'datasets' }) {
         })
         
         try {
-          const response = await fetch(`http://localhost:8000/api/datasets/${selectedDataset.id}/batch_upload/`, {
-            method: 'POST',
+          const response = await fetch(`/api/datasets/${selectedDataset.id}/batch_upload/`, { credentials: 'include', method: 'POST',
             body: formData,
           })
           
@@ -374,8 +369,7 @@ function Labeling({ initialView = 'datasets' }) {
     if (!confirm('Are you sure you want to delete this image and all its annotations?')) return
     
     try {
-      const response = await fetch(`http://localhost:8000/api/labeled-images/${imageId}/`, {
-        method: 'DELETE'
+      const response = await fetch(`/api/labeled-images/${imageId}/`, { credentials: 'include', method: 'DELETE'
       })
       if (response.ok) {
         if (selectedDataset) {
@@ -406,8 +400,7 @@ function Labeling({ initialView = 'datasets' }) {
       
       for (const imageId of selectedImages) {
         try {
-          const response = await fetch(`http://localhost:8000/api/labeled-images/${imageId}/`, {
-            method: 'DELETE'
+          const response = await fetch(`/api/labeled-images/${imageId}/`, { credentials: 'include', method: 'DELETE'
           })
           if (response.ok) {
             deleted++
@@ -451,8 +444,7 @@ function Labeling({ initialView = 'datasets' }) {
     if (!confirm('Are you sure you want to delete this dataset? All images and annotations will be permanently deleted.')) return
     
     try {
-      const response = await fetch(`http://localhost:8000/api/datasets/${datasetId}/`, {
-        method: 'DELETE'
+      const response = await fetch(`/api/datasets/${datasetId}/`, { credentials: 'include', method: 'DELETE'
       })
       if (response.ok) {
         await fetchDatasets()
@@ -516,8 +508,7 @@ function Labeling({ initialView = 'datasets' }) {
     })
 
     try {
-      const response = await fetch(`http://localhost:8000/api/datasets/${selectedDataset.id}/batch_upload/`, {
-        method: 'POST',
+      const response = await fetch(`/api/datasets/${selectedDataset.id}/batch_upload/`, { credentials: 'include', method: 'POST',
         body: formData,
       })
 
@@ -538,8 +529,7 @@ function Labeling({ initialView = 'datasets' }) {
     if (!selectedImage) return
     
     try {
-      const response = await fetch(`http://localhost:8000/api/labeled-images/${selectedImage.id}/auto_annotate/`, {
-        method: 'POST',
+      const response = await fetch(`/api/labeled-images/${selectedImage.id}/auto_annotate/`, { credentials: 'include', method: 'POST',
       })
       const result = await response.json()
       alert(result.message)
@@ -551,7 +541,7 @@ function Labeling({ initialView = 'datasets' }) {
   const exportDataset = async () => {
     if (!selectedDataset) return
     try {
-      const response = await fetch(`http://localhost:8000/api/datasets/${selectedDataset.id}/export_yolo/`)
+      const response = await fetch(`/api/datasets/${selectedDataset.id}/export_yolo/`, { credentials: 'include' })
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -565,7 +555,7 @@ function Labeling({ initialView = 'datasets' }) {
 
   const deleteAnnotation = async (annId) => {
     try {
-      await fetch(`http://localhost:8000/api/annotations/${annId}/`, { method: 'DELETE' })
+      await fetch(`/api/annotations/${annId}/`, { credentials: 'include', method: 'DELETE' })
       fetchAnnotations(selectedImage.id)
     } catch (error) {
       console.error('Error deleting annotation:', error)
@@ -747,8 +737,7 @@ function Labeling({ initialView = 'datasets' }) {
     }
     
     try {
-      const response = await fetch('http://localhost:8000/api/annotations/', {
-        method: 'POST',
+      const response = await fetch('/api/annotations/', { credentials: 'include', method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image: selectedImage.id,
@@ -1152,8 +1141,7 @@ function Labeling({ initialView = 'datasets' }) {
                       onClick={async () => {
                         if (confirm('Auto-assign images to train/valid/test splits based on configured ratios?')) {
                           try {
-                            const response = await fetch(`http://localhost:8000/api/datasets/${selectedDataset.id}/auto_split/`, {
-                              method: 'POST'
+                            const response = await fetch(`/api/datasets/${selectedDataset.id}/auto_split/`, { credentials: 'include', method: 'POST'
                             })
                             if (response.ok) {
                               const result = await response.json()
@@ -1521,8 +1509,7 @@ function Labeling({ initialView = 'datasets' }) {
                       onChange={async (e) => {
                         const newSplit = e.target.value
                         try {
-                          const res = await fetch(`http://localhost:8000/api/labeled-images/${selectedImage.id}/`, {
-                            method: 'PATCH',
+                          const res = await fetch(`/api/labeled-images/${selectedImage.id}/`, { credentials: 'include', method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ split: newSplit })
                           })
@@ -2096,3 +2083,5 @@ function Labeling({ initialView = 'datasets' }) {
 }
 
 export default Labeling
+
+

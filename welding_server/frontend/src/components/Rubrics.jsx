@@ -1,17 +1,34 @@
 import { useState, useEffect } from 'react'
 import { ClipboardCheck, Plus, Edit2, Trash2, X, Save, CheckCircle, ChevronDown, ChevronRight, Star, AlertTriangle } from 'lucide-react'
 
+// Helper to get CSRF token
+function getCSRFToken() {
+  const name = 'csrftoken';
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
 function Rubrics() {
   const [rubrics, setRubrics] = useState([])
   const [selectedRubric, setSelectedRubric] = useState(null)
   const [loading, setLoading] = useState(false)
-  
+
   // Modal states
   const [showRubricModal, setShowRubricModal] = useState(false)
   const [showCriterionModal, setShowCriterionModal] = useState(false)
   const [editingRubric, setEditingRubric] = useState(null)
   const [editingCriterion, setEditingCriterion] = useState(null)
-  
+
   // Forms
   const [rubricForm, setRubricForm] = useState({
     name: '',
@@ -19,7 +36,7 @@ function Rubrics() {
     rubric_type: 'custom',
     passing_score: 3.0
   })
-  
+
   const [criterionForm, setCriterionForm] = useState({
     name: '',
     category: 'visual',
@@ -43,7 +60,7 @@ function Rubrics() {
 
   const fetchRubrics = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/assessment-rubrics/')
+      const res = await fetch('/api/assessment-rubrics/', { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
         setRubrics(Array.isArray(data) ? data : (data.results || []))
@@ -56,12 +73,16 @@ function Rubrics() {
   const createRubric = async () => {
     setLoading(true)
     try {
-      const url = editingRubric 
-        ? `http://localhost:8000/api/assessment-rubrics/${editingRubric.id}/`
-        : 'http://localhost:8000/api/assessment-rubrics/'
+      const url = editingRubric
+        ? `/api/assessment-rubrics/${editingRubric.id}/`
+        : '/api/assessment-rubrics/'
+      const csrfToken = getCSRFToken();
       const res = await fetch(url, {
-        method: editingRubric ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', method: editingRubric ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
         body: JSON.stringify(rubricForm)
       })
       if (res.ok) {
@@ -78,7 +99,12 @@ function Rubrics() {
   const deleteRubric = async (id) => {
     if (!confirm('Delete this rubric? All criteria will also be deleted.')) return
     try {
-      await fetch(`http://localhost:8000/api/assessment-rubrics/${id}/`, { method: 'DELETE' })
+      const csrfToken = getCSRFToken();
+      await fetch(`/api/assessment-rubrics/${id}/`, {
+        credentials: 'include',
+        method: 'DELETE',
+        headers: { 'X-CSRFToken': csrfToken }
+      })
       fetchRubrics()
       if (selectedRubric?.id === id) setSelectedRubric(null)
     } catch (error) {
@@ -88,7 +114,12 @@ function Rubrics() {
 
   const activateRubric = async (id) => {
     try {
-      await fetch(`http://localhost:8000/api/assessment-rubrics/${id}/activate/`, { method: 'POST' })
+      const csrfToken = getCSRFToken();
+      await fetch(`/api/assessment-rubrics/${id}/activate/`, {
+        credentials: 'include',
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken }
+      })
       fetchRubrics()
     } catch (error) {
       console.error('Error activating rubric:', error)
@@ -98,17 +129,25 @@ function Rubrics() {
   const createISO5817 = async () => {
     setLoading(true)
     try {
-      const res = await fetch('http://localhost:8000/api/assessment-rubrics/create_iso_5817/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: `ISO 5817 Rubric - ${new Date().toLocaleDateString()}` })
+      const csrfToken = getCSRFToken();
+      const res = await fetch('/api/assessment-rubrics/create_iso_5817/', {
+        credentials: 'include', method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ name: `ISO 5817 Rubric - ${new Date().toLocaleString()}` })
       })
       if (res.ok) {
         fetchRubrics()
         alert('ISO 5817 rubric created with standard criteria!')
+      } else {
+        const errorData = await res.json()
+        alert(`Failed to create rubric: ${errorData.detail || errorData.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Error creating ISO rubric:', error)
+      alert('Error creating ISO rubric. Check console for details.')
     }
     setLoading(false)
   }
@@ -118,11 +157,15 @@ function Rubrics() {
     setLoading(true)
     try {
       const url = editingCriterion
-        ? `http://localhost:8000/api/rubric-criteria/${editingCriterion.id}/`
-        : `http://localhost:8000/api/assessment-rubrics/${selectedRubric.id}/add_criterion/`
+        ? `/api/rubric-criteria/${editingCriterion.id}/`
+        : `/api/assessment-rubrics/${selectedRubric.id}/add_criterion/`
+      const csrfToken = getCSRFToken();
       const res = await fetch(url, {
-        method: editingCriterion ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', method: editingCriterion ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
         body: JSON.stringify(criterionForm)
       })
       if (res.ok) {
@@ -130,7 +173,7 @@ function Rubrics() {
         setShowCriterionModal(false)
         resetCriterionForm()
         // Refresh selected rubric
-        const updatedRes = await fetch(`http://localhost:8000/api/assessment-rubrics/${selectedRubric.id}/`)
+        const updatedRes = await fetch(`/api/assessment-rubrics/${selectedRubric.id}/`, { credentials: 'include' })
         if (updatedRes.ok) {
           setSelectedRubric(await updatedRes.json())
         }
@@ -144,9 +187,14 @@ function Rubrics() {
   const deleteCriterion = async (id) => {
     if (!confirm('Delete this criterion?')) return
     try {
-      await fetch(`http://localhost:8000/api/rubric-criteria/${id}/`, { method: 'DELETE' })
+      const csrfToken = getCSRFToken();
+      await fetch(`/api/rubric-criteria/${id}/`, {
+        credentials: 'include',
+        method: 'DELETE',
+        headers: { 'X-CSRFToken': csrfToken }
+      })
       // Refresh selected rubric
-      const res = await fetch(`http://localhost:8000/api/assessment-rubrics/${selectedRubric.id}/`)
+      const res = await fetch(`/api/assessment-rubrics/${selectedRubric.id}/`, { credentials: 'include' })
       if (res.ok) {
         setSelectedRubric(await res.json())
       }
@@ -238,7 +286,7 @@ function Rubrics() {
         {/* Rubrics List */}
         <div className="bg-industrial-slate rounded-lg border border-industrial-gray p-4">
           <h3 className="text-lg font-semibold text-white mb-4">Rubrics</h3>
-          
+
           {rubrics.length === 0 ? (
             <div className="text-center py-8">
               <ClipboardCheck className="w-12 h-12 text-slate-700 mx-auto mb-3" />
@@ -251,11 +299,10 @@ function Rubrics() {
                 <div
                   key={rubric.id}
                   onClick={() => setSelectedRubric(rubric)}
-                  className={`p-3 rounded-lg cursor-pointer transition-all ${
-                    selectedRubric?.id === rubric.id
-                      ? 'bg-industrial-blue/20 border-2 border-industrial-blue'
-                      : 'bg-industrial-dark hover:bg-industrial-gray border-2 border-transparent'
-                  }`}
+                  className={`p-3 rounded-lg cursor-pointer transition-all ${selectedRubric?.id === rubric.id
+                    ? 'bg-industrial-blue/20 border-2 border-industrial-blue'
+                    : 'bg-industrial-dark hover:bg-industrial-gray border-2 border-transparent'
+                    }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -331,11 +378,10 @@ function Rubrics() {
                   {[1, 2, 3, 4, 5].map(score => (
                     <div
                       key={score}
-                      className={`w-8 h-8 rounded flex items-center justify-center text-sm font-bold ${
-                        score >= selectedRubric.passing_score
-                          ? 'bg-green-600 text-white'
-                          : 'bg-red-900/50 text-red-400'
-                      }`}
+                      className={`w-8 h-8 rounded flex items-center justify-center text-sm font-bold ${score >= selectedRubric.passing_score
+                        ? 'bg-green-600 text-white'
+                        : 'bg-red-900/50 text-red-400'
+                        }`}
                     >
                       {score}
                     </div>
@@ -389,9 +435,8 @@ function Rubrics() {
                       <div className="grid grid-cols-5 gap-2 text-xs">
                         {[1, 2, 3, 4, 5].map(score => (
                           <div key={score} className="p-2 bg-slate-800 rounded text-center">
-                            <div className={`font-bold mb-1 ${
-                              score >= selectedRubric.passing_score ? 'text-green-400' : 'text-red-400'
-                            }`}>
+                            <div className={`font-bold mb-1 ${score >= selectedRubric.passing_score ? 'text-green-400' : 'text-red-400'
+                              }`}>
                               {score}
                             </div>
                             <div className="text-slate-400">{criterion[`score_${score}_label`]}</div>
@@ -571,9 +616,8 @@ function Rubrics() {
                   {[1, 2, 3, 4, 5].map(score => (
                     <div key={score} className={`p-3 rounded-lg ${score >= (selectedRubric?.passing_score || 3) ? 'bg-green-950/30 border border-green-800' : 'bg-red-950/30 border border-red-800'}`}>
                       <div className="flex items-center gap-3 mb-2">
-                        <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
-                          score >= (selectedRubric?.passing_score || 3) ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-                        }`}>
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${score >= (selectedRubric?.passing_score || 3) ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                          }`}>
                           {score}
                         </span>
                         <input
@@ -621,3 +665,5 @@ function Rubrics() {
 }
 
 export default Rubrics
+
+

@@ -61,9 +61,12 @@ CAMERA_MODE = os.getenv('WELDVISION_CAMERA_MODE', 'single')  # single|side_by_si
 ENABLE_BUFFERING = os.getenv('WELDVISION_ENABLE_BUFFERING', '1').lower() in ('1', 'true', 'yes', 'y')
 ENABLE_STREAM = os.getenv('WELDVISION_ENABLE_STREAM', '1').lower() in ('1', 'true', 'yes', 'y')
 ENABLE_STEREO = os.getenv('WELDVISION_ENABLE_STEREO', '0').lower() in ('1', 'true', 'yes', 'y')
+ENABLE_PLY_EXPORT = os.getenv('WELDVISION_ENABLE_PLY_EXPORT', '1').lower() in ('1', 'true', 'yes', 'y')
 STEREO_CALIB_PATH = os.getenv('WELDVISION_STEREO_CALIB_PATH', os.path.join(MODEL_DIR, 'stereo_calib.json'))
 BUFFER_DIR = os.getenv('WELDVISION_BUFFER_DIR', os.path.join(MODEL_DIR, 'buffer'))
+PLY_OUTPUT_DIR = os.getenv('WELDVISION_PLY_OUTPUT_DIR', os.path.join(MODEL_DIR, 'pointclouds'))
 BUFFER_MAX_BYTES = int(os.getenv('WELDVISION_BUFFER_MAX_BYTES', str(2 * 1024 * 1024 * 1024)))
+PLY_DECIMATE_POINTS = int(os.getenv('WELDVISION_PLY_DECIMATE_POINTS', '50000'))
 
 # Overlay stream server
 STREAM_HOST = os.getenv('WELDVISION_STREAM_HOST', '0.0.0.0')
@@ -122,6 +125,7 @@ try:
     from modules.buffering import LocalBuffer
     from modules.overlay_stream import LiveState, OverlayStreamServer
     from modules.stereo_depth import StereoDepthEstimator, load_calibration_json, depth_to_colormap
+    from modules.ply_exporter import generate_ply_from_depth, generate_preview_json, decimate_point_cloud
 except Exception:
     LocalBuffer = None
     LiveState = None
@@ -129,6 +133,9 @@ except Exception:
     StereoDepthEstimator = None
     load_calibration_json = None
     depth_to_colormap = None
+    generate_ply_from_depth = None
+    generate_preview_json = None
+    decimate_point_cloud = None
 
 
 # ============================================================================
@@ -669,6 +676,35 @@ class ProcessWorker(threading.Thread):
             if geometric_metrics is None:
                 geometric_metrics = calculate_depth(left)
 
+            # PLY Point Cloud Generation (on scan/trigger)
+            ply_path = None
+            mesh_preview_json = None
+            if ENABLE_PLY_EXPORT and self.depth_estimator is not None and right is not None:
+                try:
+                    # Generate timestamp-based filename
+                    ts_str = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+                    ply_filename = f"weld_{STUDENT_ID}_{ts_str}.ply"
+                    ply_path = os.path.join(PLY_OUTPUT_DIR, ply_filename)
+                    os.makedirs(PLY_OUTPUT_DIR, exist_ok=True)
+                    
+                    # Get Q matrix from calibration
+                    Q = self.depth_estimator.calib.Q if self.depth_estimator else None
+                    
+                    if Q is not None and generate_ply_from_depth is not None:
+                        # Save full-resolution PLY locally
+                        success = generate_ply_from_depth(disp, left, Q, ply_path)
+                        if success:
+                            logger.info(f"📦 PLY saved: {ply_path}")
+                        
+                        # Generate decimated preview for web viewer
+                        if generate_preview_json is not None:
+                            mesh_preview_json = generate_preview_json(
+                                disp, left, Q, target_points=PLY_DECIMATE_POINTS
+                            )
+                            logger.debug(f"Preview JSON: {mesh_preview_json.get('count', 0)} points")
+                except Exception as e:
+                    logger.warning(f"PLY export failed: {e}")
+
             overlay = draw_overlay(left, detections, depth_heat)
             ok, jpeg = cv2.imencode('.jpg', overlay, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
 
@@ -692,6 +728,8 @@ class ProcessWorker(threading.Thread):
                 'geometric_metrics': geometric_metrics,
                 'visual_defects': visual_defects,
                 'metrics_payload': metrics_payload,
+                'ply_path': ply_path,
+                'mesh_preview_json': mesh_preview_json,
             }
 
             try:

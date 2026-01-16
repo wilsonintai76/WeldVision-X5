@@ -57,11 +57,10 @@ class StereoCalibration(models.Model):
 
 
 class ClassGroup(models.Model):
-    """Class/Group model for organizing students"""
-    name = models.CharField(max_length=100, unique=True)
+    """Class/Group model for organizing students - represents HOME CLASS (e.g., DKM5A, DKM6A)"""
+    name = models.CharField(max_length=100, unique=True, help_text="Home class name (e.g., DKM5A)")
+    department = models.CharField(max_length=100, blank=True, help_text="Department/Jabatan (e.g., JKM)")
     description = models.TextField(blank=True)
-    instructor = models.CharField(max_length=200, blank=True, help_text="Instructor/Lecturer name")
-    semester = models.CharField(max_length=50, blank=True, help_text="e.g., Spring 2026")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -72,16 +71,79 @@ class ClassGroup(models.Model):
         return self.name
 
 
+class Session(models.Model):
+    """Academic Session/Semester (e.g., 2:2025/2026 = Semester 2, Year 2025/2026)"""
+    name = models.CharField(max_length=50, unique=True, help_text="Session name (e.g., 2:2025/2026)")
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=False, help_text="Currently active session")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_active', '-name']
+
+    def __str__(self):
+        return f"{self.name}{' (Active)' if self.is_active else ''}"
+
+    def save(self, *args, **kwargs):
+        # Ensure only one active session
+        if self.is_active:
+            Session.objects.filter(is_active=True).exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
+
+
+class Course(models.Model):
+    """Course model (e.g., DJJ40173 - ENGINEERING DESIGN)"""
+    code = models.CharField(max_length=20, help_text="Course code (e.g., DJJ40173)")
+    name = models.CharField(max_length=200, help_text="Course name (e.g., ENGINEERING DESIGN)")
+    section = models.CharField(max_length=20, blank=True, help_text="Section (e.g., S3)")
+    session = models.ForeignKey(
+        Session,
+        on_delete=models.CASCADE,
+        related_name='courses',
+        help_text="Academic session"
+    )
+    instructor = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='courses_teaching',
+        limit_choices_to={'role': 'instructor'},
+        help_text="Course instructor"
+    )
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['code', 'section']
+        unique_together = ['code', 'section', 'session']
+
+    def __str__(self):
+        section_str = f" ({self.section})" if self.section else ""
+        return f"{self.code} - {self.name}{section_str}"
+
+
 class Student(models.Model):
     """Student model with ID and Name"""
-    student_id = models.CharField(max_length=50, unique=True)
+    student_id = models.CharField(max_length=50, unique=True, help_text="Registration number (e.g., 05DKM23F2014)")
     name = models.CharField(max_length=200)
     class_group = models.ForeignKey(
         ClassGroup,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='students'
+        related_name='students',
+        help_text="Student's home class (e.g., DKM5A)"
+    )
+    department = models.CharField(max_length=100, blank=True, help_text="Department/Jabatan (e.g., JKM)")
+    enrolled_courses = models.ManyToManyField(
+        Course,
+        blank=True,
+        related_name='enrolled_students',
+        help_text="Courses the student is enrolled in"
     )
     email = models.EmailField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

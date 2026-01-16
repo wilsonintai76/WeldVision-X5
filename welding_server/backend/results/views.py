@@ -6,6 +6,7 @@ from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from django.http import FileResponse, Http404
 from core.models import Student
 from .models import Assessment
 from .serializers import (
@@ -13,6 +14,7 @@ from .serializers import (
     AssessmentListSerializer,
     AssessmentUploadSerializer
 )
+
 
 
 class AssessmentViewSet(viewsets.ModelViewSet):
@@ -75,6 +77,8 @@ def upload_assessment(request):
         student=student,
         image_original=serializer.validated_data.get('image_original'),
         image_heatmap=serializer.validated_data.get('image_heatmap'),
+        pointcloud_ply=serializer.validated_data.get('pointcloud_ply'),
+        mesh_preview_json=serializer.validated_data.get('mesh_preview_json'),
         metrics_json=serializer.validated_data['metrics_json'],
         device_id=serializer.validated_data.get('device_id', ''),
         model_version=serializer.validated_data.get('model_version', ''),
@@ -97,6 +101,9 @@ def upload_assessment(request):
     )
 
 
+
+
+
 @api_view(['GET'])
 def student_assessments(request, student_id):
     """
@@ -115,4 +122,61 @@ def student_assessments(request, student_id):
         },
         'assessments': serializer.data,
         'total_count': assessments.count()
+    })
+
+
+@api_view(['GET'])
+def download_pointcloud(request, pk):
+    """
+    Download full-resolution PLY point cloud for an assessment
+    
+    GET /api/assessments/<pk>/download-ply/
+    
+    Returns the PLY file for CloudCompare or other 3D viewers.
+    Intended for instructors performing forensic metrology.
+    """
+    assessment = get_object_or_404(Assessment, pk=pk)
+    
+    if not assessment.pointcloud_ply:
+        raise Http404("No point cloud file available for this assessment")
+    
+    # Get the file
+    ply_file = assessment.pointcloud_ply
+    
+    # Generate filename for download
+    filename = f"weld_{assessment.student.student_id}_{assessment.timestamp.strftime('%Y%m%d_%H%M%S')}.ply"
+    
+    response = FileResponse(
+        ply_file.open('rb'),
+        as_attachment=True,
+        filename=filename
+    )
+    response['Content-Type'] = 'application/octet-stream'
+    
+    return response
+
+
+@api_view(['GET'])
+def assessment_mesh_preview(request, pk):
+    """
+    Get decimated mesh preview JSON for web 3D viewer
+    
+    GET /api/assessments/<pk>/mesh-preview/
+    
+    Returns the decimated point cloud (<50k points) for Three.js rendering.
+    Intended for students viewing their weld in the browser.
+    """
+    assessment = get_object_or_404(Assessment, pk=pk)
+    
+    if not assessment.mesh_preview_json:
+        return Response(
+            {'error': 'No 3D preview available for this assessment'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    return Response({
+        'assessment_id': assessment.id,
+        'student_id': assessment.student.student_id,
+        'timestamp': assessment.timestamp.isoformat(),
+        'mesh': assessment.mesh_preview_json
     })

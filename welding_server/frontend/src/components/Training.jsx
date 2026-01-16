@@ -23,7 +23,7 @@ function Training() {
 
   const fetchDatasets = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/datasets/')
+      const response = await fetch('/api/datasets/', { credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
         setDatasets(data)
@@ -36,7 +36,7 @@ function Training() {
   const fetchJobs = async () => {
     setJobsLoading(true)
     try {
-      const response = await fetch('http://localhost:8000/api/jobs/')
+      const response = await fetch('/api/jobs/', { credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
         setJobs(data.filter(job => job.job_type === 'train'))
@@ -57,8 +57,7 @@ function Training() {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/train-model/', {
-        method: 'POST',
+      const response = await fetch('/api/train-model/', { credentials: 'include', method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...trainForm,
@@ -338,3 +337,5 @@ function Training() {
 }
 
 export default Training
+
+

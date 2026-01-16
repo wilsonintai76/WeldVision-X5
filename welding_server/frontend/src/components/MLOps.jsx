@@ -38,12 +38,12 @@ function MLOps() {
   })
   const [convertSource, setConvertSource] = useState('model') // 'model', 'job', 'manual'
 
-  const apiBase = useMemo(() => 'http://localhost:8000/api', [])
+  const apiBase = useMemo(() => '/api', [])
 
   // Check API Status - real endpoint
   const checkApiStatus = async () => {
     try {
-      const res = await fetch(`${apiBase}/jobs/`, { method: 'HEAD' })
+      const res = await fetch(`${apiBase}/jobs/`, { credentials: 'include', method: 'HEAD' })
       setApiStatus(res.ok)
     } catch {
       setApiStatus(false)
@@ -77,7 +77,7 @@ function MLOps() {
 
   const fetchDatasets = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/datasets/')
+      const res = await fetch('/api/datasets/', { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
         setDatasets(data)
@@ -133,8 +133,7 @@ function MLOps() {
       alert('Please select a dataset')
       return
     }
-    const res = await fetch(`${apiBase}/train-model/`, {
-      method: 'POST',
+    const res = await fetch(`${apiBase}/train-model/`, { credentials: 'include', method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(trainForm),
     })
@@ -167,8 +166,7 @@ function MLOps() {
       return
     }
     
-    const res = await fetch(`${apiBase}/convert-model/`, {
-      method: 'POST',
+    const res = await fetch(`${apiBase}/convert-model/`, { credentials: 'include', method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
@@ -199,8 +197,7 @@ function MLOps() {
       formData.append('version', uploadForm.version)
       formData.append('description', uploadForm.description || '')
       
-      const res = await fetch(`${apiBase}/upload-model/`, {
-        method: 'POST',
+      const res = await fetch(`${apiBase}/upload-model/`, { credentials: 'include', method: 'POST',
         body: formData,
       })
       
@@ -231,8 +228,7 @@ function MLOps() {
   const registerArtifact = async (jobId) => {
     const version = window.prompt('Model version to save as (must be unique):', '')
     if (version === null) return
-    const res = await fetch(`${apiBase}/register-artifact/`, {
-      method: 'POST',
+    const res = await fetch(`${apiBase}/register-artifact/`, { credentials: 'include', method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ job_id: jobId, name: 'weldvision-yolo', version }),
     })
@@ -261,8 +257,7 @@ function MLOps() {
     if (!window.confirm(`Deploy "${model.name}" (v${model.version}) to RDK X5?`)) return
     
     try {
-      const res = await fetch(`${apiBase}/models/${modelId}/deploy/`, {
-        method: 'POST',
+      const res = await fetch(`${apiBase}/models/${modelId}/deploy/`, { credentials: 'include', method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ device_ip: 'auto' }),
       })
@@ -908,3 +903,5 @@ function InfoRow({ label, value }) {
 }
 
 export default MLOps
+
+

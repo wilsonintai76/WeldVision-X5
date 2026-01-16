@@ -58,7 +58,7 @@ class StudentEvaluationSerializer(serializers.ModelSerializer):
             'total_score', 'passed',
             'session_start', 'session_end', 'duration_seconds',
             'ai_metrics', 'notes', 'criterion_scores',
-            'created_at'
+            'assessment', 'created_at'
         ]
         read_only_fields = ['created_at', 'total_score', 'passed']
 

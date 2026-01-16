@@ -38,8 +38,7 @@ function EdgeManagement() {
     setLoading(true)
     try {
       // Try to connect to RDK X5
-      const res = await fetch(`http://${edgeConfig.device_ip}:${edgeConfig.device_port}/health`, {
-        method: 'GET',
+      const res = await fetch(`http://${edgeConfig.device_ip}:${edgeConfig.device_port}/health`, { credentials: 'include', method: 'GET',
         signal: AbortSignal.timeout(3000)
       })
       if (res.ok) {
@@ -58,7 +57,7 @@ function EdgeManagement() {
 
   const fetchCalibrations = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/stereo-calibrations/')
+      const res = await fetch('/api/stereo-calibrations/', { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
         setCalibrations(Array.isArray(data) ? data : (data.results || []))
@@ -75,8 +74,7 @@ function EdgeManagement() {
     }
     
     try {
-      const res = await fetch('http://localhost:8000/api/stereo-calibrations/', {
-        method: 'POST',
+      const res = await fetch('/api/stereo-calibrations/', { credentials: 'include', method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(calibration)
       })
@@ -95,8 +93,7 @@ function EdgeManagement() {
 
   const activateCalibration = async (id) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/stereo-calibrations/${id}/`, {
-        method: 'PATCH',
+      const res = await fetch(`/api/stereo-calibrations/${id}/`, { credentials: 'include', method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_active: true })
       })
@@ -112,8 +109,7 @@ function EdgeManagement() {
     if (!confirm('Delete this calibration?')) return
     
     try {
-      const res = await fetch(`http://localhost:8000/api/stereo-calibrations/${id}/`, {
-        method: 'DELETE'
+      const res = await fetch(`/api/stereo-calibrations/${id}/`, { credentials: 'include', method: 'DELETE'
       })
       if (res.ok) {
         fetchCalibrations()
@@ -134,8 +130,7 @@ function EdgeManagement() {
     setIsCapturing(true)
     try {
       // Simulate capturing stereo pair from RDK X5
-      const res = await fetch(`http://${edgeConfig.device_ip}:${edgeConfig.device_port}/capture-stereo`, {
-        method: 'POST',
+      const res = await fetch(`http://${edgeConfig.device_ip}:${edgeConfig.device_port}/capture-stereo`, { credentials: 'include', method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           rows: checkerboardConfig.rows, 
@@ -179,8 +174,7 @@ function EdgeManagement() {
     setIsCalibrating(true)
     try {
       // Send to backend for OpenCV calibration
-      const res = await fetch('http://localhost:8000/api/stereo-calibrations/calibrate/', {
-        method: 'POST',
+      const res = await fetch('/api/stereo-calibrations/calibrate/', { credentials: 'include', method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: checkerboardConfig.name,
@@ -222,8 +216,7 @@ function EdgeManagement() {
     if (!calibrationResults) return
     
     try {
-      const res = await fetch('http://localhost:8000/api/stereo-calibrations/', {
-        method: 'POST',
+      const res = await fetch('/api/stereo-calibrations/', { credentials: 'include', method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: calibrationResults.name,
@@ -1092,3 +1085,5 @@ function EdgeManagement() {
 }
 
 export default EdgeManagement
+
+

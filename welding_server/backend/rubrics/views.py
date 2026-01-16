@@ -1,15 +1,22 @@
 """
 Rubrics Views
 """
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, permissions
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from .models import Rubric, AssessmentRubric, RubricCriterion, StudentEvaluation, CriterionScore
 from .serializers import (
     RubricSerializer, AssessmentRubricSerializer, RubricCriterionSerializer,
     StudentEvaluationSerializer, StudentEvaluationCreateSerializer
 )
 
+
+class CsrfExemptSessionAuthentication(SessionAuthentication):
+    def enforce_csrf(self, request):
+        return  # To not perform the csrf check previously happening
 
 class RubricViewSet(viewsets.ModelViewSet):
     """ViewSet for Rubric CRUD operations"""
@@ -40,6 +47,10 @@ class AssessmentRubricViewSet(viewsets.ModelViewSet):
     queryset = AssessmentRubric.objects.all()
     serializer_class = AssessmentRubricSerializer
     
+    @method_decorator(ensure_csrf_cookie)
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
     @action(detail=False, methods=['get'])
     def active(self, request):
         """Get the currently active assessment rubric"""
@@ -68,17 +79,24 @@ class AssessmentRubricViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    @action(detail=False, methods=['post'])
+    @method_decorator(csrf_exempt)
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated], authentication_classes=[CsrfExemptSessionAuthentication])
     def create_iso_5817(self, request):
         """Create a pre-configured ISO 5817 rubric"""
         name = request.data.get('name', 'ISO 5817 Quality Rubric')
         
-        rubric = AssessmentRubric.objects.create(
-            name=name,
-            description='Welding quality assessment based on ISO 5817 quality levels',
-            rubric_type='iso_5817',
-            passing_score=3.0
-        )
+        try:
+            rubric = AssessmentRubric.objects.create(
+                name=name,
+                description='Welding quality assessment based on ISO 5817 quality levels',
+                rubric_type='iso_5817',
+                passing_score=3.0
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to create rubric. Name "{name}" might already exist.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         # Create ISO 5817 criteria
         criteria = [

@@ -12,6 +12,9 @@ Pillow
 # PDF Generation
 reportlab
 
+# PDF Parsing (for attendance sheet import)
+pdfplumber
+
 # SSH/SCP for MLOps Deployment
 paramiko
 

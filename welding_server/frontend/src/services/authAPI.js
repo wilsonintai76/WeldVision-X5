@@ -59,10 +59,13 @@ export const authAPI = {
   },
   
   // Login
-  async login(username, password) {
+  async login(credentials) {
+    // Ensure CSRF token is fetched first
+    await this.getCSRFToken();
+    
     const response = await authFetch('/auth/login/', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify(credentials),
     });
     const data = await response.json();
     if (!response.ok) {

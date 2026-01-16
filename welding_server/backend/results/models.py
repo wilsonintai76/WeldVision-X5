@@ -74,6 +74,28 @@ class Assessment(models.Model):
     device_id = models.CharField(max_length=100, blank=True, help_text="RDK X5 device identifier")
     model_version = models.CharField(max_length=50, blank=True, help_text="AI model version used")
     
+    # 3D Point Cloud Data
+    pointcloud_ply = models.FileField(
+        upload_to='assessments/pointclouds/%Y/%m/%d/',
+        null=True,
+        blank=True,
+        help_text="Full-resolution PLY point cloud for instructor download"
+    )
+    mesh_preview_json = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Decimated point cloud (<50k points) for web 3D viewer"
+    )
+    """
+    mesh_preview_json structure:
+    {
+        "points": [[x,y,z], ...],
+        "colors": [[r,g,b], ...],
+        "count": 45000,
+        "bounds": {"min": [x,y,z], "max": [x,y,z]}
+    }
+    """
+    
     class Meta:
         ordering = ['-timestamp']
         indexes = [
