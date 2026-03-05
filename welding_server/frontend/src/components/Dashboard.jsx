@@ -29,6 +29,7 @@ function Dashboard() {
   const [evaluationResults, setEvaluationResults] = useState([])
   const [criterionScores, setCriterionScores] = useState({})
   const [aiSuggestedIds, setAiSuggestedIds] = useState(new Set()) // criteria auto-scored by AI
+  const [isLiveData, setIsLiveData] = useState(false) // true = real edge device data
 
   const [metrics, setMetrics] = useState({
     height: 2.1,
@@ -174,11 +175,47 @@ function Dashboard() {
     }
   }
 
-  // Mock Data Generator - Updates every second when evaluating
+  // Live Metrics Polling - fetches latest assessment from edge device via backend
   useEffect(() => {
-    if (!isEvaluating) return
+    if (!isEvaluating || !selectedStudent) return
 
-    const interval = setInterval(() => {
+    const pollMetrics = async () => {
+      try {
+        const res = await fetch(
+          `/api/students/${selectedStudent.student_id}/assessments/?limit=1`,
+          { credentials: 'include' }
+        )
+        if (!res.ok) throw new Error('fetch failed')
+
+        const data = await res.json()
+        const latest = (data.assessments || [])[0]
+
+        if (latest?.metrics_json) {
+          const geo = latest.metrics_json.geometric || {}
+          const vis = latest.metrics_json.visual || {}
+
+
+          const newMetrics = {
+            height: parseFloat((geo.reinforcement_height_mm ?? 2.1).toFixed(2)),
+            width: parseFloat((geo.bead_width_mm ?? 10.2).toFixed(2)),
+            defects: {
+              porosity: vis.porosity_count ?? 0,
+              spatter: vis.spatter_count ?? 0,
+              slagInclusion: vis.slag_inclusion_count ?? 0,
+              burnThrough: vis.burn_through_count ?? 0,
+            },
+          }
+          setMetrics(newMetrics)
+          setIsLiveData(true)
+          if (selectedRubric) suggestScoresFromMetrics(selectedRubric, newMetrics)
+          return
+        }
+      } catch (_) {
+        // server unreachable or no assessments yet — fall through to mock
+      }
+
+      // Fallback: mock data while waiting for first real upload
+      setIsLiveData(false)
       const newMetrics = {
         height: parseFloat((2.1 + (Math.random() - 0.5) * 0.2).toFixed(2)),
         width: parseFloat((10.0 + Math.random() * 2).toFixed(2)),
@@ -190,12 +227,16 @@ function Dashboard() {
         },
       }
       setMetrics(newMetrics)
-      // Re-suggest AI scores on every metric update (only for AI-tracked criteria)
       if (selectedRubric) suggestScoresFromMetrics(selectedRubric, newMetrics)
-    }, 1000)
+    }
 
-    return () => clearInterval(interval)
-  }, [isEvaluating, selectedRubric, suggestScoresFromMetrics])
+    pollMetrics() // immediate first call
+    const interval = setInterval(pollMetrics, 2000)
+    return () => {
+      clearInterval(interval)
+      setIsLiveData(false)
+    }
+  }, [isEvaluating, selectedStudent, selectedRubric, suggestScoresFromMetrics])
 
   const handleClassChange = (e) => {
     const classId = e.target.value
@@ -478,7 +519,20 @@ function Dashboard() {
 
         {/* Right: Live Metrics */}
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-white mb-4">Live Metrics</h3>
+          <div className="flex items-center gap-3 mb-4">
+            <h3 className="text-xl font-semibold text-white">Live Metrics</h3>
+            {isEvaluating && (
+              isLiveData
+                ? <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-900 text-emerald-300 border border-emerald-600">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+                    LIVE
+                  </span>
+                : <span className="flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-yellow-900 text-yellow-300 border border-yellow-600">
+                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 inline-block" />
+                    MOCK
+                  </span>
+            )}
+          </div>
 
           {/* Reinforcement Height Card */}
           <div className={`p-4 rounded-lg border-2 transition-all ${isHeightValid
