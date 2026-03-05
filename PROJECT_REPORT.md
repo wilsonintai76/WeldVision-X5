@@ -35,11 +35,12 @@ The application follows a distributed architecture with three main components:
 
 ### Network Architecture:
 ```
-RDK X5 Edge Device ──HTTP──► Django Backend ◄──HTTP─── React Frontend
-     │                           │                        │
-     └─ Camera Input            └─ Database              └─ Dashboard UI
-     └─ YOLO Inference          └─ File Storage          └─ Analytics
-     └─ Depth Processing        └─ MLOps API             └─ Training UI
+RDK X5 Edge Device ──HTTP (LAN)──► Django Backend ◄──HTTP─── React Frontend
+     │                                  │                          │
+     └─ Stereo Camera Input            └─ SQLite / PostgreSQL     └─ Live Dashboard
+     └─ YOLOv8 BPU Inference           └─ Media / File Storage    └─ Rubric Evaluation
+     └─ Depth / PLY Processing         └─ MLOps API               └─ User Management
+     └─ SSH status ◄────────────────── └─ /api/device-status/     └─ Analytics / Reports
 ```
 
 ## 3. Technologies Used
@@ -69,8 +70,9 @@ RDK X5 Edge Device ──HTTP──► Django Backend ◄──HTTP─── Rea
 
 ### Deployment & Containerization:
 - **Container Platform**: Docker with Docker Compose
-- **Orchestration**: Docker Compose for multi-service deployment
-- **Service Management**: systemd for edge device auto-start
+- **Dev Orchestration**: `docker-compose.yml` — Django runserver + Vite HMR, volume-mounted for instant hot-reload
+- **Prod Orchestration**: `docker-compose.prod.yml` — Gunicorn `--reload` + Vite `build --watch` + nginx serving shared `dist_data` volume
+- **Service Management**: systemd for edge device auto-start on RDK X5
 
 ## 4. Key Features
 
@@ -82,21 +84,34 @@ RDK X5 Edge Device ──HTTP──► Django Backend ◄──HTTP─── Rea
 
 ### 4.2 Web Dashboard
 - Live monitoring interface
-- User authentication and role management
+- User authentication and role-based access (Admin / Instructor)
+- User Management restricted to staff accounts (Admin and Instructor only); student records managed separately under Course Management
 - Course and class management system
 - Training data annotation tools
 - Model training and deployment interface
 - Analytics and reporting dashboard
 - 3D weld visualization with PLY export
 
-### 4.3 MLOps Capabilities
+### 4.3 Rubric-Based AI Evaluation
+- Configurable assessment rubrics with Likert 1–5 scoring criteria
+- **AI auto-scoring**: measurable criteria (weld height, width, porosity, spatter) are automatically scored from live edge device metrics via `suggestScoresFromMetrics()`
+- Visual AI badge on auto-scored criteria; manual click overrides AI score
+- Scores refresh every second while a session is active
+- Fully manual override supported for subjective criteria
+
+### 4.4 Edge Device Status Monitoring
+- Backend polls RDK X5 via SSH on `GET /api/device-status/`
+- Returns `{ status, ip, message }` — frontend displays live connected/offline badge
+- Device IP configured via `RDK_DEFAULT_IP` environment variable
+
+### 4.5 MLOps Capabilities
 - Model training pipeline
 - Dataset management and versioning
 - Model conversion for edge deployment
 - Performance monitoring and metrics
 - Automated model updates to edge devices
 
-### 4.4 Data Management
+### 4.6 Data Management
 - Comprehensive database schema for users, sessions, results
 - File storage for images, models, and calibration data
 - Rubrics-based assessment system
@@ -118,9 +133,15 @@ RDK X5 Edge Device ──HTTP──► Django Backend ◄──HTTP─── Rea
 5. **Start Services**: Enable systemd service on RDK X5
 
 ### Development Setup:
-- Backend: `cd welding_server && docker compose up -d`
-- Frontend: Hot-reload enabled with Vite
+- Backend + Frontend: `cd welding_server && docker-compose up -d` (hot-reload via volume mounts)
 - Database: Automatic migrations on startup
+
+### Production Setup (Auto-Reload):
+| Container | Role | Auto-Reload |
+|-----------|------|-------------|
+| `backend` | Gunicorn WSGI | `--reload` watches `.py` changes |
+| `frontend-builder` | Vite build | `build --watch` rebuilds on `.jsx/.css` changes |
+| `frontend` (nginx) | Static serving | Reads from shared `dist_data` volume |
 
 ## 6. Usage Workflow
 
@@ -164,11 +185,12 @@ WeldVision-X5/
 ```
 
 ### API Endpoints:
-- `/api/accounts/` - User management
-- `/api/core/` - Sessions and core functionality
-- `/api/mlops/` - Model training and deployment
-- `/api/results/` - Assessment results
-- `/api/rubrics/` - Quality criteria
+- `/api/accounts/` — User management (staff accounts: Admin, Instructor)
+- `/api/core/` — Sessions and core functionality
+- `/api/mlops/` — Model training and deployment
+- `/api/device-status/` — RDK X5 edge device SSH health check
+- `/api/results/` — Assessment results
+- `/api/rubrics/` — Quality rubrics and criterion scoring
 
 ### Database Schema:
 - **Users**: Custom user model with roles
@@ -205,4 +227,11 @@ The project demonstrates strong software engineering practices with containerize
 **License**: MIT  
 **Repository**: https://github.com/wilsonintai76/WeldVision-X5  
 **Contributors**: Wilson Intai  
-**Last Updated**: January 16, 2026
+**Last Updated**: March 5, 2026
+
+### Changelog (v1.1 — March 5, 2026)
+- Fixed edge device status endpoint: `/api/edge/status/` → `/api/device-status/`
+- Production auto-reload: Gunicorn `--reload` + Vite `build --watch` + shared nginx volume
+- User Management now excludes students (staff only); students managed via Course Management
+- Rubric evaluation: AI auto-scoring for measurable criteria with manual override support
+- Updated all documentation: QUICKSTART, DEPLOYMENT, README, Help page
