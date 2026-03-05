@@ -12,8 +12,20 @@ RestartSec=10
 StandardOutput=journal
 StandardError=journal
 
-# Environment variables (optional)
+# ── Required ────────────────────────────────────────────────
 Environment="PYTHONUNBUFFERED=1"
+Environment="BACKEND_URL=http://192.168.1.10:8000"
+Environment="WELDVISION_DEVICE_ID=RDK-X5-WORKSHOP-01"
+
+# ── Optional features ───────────────────────────────────────
+Environment="WELDVISION_ENABLE_STREAM=1"
+Environment="WELDVISION_STREAM_PORT=8080"
+Environment="WELDVISION_ENABLE_BUFFERING=1"
+Environment="WELDVISION_BUFFER_DIR=/home/sunrise/welding_app/buffer"
+Environment="WELDVISION_LOG_PATH=/home/sunrise/welding_app/weldvision.log"
+# Stereo depth (requires calibration JSON — uncomment to enable)
+#Environment="WELDVISION_ENABLE_STEREO=1"
+#Environment="WELDVISION_STEREO_CALIB_PATH=/home/sunrise/welding_app/stereo_calib.json"
 
 [Install]
 WantedBy=multi-user.target
