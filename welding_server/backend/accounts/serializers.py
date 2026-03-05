@@ -107,6 +107,8 @@ class LoginSerializer(serializers.Serializer):
                     raise serializers.ValidationError("Account is disabled.")
                 if not user.is_approved and not user.is_superuser:
                     raise serializers.ValidationError("Account pending approval. Please wait for admin approval.")
+                if user.role == User.Role.STUDENT:
+                    raise serializers.ValidationError("Only staff members are allowed to log in.")
                 data['user'] = user
             else:
                 raise serializers.ValidationError("Invalid username or password.")

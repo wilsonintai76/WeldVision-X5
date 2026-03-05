@@ -112,6 +112,35 @@ docker-compose down
 
 ---
 
+### Production Mode (Auto-Reload)
+
+For production deployments that automatically reload when code changes.
+
+**Start production stack:**
+```bash
+cd WeldVision-X5/welding_server
+docker-compose -f docker-compose.prod.yml up -d --build
+```
+
+**How auto-reload works:**
+
+| Service | Container | Auto-Reload Mechanism |
+|---------|-----------|-----------------------|
+| Backend API | `backend` | Gunicorn `--reload` watches `.py` files |
+| Frontend Build | `frontend-builder` | Vite `build --watch` rebuilds on change |
+| Frontend Serve | `frontend` (nginx) | Serves pre-built files from shared volume |
+
+> **Note:** After editing backend or frontend source files while the production stack is running, changes are applied automatically — no restart needed. Re-run with `--build` only when Python or npm dependencies change.
+
+**Production Access Points:**
+| Service | URL |
+|---------|-----|
+| Frontend Dashboard | http://localhost:80 |
+| Backend API | http://localhost:8000/api/ |
+| Django Admin | http://localhost:8000/admin/ |
+
+---
+
 ### Development Mode (Developers)
 
 For developers who want to edit code with hot-reload.
@@ -315,6 +344,15 @@ SERVER_URL=http://192.168.1.10:8000
 | Python module not found | Run `pip3 install -r requirements.txt` |
 | Permission denied | Run with `sudo` or fix file permissions |
 | Camera not detected | Check camera connections, run `ls /dev/video*` |
+| Edge Device shows offline in dashboard | Verify RDK X5 IP matches `RDK_DEFAULT_IP` in backend `.env`; check SSH connectivity: `ssh sunrise@<IP>` |
+
+### Rubric & Evaluation Issues
+
+| Problem | Solution |
+|---------|----------|
+| AI scores not updating | Ensure the RDK X5 edge device is connected and sending metrics; check Edge Device status on the dashboard |
+| Student not in User Management | Students are managed under **Course Management**, not User Management (by design) |
+| Want to override an AI score | Click the desired score button — the blue AI badge will be removed and your selection saved |
 
 ---
 
@@ -323,10 +361,11 @@ SERVER_URL=http://192.168.1.10:8000
 After setup is complete:
 
 1. **Calibrate Cameras** - See [Stereo Calibration Guide](STEREO_CALIBRATION_SETUP.md)
-2. **Configure Rubrics** - Set up grading criteria in the dashboard
-3. **Add Students** - Import or add students in Management section
-4. **Train/Import Model** - See [Training Options](TRAINING_OPTIONS.md)
-5. **Deploy Model** - Push trained model to RDK X5
+2. **Configure Rubrics** - Set up grading criteria in the dashboard; measurable criteria (height, width, porosity, spatter) are **AI auto-scored** from live inspection metrics — click any score to manually override
+3. **Add Students** - Import or add students under **Course Management** (students do not log in to the app)
+4. **Manage Staff Accounts** - Use **User Management** (Admin only) to manage Instructor and Admin accounts; student records are handled separately in Course Management
+5. **Train/Import Model** - See [Training Options](TRAINING_OPTIONS.md)
+6. **Deploy Model** - Push trained model to RDK X5
 
 ---
 

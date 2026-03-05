@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { 
-  BookOpen, 
+import {
+  BookOpen,
   AlertCircle,
   CheckCircle,
   ChevronRight,
@@ -10,13 +10,20 @@ import {
   Home,
   Keyboard,
   HelpCircle,
-  Lightbulb
+  Lightbulb,
+  Cpu,
+  Users,
+  ClipboardCheck,
+  Server
 } from 'lucide-react'
 
 function Help() {
   const [expandedSections, setExpandedSections] = useState({
     shortcuts: true,
     workflow: false,
+    rubric: false,
+    usermgmt: false,
+    production: false,
     troubleshooting: false
   })
 
@@ -91,9 +98,9 @@ function Help() {
                   location="Top of sidebar"
                 />
                 <ShortcutCard
-                  title="MLOps Studio"
+                  title="AI Workspace"
                   description="Upload data, annotate, train models"
-                  location="Sidebar → MLOps Studio"
+                  location="Sidebar → AI Workspace"
                 />
                 <ShortcutCard
                   title="Edge Management"
@@ -109,9 +116,9 @@ function Help() {
             </div>
           </Section>
 
-          {/* MLOps Workflow */}
+          {/* AI Workspace Workflow */}
           <Section
-            title="MLOps Workflow Summary"
+            title="AI Workspace Workflow Summary"
             icon={<ChevronRight className="w-5 h-5" />}
             expanded={expandedSections.workflow}
             onToggle={() => toggleSection('workflow')}
@@ -130,7 +137,7 @@ function Help() {
                   <WorkflowStep number={5} title="Deploy" />
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
                   <p className="text-white font-medium text-sm mb-1">Local Training</p>
@@ -140,6 +147,116 @@ function Help() {
                   <p className="text-white font-medium text-sm mb-1">Cloud Training</p>
                   <p className="text-xs text-slate-400">Use Colab, Roboflow, or Ultralytics HUB</p>
                 </div>
+              </div>
+            </div>
+          </Section>
+
+          {/* Rubric section */}
+          <Section
+            title="Rubric Evaluation (Auto + Manual)"
+            icon={<ClipboardCheck className="w-5 h-5" />}
+            expanded={expandedSections.rubric}
+            onToggle={() => toggleSection('rubric')}
+          >
+            <div className="space-y-4">
+              <p className="text-slate-300 text-sm">
+                The rubric panel supports both <span className="text-blue-400 font-medium">AI auto-scoring</span> and <span className="text-white font-medium">manual scoring</span> side-by-side.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-blue-950/30 border border-blue-600/40 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Cpu className="w-4 h-4 text-blue-400" />
+                    <p className="text-blue-300 font-medium text-sm">AI Auto-Scored</p>
+                  </div>
+                  <ul className="text-xs text-slate-400 space-y-1 mt-2">
+                    <li>• Reinforcement Height → sensor mm value</li>
+                    <li>• Bead Width Consistency → sensor mm value</li>
+                    <li>• Porosity → AI defect count</li>
+                    <li>• Spatter → AI defect count</li>
+                  </ul>
+                  <p className="text-xs text-blue-400/70 mt-2">Updates live every second. Shown with blue border + AI badge.</p>
+                </div>
+                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <ClipboardCheck className="w-4 h-4 text-slate-300" />
+                    <p className="text-white font-medium text-sm">Manual Scored</p>
+                  </div>
+                  <ul className="text-xs text-slate-400 space-y-1 mt-2">
+                    <li>• Weld Bead Appearance</li>
+                    <li>• Undercut (visual inspection)</li>
+                    <li>• Start/Stop Quality</li>
+                    <li>• Travel Speed Control</li>
+                  </ul>
+                  <p className="text-xs text-slate-500 mt-2">Instructor clicks 1–5 button to score.</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 space-y-2">
+                <p className="text-white text-sm font-medium">How to override an AI score</p>
+                <p className="text-slate-400 text-xs">Simply click any score button (1–5) on an AI-scored criterion. The blue AI badge disappears and the score becomes manual. Use the ↺ icon to restore the AI suggestion from latest sensor data.</p>
+              </div>
+            </div>
+          </Section>
+
+          {/* User Management */}
+          <Section
+            title="User Management (Staff Only)"
+            icon={<Users className="w-5 h-5" />}
+            expanded={expandedSections.usermgmt}
+            onToggle={() => toggleSection('usermgmt')}
+          >
+            <div className="space-y-4">
+              <p className="text-slate-300 text-sm">
+                User Management handles <strong>staff accounts only</strong> (Admin, Instructor). Students do not log into this application.
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-red-900/20 border border-red-600/30 rounded-lg p-3 text-center">
+                  <p className="text-red-300 font-medium text-sm">Admin</p>
+                  <p className="text-xs text-slate-400 mt-1">Full access, manage users, approve staff</p>
+                </div>
+                <div className="bg-blue-900/20 border border-blue-600/30 rounded-lg p-3 text-center">
+                  <p className="text-blue-300 font-medium text-sm">Instructor</p>
+                  <p className="text-xs text-slate-400 mt-1">Evaluate students, manage classes</p>
+                </div>
+                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 text-center">
+                  <p className="text-slate-300 font-medium text-sm">Students</p>
+                  <p className="text-xs text-slate-500 mt-1">Managed via Course Management, not here</p>
+                </div>
+              </div>
+              <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
+                <p className="text-white text-sm font-medium mb-1">Where to manage students</p>
+                <p className="text-slate-400 text-xs">Go to <span className="text-blue-400">Course Management</span> → select a class → Add/Import Students. Students can be bulk-imported via CSV or attendance PDF.</p>
+              </div>
+            </div>
+          </Section>
+
+          {/* Production Deployment */}
+          <Section
+            title="Production Auto-Reload"
+            icon={<Server className="w-5 h-5" />}
+            expanded={expandedSections.production}
+            onToggle={() => toggleSection('production')}
+          >
+            <div className="space-y-4">
+              <p className="text-slate-300 text-sm">
+                The production environment auto-reloads code changes without a full rebuild.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+                  <p className="text-white font-medium text-sm mb-2">Backend (Python)</p>
+                  <p className="text-xs text-slate-400">Gunicorn runs with <code className="text-emerald-400 bg-slate-900 px-1 rounded">--reload</code>. Any <code className="text-slate-300">.py</code> file change restarts workers automatically (~1s).</p>
+                </div>
+                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+                  <p className="text-white font-medium text-sm mb-2">Frontend (React)</p>
+                  <p className="text-xs text-slate-400">A <code className="text-emerald-400 bg-slate-900 px-1 rounded">frontend-builder</code> container runs Vite in watch mode. Changes to <code className="text-slate-300">.jsx/.css</code> files rebuild and Nginx serves fresh output.</p>
+                </div>
+              </div>
+              <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                <p className="text-white text-sm font-medium mb-2 flex items-center gap-2"><Terminal className="w-4 h-4" /> Start Production</p>
+                <code className="block bg-slate-900 text-slate-300 text-xs p-3 rounded font-mono">
+                  docker compose -f docker-compose.prod.yml up -d
+                </code>
               </div>
             </div>
           </Section>
@@ -154,22 +271,30 @@ function Help() {
             <div className="space-y-3">
               <TroubleshootItem
                 issue="Backend not accessible"
-                solution="Run: docker-compose ps to check if containers are running"
+                solution="Run: docker compose ps to check containers are running. Check port 8000 is not blocked."
               />
               <TroubleshootItem
-                issue="Edge device not detected"
-                solution="Check RDK X5 is on same network, verify weldvision service is running"
+                issue="RDK X5 edge device shows offline"
+                solution="Verify RDK X5 is on same LAN. Check RDK_IP in docker-compose env matches device IP. The status check uses SSH — ensure port 22 is open on RDK X5."
+              />
+              <TroubleshootItem
+                issue="AI scores not updating in rubric"
+                solution="Scores update only while evaluation is running (Start Evaluation pressed). If metrics show mock data, RDK X5 camera feed is not connected yet."
               />
               <TroubleshootItem
                 issue="Training fails to start"
-                solution="Check system hardware requirements or use cloud training option"
+                solution="Check system hardware requirements or use cloud training option (Colab/Roboflow)."
               />
               <TroubleshootItem
                 issue="Camera feed not showing"
-                solution="Verify stereo calibration is complete and cameras are connected"
+                solution="Verify stereo calibration is complete and RDK X5 weldvision service is running."
+              />
+              <TroubleshootItem
+                issue="Student not appearing in Dashboard"
+                solution="Students are managed in Course Management, not User Management. Add students there first, then select them in Dashboard."
               />
             </div>
-            
+
             <div className="mt-4 bg-slate-800 border border-slate-700 rounded-lg p-4">
               <h4 className="text-white font-semibold text-sm mb-2 flex items-center gap-2">
                 <Terminal className="w-4 h-4" />

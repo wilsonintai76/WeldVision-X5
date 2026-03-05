@@ -28,8 +28,6 @@ import {
 import Dashboard from './components/Dashboard'
 import MLOps from './components/MLOps'
 import EdgeManagement from './components/EdgeManagement'
-import Labeling from './components/Labeling'
-import Analytics from './components/Analytics'
 import Rubrics from './components/Rubrics'
 import Settings from './components/Settings'
 import Help from './components/Help'
@@ -158,7 +156,7 @@ function MainApp() {
                 onClick={() => toggleSection('mlops')}
                 className="w-full flex items-center justify-between px-4 py-2 text-slate-500 hover:text-slate-300 transition-colors"
               >
-                <span className="text-xs font-semibold uppercase tracking-wider">MLOps Studio</span>
+                <span className="text-xs font-semibold uppercase tracking-wider">AI Workspace</span>
                 {expandedSections.mlops ? (
                   <ChevronDown className="w-4 h-4" />
                 ) : (
@@ -168,71 +166,8 @@ function MainApp() {
 
               {expandedSections.mlops && (
                 <div className="mt-1 space-y-0.5 px-3">
-                  {/* DATA Subsection */}
-                  <div className="py-2">
-                    <p className="px-3 text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Data</p>
-
-                    <button
-                      onClick={() => setActiveTab('upload')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'upload'
-                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                        }`}
-                    >
-                      <Upload className="w-4 h-4" />
-                      <span className="text-sm">Upload Data</span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveTab('annotate')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'annotate'
-                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                        }`}
-                    >
-                      <Image className="w-4 h-4" />
-                      <span className="text-sm">Annotate</span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveTab('datasets')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'datasets'
-                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                        }`}
-                    >
-                      <Database className="w-4 h-4" />
-                      <span className="text-sm">Datasets</span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveTab('analytics')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'analytics'
-                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                        }`}
-                    >
-                      <BarChart3 className="w-4 h-4" />
-                      <span className="text-sm">Analytics</span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveTab('classes')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'classes'
-                        ? 'bg-slate-800 text-emerald-400 border-l-2 border-emerald-400'
-                        : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
-                        }`}
-                    >
-                      <Tag className="w-4 h-4" />
-                      <span className="text-sm">Classes & Tags</span>
-                    </button>
-                  </div>
-
-                  {/* MODEL PIPELINE Subsection - Admin Only */}
                   {canAccessMLOps && (
-                    <div className="py-2 border-t border-slate-800">
-                      <p className="px-3 text-xs font-medium text-slate-600 uppercase tracking-wide mb-1">Model Pipeline</p>
-
+                    <div className="py-2">
                       <button
                         onClick={() => setActiveTab('mlops')}
                         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${activeTab === 'mlops'
@@ -241,7 +176,7 @@ function MainApp() {
                           }`}
                       >
                         <Rocket className="w-4 h-4" />
-                        <span className="text-sm">Train → Convert → Deploy</span>
+                        <span className="text-sm">Upload → Convert → Deploy</span>
                       </button>
                     </div>
                   )}
@@ -387,11 +322,6 @@ function MainApp() {
       {/* Main Content */}
       <main className="flex-1 overflow-auto bg-slate-950">
         {activeTab === 'dashboard' && <Dashboard />}
-        {activeTab === 'upload' && <Labeling initialView="upload" />}
-        {activeTab === 'annotate' && <Labeling initialView="annotate" />}
-        {activeTab === 'datasets' && <Labeling initialView="datasets" />}
-        {activeTab === 'analytics' && <Analytics />}
-        {activeTab === 'classes' && <Labeling initialView="classes" />}
         {activeTab === 'mlops' && canAccessMLOps && <MLOps />}
         {activeTab === 'calibration' && canAccessMLOps && <Settings />}
 

@@ -26,7 +26,6 @@ from .utils import (
     RDKDeploymentError
 )
 from .job_runner import start_subprocess_job
-from .system_check import check_system_resources, get_training_recommendation
 import logging
 
 logger = logging.getLogger(__name__)
@@ -190,73 +189,7 @@ class MLJobViewSet(viewsets.ReadOnlyModelViewSet):
         return Response({'stdout': stdout, 'stderr': stderr})
 
 
-@api_view(['POST'])
-def train_model(request):
-    """Start a YOLO training job on the server/PC.
 
-    POST /api/train-model/
-
-    Body:
-    {
-      "name": "weld-yolo",
-      "version": "1.0.0",          // optional
-      "data_yaml": "D:/datasets/weld/data.yaml",
-      "base_model": "yolov8n.pt",  // optional
-      "epochs": 50,                 // optional
-      "imgsz": 640                  // optional
-    }
-    """
-    name = request.data.get('name', 'weldvision-yolo')
-    version = request.data.get('version', '')
-    data_yaml = request.data.get('data_yaml')
-    base_model = request.data.get('base_model', 'yolov8n.pt')
-    epochs = int(request.data.get('epochs', 50))
-    imgsz = int(request.data.get('imgsz', 640))
-
-    if not data_yaml:
-        return Response({'error': 'data_yaml is required'}, status=400)
-
-    job = MLJob.objects.create(
-        job_type=MLJob.Type.TRAIN,
-        status=MLJob.Status.QUEUED,
-        params={
-            'name': name,
-            'version': version,
-            'data_yaml': data_yaml,
-            'base_model': base_model,
-            'epochs': epochs,
-            'imgsz': imgsz,
-        },
-    )
-
-    job_dir = _job_dir(job.id)
-    job_dir.mkdir(parents=True, exist_ok=True)
-    artifact_path = job_dir / 'best.pt'
-    job.artifact_path = str(artifact_path)
-    job.save(update_fields=['artifact_path'])
-
-    script = Path(__file__).resolve().parent / 'scripts' / 'train_yolo.py'
-    command = [
-        'python',
-        str(script),
-        '--model',
-        str(base_model),
-        '--data',
-        str(data_yaml),
-        '--epochs',
-        str(epochs),
-        '--imgsz',
-        str(imgsz),
-        '--project',
-        str(job_dir / 'runs'),
-        '--name',
-        'train',
-        '--out',
-        str(artifact_path),
-    ]
-
-    start_subprocess_job(job=job, command=command, cwd=str(job_dir))
-    return Response(MLJobSerializer(job).data, status=202)
 
 
 @api_view(['POST'])
@@ -296,22 +229,13 @@ def convert_model(request):
         except AIModel.DoesNotExist:
             return Response({'error': f'model_id {model_id} not found'}, status=404)
     
-    # Priority 2: Use training job artifact
-    elif source_job_id and not weights_path:
-        try:
-            src_job = MLJob.objects.get(id=source_job_id)
-        except MLJob.DoesNotExist:
-            return Response({'error': f'source_job_id {source_job_id} not found'}, status=404)
-        weights_path = src_job.artifact_path
-
     if not weights_path:
-        return Response({'error': 'weights_path, model_id, or source_job_id is required'}, status=400)
+        return Response({'error': 'weights_path or model_id is required'}, status=400)
 
     job = MLJob.objects.create(
         job_type=MLJob.Type.EXPORT,
         status=MLJob.Status.QUEUED,
         params={
-            'source_job_id': source_job_id,
             'weights_path': weights_path,
             'format': export_format,
             'imgsz': imgsz,
@@ -530,44 +454,7 @@ def device_status(request):
     return Response(result)
 
 
-@api_view(['GET'])
-def system_requirements_check(request):
-    """
-    Check if system meets requirements for ML training
-    
-    GET /api/mlops/system-check/
-    
-    Returns detailed system information and recommendations
-    """
-    try:
-        check_result = check_system_resources()
-        return Response(check_result)
-    except Exception as e:
-        logger.error(f"System check failed: {e}")
-        return Response({
-            'error': str(e),
-            'message': 'Failed to check system requirements'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-@api_view(['GET'])
-def training_recommendation(request):
-    """
-    Get simple recommendation for training capability
-    
-    GET /api/mlops/training-recommendation/
-    
-    Returns yes/no recommendation with message
-    """
-    try:
-        recommendation = get_training_recommendation()
-        return Response(recommendation)
-    except Exception as e:
-        logger.error(f"Training recommendation failed: {e}")
-        return Response({
-            'error': str(e),
-            'message': 'Failed to get training recommendation'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])

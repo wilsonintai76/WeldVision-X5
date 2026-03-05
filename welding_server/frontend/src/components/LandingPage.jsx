@@ -30,10 +30,11 @@ function LandingPage({ onEnterApp }) {
 
   const checkSystemStatus = async () => {
     setIsChecking(true)
-    
+
     // Check backend using CSRF endpoint (public, no auth required)
     try {
-      const response = await fetch('/api/auth/csrf/', { credentials: 'include', method: 'GET',
+      const response = await fetch('/api/auth/csrf/', {
+        method: 'GET',
         headers: { 'Accept': 'application/json' },
         credentials: 'include'
       })
@@ -55,32 +56,35 @@ function LandingPage({ onEnterApp }) {
       }))
     }
 
-    // Check edge device (placeholder - would need actual edge device endpoint)
+    // Check RDK X5 edge device via device-status endpoint (SSH over LAN)
     try {
-      const edgeResponse = await fetch('/api/edge/status/', { credentials: 'include', method: 'GET',
+      const edgeResponse = await fetch('/api/device-status/', {
+        method: 'GET',
         headers: { 'Accept': 'application/json' },
         credentials: 'include'
       })
       if (edgeResponse.ok) {
         const data = await edgeResponse.json()
-        const hasOnlineDevice = data.some && data.some(d => d.status === 'online')
+        const isOnline = data.status === 'online'
         setSystemStatus(prev => ({
           ...prev,
-          edgeDevice: { 
-            status: hasOnlineDevice ? 'online' : 'warning', 
-            message: hasOnlineDevice ? 'Device connected' : 'No devices online'
+          edgeDevice: {
+            status: isOnline ? 'online' : 'warning',
+            message: isOnline
+              ? `RDK X5 connected (${data.ip})`
+              : `RDK X5 offline: ${data.error || 'unreachable'}`
           }
         }))
       } else {
         setSystemStatus(prev => ({
           ...prev,
-          edgeDevice: { status: 'warning', message: 'No devices registered' }
+          edgeDevice: { status: 'warning', message: 'RDK X5 status unavailable' }
         }))
       }
     } catch {
       setSystemStatus(prev => ({
         ...prev,
-        edgeDevice: { status: 'warning', message: 'Edge API unavailable' }
+        edgeDevice: { status: 'warning', message: 'Edge device unreachable' }
       }))
     }
 
@@ -166,8 +170,8 @@ function LandingPage({ onEnterApp }) {
           />
           <FeatureCard
             icon={<Brain className="w-6 h-6" />}
-            title="MLOps Studio"
-            description="Train, convert, and deploy models"
+            title="AI Workspace"
+            description="Manage AI deployments seamlessly"
           />
           <FeatureCard
             icon={<Camera className="w-6 h-6" />}

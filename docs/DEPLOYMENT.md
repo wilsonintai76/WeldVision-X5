@@ -550,6 +550,25 @@ cd ~/WeldVision-X5/edge_device
 python3 main.py
 ```
 
+### 4. Test RDK X5 Edge Device Status
+
+The Landing Page checks edge device status via the backend using SSH over LAN:
+
+```bash
+# From PC browser, landing page calls:
+GET /api/device-status/
+
+# Backend connects via SSH to RDK_IP configured in docker-compose env
+# Returns: { status: 'online'|'offline', ip, system_info: {uptime, memory, cpu, temperature} }
+```
+
+Verify manually:
+```bash
+# From PC
+ssh sunrise@192.168.1.100
+curl http://192.168.1.10:8000/api/device-status/
+```
+
 ### 5. End-to-End Test
 
 1. **Start PC services** (backend + frontend)
@@ -562,20 +581,45 @@ python3 main.py
 
 ## 🏭 Production Deployment
 
-### PC/Server Production
+### PC/Server Production (Auto-Reload Enabled)
 
-**Use docker-compose.prod.yml:**
+Production uses `docker-compose.prod.yml` which includes **live reload** without a full rebuild:
 
 ```bash
-docker-compose -f docker-compose.prod.yml up -d --build
+# First start (or after requirements.txt / package.json changes)
+docker compose -f docker-compose.prod.yml up -d --build
+
+# Subsequent starts / code changes (no --build needed)
+docker compose -f docker-compose.prod.yml up -d
+```
+
+**Services and auto-reload behaviour:**
+
+| Service | Image | Reload Mechanism |
+|---|---|---|
+| `db` | postgres:15-alpine | Persistent volume |
+| `backend` | Custom (Dockerfile.prod) | `./backend:/app` volume + Gunicorn `--reload` (~1s on `.py` change) |
+| `frontend-builder` | node:18-alpine | `./frontend:/app` volume + `vite build --watch` (rebuilds `dist/` on `.jsx/.css` change) |
+| `frontend` | nginx:alpine | Serves from shared `dist_data` volume — always serves latest build |
+
+**Create `.env` file** in `welding_server/` before first run:
+
+```bash
+DJANGO_SECRET_KEY=your-secret-key-here
+DB_PASSWORD=your-db-password-here
+RDK_IP=192.168.1.100
+RDK_USERNAME=sunrise
+RDK_PASSWORD=sunrise
 ```
 
 **Key differences from development:**
 - PostgreSQL instead of SQLite
-- Nginx reverse proxy
-- Gunicorn for Django (instead of runserver)
-- Production Vite build (static files)
-- Environment secrets from .env file
+- Nginx reverse proxy (port 80)
+- Gunicorn for Django (instead of runserver) with `--reload`
+- Vite watch-build replaces static single build
+- Environment secrets from `.env` file
+
+> 💡 Use `--build` only when `requirements.txt` or `package.json` changes. Code edits auto-reload.
 
 ### RDK X5 Production
 
@@ -735,5 +779,5 @@ fi
 
 ---
 
-**Last Updated**: January 14, 2026  
-**Version**: 1.0
+**Last Updated**: March 5, 2026  
+**Version**: 1.1

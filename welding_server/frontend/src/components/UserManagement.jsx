@@ -126,7 +126,7 @@ function UserManagement() {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">User Management</h1>
-              <p className="text-slate-400">Manage users, roles, and permissions</p>
+              <p className="text-slate-400">Manage staff accounts, roles, and permissions</p>
             </div>
           </div>
           <button
@@ -228,7 +228,6 @@ function UserManagement() {
                   <option value="">All Roles</option>
                   <option value="admin">Admin</option>
                   <option value="instructor">Instructor</option>
-                  <option value="student">Student</option>
                 </select>
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
               </div>
@@ -463,7 +462,6 @@ function EditUserModal({ user, onSave, onClose }) {
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 px-4 text-white"
             >
-              <option value="student">Student</option>
               <option value="instructor">Instructor</option>
               <option value="admin">Admin</option>
             </select>

@@ -229,14 +229,23 @@ sudo systemctl start weldvision
 │   RDK X5 Edge   │  HTTP   │  Django Backend │  HTTP   │  React Frontend │
 │    (Python)     │────────▶│   (REST API)    │◀────────│   (Vite + UI)   │
 │                 │  POST   │                 │  GET    │                 │
-│ • Camera        │         │ • Database      │         │ • Dashboard     │
-│ • YOLOv8        │         │ • MLOps API     │         │ • MLOps Center  │
-│ • Depth CV      │         │ • File Storage  │         │ • Visualization │
+│ • Stereo Cameras│         │ • Database      │         │ • Dashboard     │
+│ • YOLOv8 BPU    │         │ • MLOps API     │         │ • Rubric Eval   │
+│ • Depth CV      │         │ • File Storage  │         │ • Course Mgmt   │
 └─────────────────┘         └─────────────────┘         └─────────────────┘
-        │                           │                           │
+        │                           │ SSH (LAN)                 │
         └───────────────────────────┴───────────────────────────┘
-                            Same Network (LAN)
+                            Same LAN (192.168.x.x)
 ```
+
+### Key Features
+
+| Feature | Description |
+|---|---|
+| **Rubric Evaluation** | AI auto-scores Height, Width, Porosity, Spatter from live metrics; instructor manually scores judgment criteria |
+| **User Management** | Staff accounts only (Admin, Instructor). Students are managed via Course Management |
+| **Edge Device Status** | LandingPage checks RDK X5 status via SSH over LAN (`/api/device-status/`) |
+| **Production Reload** | Both backend (Gunicorn `--reload`) and frontend (Vite watch) auto-reload in prod |
 
 ---
 
@@ -345,9 +354,26 @@ WeldVision-X5/
 cd welding_server
 docker compose up -d
 
-# Backend auto-reloads on file changes
-# Frontend has hot-reload enabled
+# Backend: Django runserver auto-reloads on .py changes
+# Frontend: Vite HMR updates browser instantly on .jsx/.css changes
 ```
+
+### Production Mode (with Auto-Reload)
+
+Production also supports live code reload without a full rebuild:
+
+```bash
+cd welding_server
+docker compose -f docker-compose.prod.yml up -d
+```
+
+| Service | Reload Mechanism |
+|---|---|
+| **backend** | Gunicorn `--reload` watches `.py` files (~1s) |
+| **frontend-builder** | Vite `--watch` rebuilds `dist/` on `.jsx/.css` changes |
+| **frontend (nginx)** | Serves from shared volume — always fresh |
+
+> 💡 No `--build` needed for code changes in production. Use `--build` only when `requirements.txt` or `package.json` changes.
 
 ### Run Migrations
 

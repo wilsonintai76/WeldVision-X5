@@ -60,9 +60,6 @@ class AIModel(models.Model):
     )
     
     # Metadata
-    file_size_mb = models.FloatField(null=True, blank=True)
-    training_date = models.DateField(null=True, blank=True)
-    training_dataset = models.CharField(max_length=200, blank=True)
     framework_version = models.CharField(
         max_length=50,
         blank=True,
@@ -82,12 +79,17 @@ class AIModel(models.Model):
     def __str__(self):
         return f"{self.name} - {self.version} ({self.status})"
 
+    @property
+    def file_size_mb(self):
+        if self.model_file:
+            try:
+                return round(self.model_file.size / (1024 * 1024), 2)
+            except Exception:
+                pass
+        return None
+
     def save(self, *args, **kwargs):
-        """Calculate file size and ensure only one deployed model"""
-        # Calculate file size
-        if self.model_file and not self.file_size_mb:
-            self.file_size_mb = round(self.model_file.size / (1024 * 1024), 2)
-        
+        """Ensure only one deployed model"""
         # Ensure only one model is deployed
         if self.is_deployed:
             AIModel.objects.filter(is_deployed=True).exclude(pk=self.pk).update(
@@ -149,7 +151,6 @@ class DeploymentLog(models.Model):
 
 class MLJob(models.Model):
     class Type(models.TextChoices):
-        TRAIN = 'train', 'Train'
         EXPORT = 'export', 'Export/Convert'
 
     class Status(models.TextChoices):

@@ -10,11 +10,8 @@ from .views import (
     deploy_model,
     reboot_device,
     device_status,
-    train_model,
     convert_model,
     register_job_artifact,
-    system_requirements_check,
-    training_recommendation,
     upload_pretrained_model,
     list_convertible_models,
 )
@@ -29,11 +26,8 @@ urlpatterns = [
     path('deploy-model/', deploy_model, name='deploy-model'),
     path('reboot-device/', reboot_device, name='reboot-device'),
     path('device-status/', device_status, name='device-status'),
-    path('train-model/', train_model, name='train-model'),
     path('convert-model/', convert_model, name='convert-model'),
     path('register-artifact/', register_job_artifact, name='register-artifact'),
-    path('system-check/', system_requirements_check, name='system-check'),
-    path('training-recommendation/', training_recommendation, name='training-recommendation'),
     path('upload-model/', upload_pretrained_model, name='upload-model'),
     path('convertible-models/', list_convertible_models, name='convertible-models'),
 ]

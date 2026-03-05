@@ -234,11 +234,13 @@ class UserListView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         queryset = User.objects.all()
-        
-        # Filter by role
+
+        # Students don't log in — exclude them unless explicitly requested
         role = self.request.query_params.get('role')
         if role:
             queryset = queryset.filter(role=role)
+        else:
+            queryset = queryset.exclude(role=User.Role.STUDENT)
         
         # Filter by approval status
         approved = self.request.query_params.get('approved')
@@ -325,7 +327,8 @@ class PendingUsersView(generics.ListAPIView):
     permission_classes = [CanManageUsers]
     
     def get_queryset(self):
-        return User.objects.filter(is_approved=False, is_superuser=False)
+        # Students are auto-approved and don't log in — exclude from pending approvals
+        return User.objects.filter(is_approved=False, is_superuser=False).exclude(role=User.Role.STUDENT)
 
 
 class AuditLogListView(generics.ListAPIView):

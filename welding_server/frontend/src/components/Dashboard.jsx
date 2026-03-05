@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Camera, AlertTriangle, CheckCircle, XCircle, User, Users, Play, Square, ClipboardCheck, Star, Download, FileText } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Camera, AlertTriangle, CheckCircle, XCircle, User, Users, Play, Square, ClipboardCheck, Star, Download, FileText, Cpu, RotateCcw } from 'lucide-react'
 
 // Helper to get CSRF token
 function getCSRFToken() {
@@ -28,6 +28,7 @@ function Dashboard() {
   const [isEvaluating, setIsEvaluating] = useState(false)
   const [evaluationResults, setEvaluationResults] = useState([])
   const [criterionScores, setCriterionScores] = useState({})
+  const [aiSuggestedIds, setAiSuggestedIds] = useState(new Set()) // criteria auto-scored by AI
 
   const [metrics, setMetrics] = useState({
     height: 2.1,
@@ -73,7 +74,78 @@ function Dashboard() {
       scores[c.id] = 3 // Default to middle score
     })
     setCriterionScores(scores)
+    setAiSuggestedIds(new Set())
   }
+
+  /**
+   * Map live AI metrics to Likert 1-5 scores for measurable criteria.
+   * Criteria matched by keyword in name; others left as-is (manual).
+   */
+  const suggestScoresFromMetrics = useCallback((rubric, currentMetrics) => {
+    if (!rubric?.criteria) return
+
+    const newSuggested = new Set()
+    const updates = {}
+
+    rubric.criteria.forEach(c => {
+      const name = c.name.toLowerCase()
+
+      // Reinforcement Height  (1–3 mm ideal)
+      if (name.includes('height') || name.includes('reinforcement')) {
+        const h = currentMetrics.height
+        let s = 1
+        if (h >= 1.5 && h <= 2.5)      s = 5
+        else if (h >= 1.0 && h <= 3.0)  s = 4
+        else if (h >= 0.5 && h <= 3.5)  s = 3
+        else if (h >= 0.0 && h <= 4.0)  s = 2
+        updates[c.id] = s
+        newSuggested.add(c.id)
+      }
+
+      // Bead Width  (8–12 mm ideal)
+      else if (name.includes('width') || name.includes('bead width')) {
+        const w = currentMetrics.width
+        let s = 1
+        if (w >= 9 && w <= 11)      s = 5
+        else if (w >= 8 && w <= 12)  s = 4
+        else if (w >= 7 && w <= 13)  s = 3
+        else if (w >= 6 && w <= 14)  s = 2
+        updates[c.id] = s
+        newSuggested.add(c.id)
+      }
+
+      // Porosity
+      else if (name.includes('porosity')) {
+        const p = currentMetrics.defects.porosity
+        const s = p === 0 ? 5 : p === 1 ? 4 : p === 2 ? 3 : p === 3 ? 2 : 1
+        updates[c.id] = s
+        newSuggested.add(c.id)
+      }
+
+      // Spatter
+      else if (name.includes('spatter')) {
+        const sp = currentMetrics.defects.spatter
+        const s = sp === 0 ? 5 : sp <= 2 ? 4 : sp <= 4 ? 3 : sp <= 7 ? 2 : 1
+        updates[c.id] = s
+        newSuggested.add(c.id)
+      }
+
+      // Undercut
+      else if (name.includes('undercut')) {
+        // not directly measured yet — leave manual
+      }
+    })
+
+    if (Object.keys(updates).length > 0) {
+      setCriterionScores(prev => ({ ...prev, ...updates }))
+      // Preserve any previous manual overrides (non-suggested ids stay untouched)
+      setAiSuggestedIds(prev => {
+        const next = new Set(prev)
+        newSuggested.forEach(id => next.add(id))
+        return next
+      })
+    }
+  }, [])
 
   const fetchClassGroups = async () => {
     try {
@@ -107,7 +179,7 @@ function Dashboard() {
     if (!isEvaluating) return
 
     const interval = setInterval(() => {
-      setMetrics({
+      const newMetrics = {
         height: parseFloat((2.1 + (Math.random() - 0.5) * 0.2).toFixed(2)),
         width: parseFloat((10.0 + Math.random() * 2).toFixed(2)),
         defects: {
@@ -116,11 +188,14 @@ function Dashboard() {
           slagInclusion: Math.floor(Math.random() * 2),
           burnThrough: Math.floor(Math.random() * 2),
         },
-      })
+      }
+      setMetrics(newMetrics)
+      // Re-suggest AI scores on every metric update (only for AI-tracked criteria)
+      if (selectedRubric) suggestScoresFromMetrics(selectedRubric, newMetrics)
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [isEvaluating])
+  }, [isEvaluating, selectedRubric, suggestScoresFromMetrics])
 
   const handleClassChange = (e) => {
     const classId = e.target.value
@@ -143,6 +218,8 @@ function Dashboard() {
       return
     }
     setIsEvaluating(true)
+    // Auto-suggest scores from current AI metrics on start
+    suggestScoresFromMetrics(selectedRubric, metrics)
   }
 
   const stopEvaluation = async () => {
@@ -296,10 +373,13 @@ function Dashboard() {
   }
 
   const updateCriterionScore = (criterionId, score) => {
-    setCriterionScores(prev => ({
-      ...prev,
-      [criterionId]: score
-    }))
+    setCriterionScores(prev => ({ ...prev, [criterionId]: score }))
+    // Mark as manually overridden — remove AI badge
+    setAiSuggestedIds(prev => {
+      const next = new Set(prev)
+      next.delete(criterionId)
+      return next
+    })
   }
 
   const getTotalDefects = () => {
@@ -470,6 +550,10 @@ function Dashboard() {
             <div className="flex items-center gap-3">
               <ClipboardCheck className="w-6 h-6 text-emerald-400" />
               <h3 className="text-xl font-semibold text-white">Rubric Assessment: {selectedRubric.name}</h3>
+              <span className="text-xs text-slate-500 flex items-center gap-1">
+                <Cpu className="w-3 h-3 text-blue-400" />
+                <span className="text-blue-400">AI</span> = auto-scored &nbsp;|&nbsp; click to override
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-slate-400 text-sm">Current Score:</span>
@@ -517,44 +601,75 @@ function Dashboard() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {(selectedRubric.criteria || []).map(criterion => (
-              <div key={criterion.id} className="bg-slate-800 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-white font-medium">{criterion.name}</span>
-                  <span className="text-slate-400 text-xs">Weight: {criterion.weight}</span>
-                </div>
-                {criterion.description && (
-                  <p className="text-slate-400 text-sm mb-3">{criterion.description}</p>
-                )}
+            {(selectedRubric.criteria || []).map(criterion => {
+              const isAI = aiSuggestedIds.has(criterion.id)
+              return (
+                <div key={criterion.id} className={`rounded-lg p-4 border transition-all ${
+                  isAI ? 'bg-blue-950/30 border-blue-600/50' : 'bg-slate-800 border-slate-700'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-medium">{criterion.name}</span>
+                      {isAI && (
+                        <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                          <Cpu className="w-3 h-3" /> AI
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isAI && (
+                        <button
+                          onClick={() => {
+                            suggestScoresFromMetrics(selectedRubric, metrics)
+                          }}
+                          className="text-blue-400 hover:text-blue-300 transition-colors"
+                          title="Re-score from current AI metrics"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                        </button>
+                      )}
+                      <span className="text-slate-400 text-xs">Weight: {criterion.weight}</span>
+                    </div>
+                  </div>
+                  {criterion.description && (
+                    <p className="text-slate-400 text-sm mb-3">{criterion.description}</p>
+                  )}
 
-                {/* Likert Scale Buttons */}
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map(score => (
-                    <button
-                      key={score}
-                      onClick={() => updateCriterionScore(criterion.id, score)}
-                      className={`flex-1 py-2 px-1 text-sm font-medium rounded transition-all ${criterionScores[criterion.id] === score
-                        ? score <= 2 ? 'bg-red-600 text-white'
-                          : score === 3 ? 'bg-yellow-600 text-white'
-                            : 'bg-green-600 text-white'
-                        : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                  {/* Likert Scale Buttons */}
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map(score => (
+                      <button
+                        key={score}
+                        onClick={() => updateCriterionScore(criterion.id, score)}
+                        className={`flex-1 py-2 px-1 text-sm font-medium rounded transition-all ${
+                          criterionScores[criterion.id] === score
+                            ? isAI
+                              ? score <= 2 ? 'bg-red-600 text-white ring-2 ring-blue-400'
+                                : score === 3 ? 'bg-yellow-600 text-white ring-2 ring-blue-400'
+                                : 'bg-green-600 text-white ring-2 ring-blue-400'
+                              : score <= 2 ? 'bg-red-600 text-white'
+                                : score === 3 ? 'bg-yellow-600 text-white'
+                                : 'bg-green-600 text-white'
+                            : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                         }`}
-                    >
-                      {score}
-                    </button>
-                  ))}
-                </div>
+                        title={isAI && criterionScores[criterion.id] === score ? 'AI suggested — click another to override' : ''}
+                      >
+                        {score}
+                      </button>
+                    ))}
+                  </div>
 
-                {/* Score Description */}
-                <div className="mt-2 text-xs text-slate-500 min-h-[2.5rem]">
-                  {criterionScores[criterion.id] === 1 && (criterion.likert_1 || 'Very Poor')}
-                  {criterionScores[criterion.id] === 2 && (criterion.likert_2 || 'Poor')}
-                  {criterionScores[criterion.id] === 3 && (criterion.likert_3 || 'Acceptable')}
-                  {criterionScores[criterion.id] === 4 && (criterion.likert_4 || 'Good')}
-                  {criterionScores[criterion.id] === 5 && (criterion.likert_5 || 'Excellent')}
+                  {/* Score Description */}
+                  <div className={`mt-2 text-xs min-h-[2.5rem] ${ isAI ? 'text-blue-400/70' : 'text-slate-500' }`}>
+                    {criterionScores[criterion.id] === 1 && (criterion.score_1_description || criterion.likert_1 || 'Very Poor')}
+                    {criterionScores[criterion.id] === 2 && (criterion.score_2_description || criterion.likert_2 || 'Poor')}
+                    {criterionScores[criterion.id] === 3 && (criterion.score_3_description || criterion.likert_3 || 'Acceptable')}
+                    {criterionScores[criterion.id] === 4 && (criterion.score_4_description || criterion.likert_4 || 'Good')}
+                    {criterionScores[criterion.id] === 5 && (criterion.score_5_description || criterion.likert_5 || 'Excellent')}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           <p className="text-slate-500 text-sm mt-4 text-center">

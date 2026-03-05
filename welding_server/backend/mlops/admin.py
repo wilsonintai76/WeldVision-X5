@@ -15,7 +15,7 @@ class AIModelAdmin(admin.ModelAdmin):
     ]
     list_filter = ['status', 'is_deployed', 'created_at']
     search_fields = ['name', 'version', 'description']
-    readonly_fields = ['file_size_mb', 'created_at', 'updated_at']
+    readonly_fields = ['created_at', 'updated_at']
     
     fieldsets = (
         ('Model Information', {
@@ -27,11 +27,11 @@ class AIModelAdmin(admin.ModelAdmin):
         ('Performance Metrics', {
             'fields': ('accuracy', 'precision', 'recall', 'f1_score')
         }),
-        ('Training Metadata', {
-            'fields': ('training_date', 'training_dataset', 'framework_version')
-        }),
         ('File Info', {
-            'fields': ('file_size_mb', 'created_at', 'updated_at'),
+            'fields': ('framework_version',),
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at'),
             'classes': ('collapse',)
         }),
     )

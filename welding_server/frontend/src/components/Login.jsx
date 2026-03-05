@@ -45,14 +45,14 @@ export default function Login() {
 
     try {
       const response = await authAPI.login(formData);
-      
+
       // Check if user must change password
       if (response.user.must_change_password) {
         setShowForceChangePassword(true);
         setLoading(false);
         return;
       }
-      
+
       login(response.user);
       navigate('/app');
     } catch (err) {
@@ -72,7 +72,7 @@ export default function Login() {
       await authAPI.forgotPassword(forgotUsername);
       setForgotMessage({
         type: 'success',
-        text: 'Password has been reset to your registration number. Please login with your registration number as password.',
+        text: 'PIN has been reset to your Staff ID. Please login with your Staff ID as your PIN.',
       });
       setForgotUsername('');
     } catch (err) {
@@ -97,8 +97,8 @@ export default function Login() {
       return;
     }
 
-    if (changePasswordData.newPassword.length < 6) {
-      setChangeError('Password must be at least 6 characters');
+    if (changePasswordData.newPassword.length !== 4) {
+      setChangeError('PIN must be exactly 4 digits');
       setChangeLoading(false);
       return;
     }
@@ -108,15 +108,15 @@ export default function Login() {
         changePasswordData.newPassword,
         changePasswordData.confirmPassword
       );
-      
+
       // Get updated user profile
       const profileResponse = await authAPI.getProfile();
       login(profileResponse);
       navigate('/app');
     } catch (err) {
       setChangeError(
-        err.response?.data?.error || 
-        err.response?.data?.new_password?.[0] || 
+        err.response?.data?.error ||
+        err.response?.data?.new_password?.[0] ||
         'Password change failed.'
       );
     } finally {
@@ -154,18 +154,21 @@ export default function Login() {
                 {error}
               </div>
             )}
-            
+
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-2">
-                Registration No / Staff ID
+                Staff ID (4 Digits)
               </label>
               <input
                 id="username"
                 name="username"
                 type="text"
+                inputMode="numeric"
+                maxLength={4}
+                pattern="\d{4}"
                 required
                 className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                placeholder="Enter your ID"
+                placeholder="Enter 4-digit Staff ID"
                 value={formData.username}
                 onChange={handleChange}
               />
@@ -173,16 +176,19 @@ export default function Login() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
-                Password
+                PIN (4 Digits)
               </label>
               <div className="relative">
                 <input
                   id="password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
+                  inputMode="numeric"
+                  maxLength={4}
+                  pattern="\d{4}"
                   required
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all pr-12"
-                  placeholder="Enter your password"
+                  placeholder="Enter 4-digit PIN"
                   value={formData.password}
                   onChange={handleChange}
                 />
@@ -226,11 +232,8 @@ export default function Login() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-slate-400 text-sm">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
-                Register
-              </Link>
+            <p className="text-slate-500 text-sm">
+              Staff access only. Contact administrator for an account.
             </p>
           </div>
         </div>
@@ -256,17 +259,16 @@ export default function Login() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="bg-blue-900/20 border border-blue-600/30 text-blue-300 px-4 py-3 rounded-lg mb-4 text-sm">
-              <p>Enter your Registration Number. Your password will be reset to your registration number.</p>
+              <p>Enter your 4-digit Staff ID. Your PIN will be reset to your Staff ID.</p>
             </div>
 
             {forgotMessage.text && (
-              <div className={`px-4 py-3 rounded-lg mb-4 text-sm ${
-                forgotMessage.type === 'success' 
-                  ? 'bg-emerald-900/20 border border-emerald-600/30 text-emerald-300' 
+              <div className={`px-4 py-3 rounded-lg mb-4 text-sm ${forgotMessage.type === 'success'
+                  ? 'bg-emerald-900/20 border border-emerald-600/30 text-emerald-300'
                   : 'bg-red-900/20 border border-red-600/30 text-red-400'
-              }`}>
+                }`}>
                 {forgotMessage.text}
               </div>
             )}
@@ -274,14 +276,17 @@ export default function Login() {
             <form onSubmit={handleForgotPassword}>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Registration Number
+                  Staff ID
                 </label>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  maxLength={4}
+                  pattern="\d{4}"
                   value={forgotUsername}
                   onChange={(e) => setForgotUsername(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="Enter your registration number"
+                  placeholder="Enter your 4-digit Staff ID"
                   required
                 />
               </div>
@@ -319,7 +324,7 @@ export default function Login() {
                 Change Your Password
               </h3>
             </div>
-            
+
             <div className="bg-yellow-900/20 border border-yellow-600/30 text-yellow-300 px-4 py-3 rounded-lg mb-4 text-sm">
               <p>You are required to change your password before continuing. Please enter a new password.</p>
             </div>
@@ -333,37 +338,41 @@ export default function Login() {
             <form onSubmit={handleForceChangePassword}>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  New Password
+                  New PIN (4 Digits)
                 </label>
                 <input
                   type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  pattern="\d{4}"
                   value={changePasswordData.newPassword}
                   onChange={(e) => setChangePasswordData({
                     ...changePasswordData,
                     newPassword: e.target.value
                   })}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="Enter new password"
+                  placeholder="Enter 4-digit new PIN"
                   required
-                  minLength={6}
                 />
               </div>
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Confirm New Password
+                  Confirm New PIN
                 </label>
                 <input
                   type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  pattern="\d{4}"
                   value={changePasswordData.confirmPassword}
                   onChange={(e) => setChangePasswordData({
                     ...changePasswordData,
                     confirmPassword: e.target.value
                   })}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="Confirm new password"
+                  placeholder="Confirm 4-digit new PIN"
                   required
-                  minLength={6}
                 />
               </div>
 
