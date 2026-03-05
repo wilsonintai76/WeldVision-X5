@@ -72,6 +72,17 @@ PLY_DECIMATE_POINTS = int(os.getenv('WELDVISION_PLY_DECIMATE_POINTS', '50000'))
 STREAM_HOST = os.getenv('WELDVISION_STREAM_HOST', '0.0.0.0')
 STREAM_PORT = int(os.getenv('WELDVISION_STREAM_PORT', '8080'))
 
+# Workpiece placement guide overlay
+WORKPIECE_WIDTH_MM  = float(os.getenv('WELDVISION_WORKPIECE_WIDTH_MM',  '100'))  # specimen width (mm)
+WORKPIECE_HEIGHT_MM = float(os.getenv('WELDVISION_WORKPIECE_HEIGHT_MM', '50'))   # specimen height (mm)
+# ROI bounds as fraction of frame (left, top, width, height)  e.g. 0.1 = 10 % of frame
+ROI_X_PCT = float(os.getenv('WELDVISION_ROI_X_PCT', '0.08'))
+ROI_Y_PCT = float(os.getenv('WELDVISION_ROI_Y_PCT', '0.15'))
+ROI_W_PCT = float(os.getenv('WELDVISION_ROI_W_PCT', '0.84'))
+ROI_H_PCT = float(os.getenv('WELDVISION_ROI_H_PCT', '0.70'))
+GRID_COLS = int(os.getenv('WELDVISION_GRID_COLS', '4'))  # vertical dividers inside ROI
+GRID_ROWS = int(os.getenv('WELDVISION_GRID_ROWS', '3'))  # horizontal dividers inside ROI
+
 # Student Configuration (In production, this would come from RFID/NFC reader)
 STUDENT_ID = os.getenv('WELDVISION_STUDENT_ID', 'S001')
 DEVICE_ID = os.getenv('WELDVISION_DEVICE_ID', 'RDK-X5-WORKSHOP-01')
@@ -185,8 +196,57 @@ def calculate_depth(left_image, right_image=None):
 
 
 def draw_overlay(image_bgr, detections, depth_heatmap_bgr=None):
-    """Draw detection boxes and optionally blend a depth heatmap."""
+    """Draw workpiece guide lines, detection boxes and optionally blend a depth heatmap."""
     overlay = image_bgr.copy()
+    H, W = overlay.shape[:2]
+
+    # ── Workpiece placement guide ─────────────────────────────────────────────
+    roi_x = int(ROI_X_PCT * W)
+    roi_y = int(ROI_Y_PCT * H)
+    roi_w = int(ROI_W_PCT * W)
+    roi_h = int(ROI_H_PCT * H)
+    cx_roi = roi_x + roi_w // 2
+    cy_roi = roi_y + roi_h // 2
+
+    # Grid lines inside ROI (faint green)
+    for col in range(1, GRID_COLS):
+        gx = roi_x + int(roi_w * col / GRID_COLS)
+        cv2.line(overlay, (gx, roi_y), (gx, roi_y + roi_h), (0, 140, 0), 1)
+    for row in range(1, GRID_ROWS):
+        gy = roi_y + int(roi_h * row / GRID_ROWS)
+        cv2.line(overlay, (roi_x, gy), (roi_x + roi_w, gy), (0, 140, 0), 1)
+
+    # ROI border rectangle (bright green)
+    cv2.rectangle(overlay, (roi_x, roi_y), (roi_x + roi_w, roi_y + roi_h), (0, 220, 0), 2)
+
+    # Corner L-shaped tick marks
+    tick = 18
+    for (cx, cy) in [(roi_x, roi_y), (roi_x + roi_w, roi_y),
+                     (roi_x, roi_y + roi_h), (roi_x + roi_w, roi_y + roi_h)]:
+        dx = 1 if cx == roi_x else -1
+        dy = 1 if cy == roi_y else -1
+        cv2.line(overlay, (cx, cy), (cx + dx * tick, cy), (0, 255, 0), 3)
+        cv2.line(overlay, (cx, cy), (cx, cy + dy * tick), (0, 255, 0), 3)
+
+    # Centre crosshair (cyan)
+    ch_len, ch_gap = 22, 7
+    cv2.line(overlay, (cx_roi - ch_len, cy_roi), (cx_roi - ch_gap, cy_roi), (0, 255, 255), 2)
+    cv2.line(overlay, (cx_roi + ch_gap, cy_roi), (cx_roi + ch_len, cy_roi), (0, 255, 255), 2)
+    cv2.line(overlay, (cx_roi, cy_roi - ch_len), (cx_roi, cy_roi - ch_gap), (0, 255, 255), 2)
+    cv2.line(overlay, (cx_roi, cy_roi + ch_gap), (cx_roi, cy_roi + ch_len), (0, 255, 255), 2)
+    cv2.circle(overlay, (cx_roi, cy_roi), 3, (0, 255, 255), -1)
+
+    # Dimension label (top-left of ROI)
+    dim_label = f"{WORKPIECE_WIDTH_MM:.0f} x {WORKPIECE_HEIGHT_MM:.0f} mm"
+    cv2.putText(overlay, dim_label, (roi_x + 4, max(roi_y - 8, 14)),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 220, 0), 1, cv2.LINE_AA)
+
+    # "Place workpiece in guide" hint below ROI
+    hint = "PLACE WORKPIECE IN GUIDE"
+    hint_w = cv2.getTextSize(hint, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)[0][0]
+    cv2.putText(overlay, hint, (cx_roi - hint_w // 2, min(roi_y + roi_h + 20, H - 4)),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 200, 0), 1, cv2.LINE_AA)
+    # ─────────────────────────────────────────────────────────────────────────
 
     for det in detections or []:
         x, y, w, h = det.get('bbox', [0, 0, 0, 0])

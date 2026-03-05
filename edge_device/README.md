@@ -70,6 +70,17 @@ export WELDVISION_ENABLE_BUFFERING=1
 # Optional stereo depth (requires calibration json)
 export WELDVISION_ENABLE_STEREO=1
 export WELDVISION_STEREO_CALIB_PATH=/home/sunrise/welding_app/stereo_calib.json
+
+# Workpiece placement guide overlay
+export WELDVISION_WORKPIECE_WIDTH_MM=100   # specimen width in mm (label only)
+export WELDVISION_WORKPIECE_HEIGHT_MM=50   # specimen height in mm (label only)
+# ROI fractions - adjust until the green box fits your workpiece in frame
+export WELDVISION_ROI_X_PCT=0.08           # left edge (0.0-1.0)
+export WELDVISION_ROI_Y_PCT=0.15           # top edge
+export WELDVISION_ROI_W_PCT=0.84           # box width fraction
+export WELDVISION_ROI_H_PCT=0.70           # box height fraction
+export WELDVISION_GRID_COLS=4              # vertical grid lines inside ROI
+export WELDVISION_GRID_ROWS=3              # horizontal grid lines inside ROI
 ```
 
 ## Running
@@ -204,6 +215,26 @@ When `WELDVISION_ENABLE_STREAM=1`:
 - `http://<device-ip>:8080/stream.mjpg`
 - `http://<device-ip>:8080/snapshot.jpg`
 - `http://<device-ip>:8080/metrics.json`
+
+### Workpiece Guide Overlay
+
+Every frame from the edge device has three layers of visual guidance drawn on top:
+
+| Layer | Colour | Purpose |
+|-------|--------|---------|
+| Grid lines | Dark green | Divide the ROI into cells for rough alignment |
+| ROI rectangle + corner ticks | Bright green | Shows exact placement zone for the workpiece |
+| Centre crosshair + dot | Cyan | Marks the centre of the weld area |
+
+The dimension label (`100 x 50 mm` by default) is printed above the ROI box and the hint **PLACE WORKPIECE IN GUIDE** appears below it.
+
+**Tuning the ROI for your setup:**
+
+1. Start the edge device and open `http://<device-ip>:8080/stream.mjpg` in a browser.
+2. Place a workpiece on the fixture.
+3. Adjust `WELDVISION_ROI_[X/Y/W/H]_PCT` until the green box tightly frames the specimen.
+4. Update `WELDVISION_WORKPIECE_WIDTH_MM` / `WELDVISION_WORKPIECE_HEIGHT_MM` to match the actual specimen dimensions (used for the label only).
+5. Save values in `weldvision.service` (or `/etc/default/weldvision`) and restart the service.
 
 ### Local Buffering (Offline)
 

@@ -30,6 +30,12 @@ function Dashboard() {
   const [criterionScores, setCriterionScores] = useState({})
   const [aiSuggestedIds, setAiSuggestedIds] = useState(new Set()) // criteria auto-scored by AI
   const [isLiveData, setIsLiveData] = useState(false) // true = real edge device data
+  const [workpieceWidth, setWorkpieceWidth] = useState(
+    () => Number(localStorage.getItem('wv_workpiece_w') || 100)
+  )
+  const [workpieceHeight, setWorkpieceHeight] = useState(
+    () => Number(localStorage.getItem('wv_workpiece_h') || 50)
+  )
 
   const [metrics, setMetrics] = useState({
     height: 2.1,
@@ -296,7 +302,7 @@ function Dashboard() {
             rubric: selectedRubric.id,
             total_score: avgScore,
             passed: passed,
-            ai_metrics: metrics,
+            ai_metrics: { ...metrics, workpiece_width_mm: workpieceWidth, workpiece_height_mm: workpieceHeight },
             criterion_scores: Object.entries(criterionScores).map(([criterionId, score]) => ({
               criterion: parseInt(criterionId),
               score: score
@@ -475,7 +481,27 @@ function Dashboard() {
         </div>
 
         {/* Evaluation Controls */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-end flex-wrap">
+          {/* Workpiece size inputs */}
+          <div>
+            <label className="text-xs text-slate-500 mb-1 block">Workpiece W (mm)</label>
+            <input
+              type="number" min="10" max="500"
+              value={workpieceWidth}
+              onChange={e => { const v = Number(e.target.value); setWorkpieceWidth(v); localStorage.setItem('wv_workpiece_w', v) }}
+              className="w-24 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white px-2 py-1.5 text-center"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1 block">Workpiece H (mm)</label>
+            <input
+              type="number" min="10" max="500"
+              value={workpieceHeight}
+              onChange={e => { const v = Number(e.target.value); setWorkpieceHeight(v); localStorage.setItem('wv_workpiece_h', v) }}
+              className="w-24 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white px-2 py-1.5 text-center"
+            />
+          </div>
+          <div className="h-px w-px" />
           {!isEvaluating ? (
             <button
               onClick={startEvaluation}

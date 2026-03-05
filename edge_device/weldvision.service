@@ -27,5 +27,16 @@ Environment="WELDVISION_LOG_PATH=/home/sunrise/welding_app/weldvision.log"
 #Environment="WELDVISION_ENABLE_STEREO=1"
 #Environment="WELDVISION_STEREO_CALIB_PATH=/home/sunrise/welding_app/stereo_calib.json"
 
+# ── Workpiece / ROI guide ────────────────────────────────────
+Environment="WELDVISION_WORKPIECE_WIDTH_MM=100"
+Environment="WELDVISION_WORKPIECE_HEIGHT_MM=50"
+# ROI fractions (0.0–1.0) — adjust to fit workpiece in camera frame
+#Environment="WELDVISION_ROI_X_PCT=0.08"
+#Environment="WELDVISION_ROI_Y_PCT=0.15"
+#Environment="WELDVISION_ROI_W_PCT=0.84"
+#Environment="WELDVISION_ROI_H_PCT=0.70"
+#Environment="WELDVISION_GRID_COLS=4"
+#Environment="WELDVISION_GRID_ROWS=3"
+
 [Install]
 WantedBy=multi-user.target
