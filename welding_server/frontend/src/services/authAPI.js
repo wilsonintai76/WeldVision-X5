@@ -69,7 +69,14 @@ export const authAPI = {
     });
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.non_field_errors?.[0] || data.detail || 'Login failed');
+      // DRF can return errors as: non_field_errors[], detail string, or field-keyed arrays
+      const msg =
+        (Array.isArray(data.non_field_errors) ? data.non_field_errors[0] : null) ||
+        data.detail ||
+        data.error ||
+        Object.values(data).flat()[0] ||
+        'Login failed';
+      throw new Error(msg);
     }
     return data;
   },
@@ -239,7 +246,14 @@ export const authAPI = {
     });
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.new_password?.[0] || data.new_password_confirm?.[0] || data.detail || 'Password change failed');
+      const msg =
+        (Array.isArray(data.new_password) ? data.new_password[0] : null) ||
+        (Array.isArray(data.new_password_confirm) ? data.new_password_confirm[0] : null) ||
+        (Array.isArray(data.non_field_errors) ? data.non_field_errors[0] : null) ||
+        data.detail ||
+        Object.values(data).flat()[0] ||
+        'Password change failed';
+      throw new Error(msg);
     }
     return data;
   },

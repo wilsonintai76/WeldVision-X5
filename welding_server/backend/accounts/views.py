@@ -5,7 +5,7 @@ from rest_framework import status, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated as DRFIsAuthenticated
-from django.contrib.auth import login, logout
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.middleware.csrf import get_token
 
 from .models import User, AuditLog
@@ -122,6 +122,8 @@ class ChangePasswordView(APIView):
             request.user.set_password(serializer.validated_data['new_password'])
             request.user.must_change_password = False  # Clear the flag
             request.user.save()
+            # Keep the session alive after password change
+            update_session_auth_hash(request, request.user)
             
             # Log password change
             AuditLog.log(
@@ -161,7 +163,7 @@ class ForgotPasswordView(APIView):
             )
             
             return Response({
-                'message': 'Password has been reset to your registration number. You will be required to change it on next login.'
+                'message': 'Password has been reset to your staff/registration ID. You will be required to change it on next login.'
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -176,6 +178,8 @@ class ForceChangePasswordView(APIView):
             request.user.set_password(serializer.validated_data['new_password'])
             request.user.must_change_password = False
             request.user.save()
+            # Keep the session alive after password change
+            update_session_auth_hash(request, request.user)
             
             # Log password change
             AuditLog.log(
@@ -255,7 +259,9 @@ class UserListView(generics.ListCreateAPIView):
         return queryset
     
     def perform_create(self, serializer):
-        user = serializer.save()
+        # Admin-created users are auto-approved and get the default PIN (staff ID).
+        # must_change_password is already set to True in the serializer when no password is given.
+        user = serializer.save(is_approved=True)
         AuditLog.log(
             self.request.user, AuditLog.Action.CREATE,
             model_name='User',

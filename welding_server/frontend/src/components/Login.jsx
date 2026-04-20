@@ -13,7 +13,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { setCurrentUser } = useAuth();
 
   // Forgot password modal state
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -53,10 +53,10 @@ export default function Login() {
         return;
       }
 
-      login(response.user);
+      setCurrentUser(response.user);
       navigate('/app');
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed. Please try again.');
+      setError(err.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -78,7 +78,7 @@ export default function Login() {
     } catch (err) {
       setForgotMessage({
         type: 'error',
-        text: err.response?.data?.error || err.response?.data?.username?.[0] || 'Password reset failed.',
+        text: err.message || 'Password reset failed.',
       });
     } finally {
       setForgotLoading(false);
@@ -104,21 +104,16 @@ export default function Login() {
     }
 
     try {
-      await authAPI.forceChangePassword(
+      const response = await authAPI.forceChangePassword(
         changePasswordData.newPassword,
         changePasswordData.confirmPassword
       );
 
-      // Get updated user profile
-      const profileResponse = await authAPI.getProfile();
-      login(profileResponse);
+      // Session is established — just sync user state into React context
+      setCurrentUser(response.user);
       navigate('/app');
     } catch (err) {
-      setChangeError(
-        err.response?.data?.error ||
-        err.response?.data?.new_password?.[0] ||
-        'Password change failed.'
-      );
+      setChangeError(err.message || 'Password change failed.');
     } finally {
       setChangeLoading(false);
     }
@@ -141,7 +136,12 @@ export default function Login() {
           <h2 className="text-3xl font-bold text-white">
             WeldVision X5
           </h2>
-          <p className="mt-2 text-slate-400">
+          <div className="flex justify-center mt-1">
+            <span className="text-[10px] font-bold text-emerald-500/50 uppercase tracking-[0.2em]">
+              System Version 1.2.0-STABLE
+            </span>
+          </div>
+          <p className="mt-4 text-slate-400">
             Sign in to your account
           </p>
         </div>
@@ -157,18 +157,15 @@ export default function Login() {
 
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-2">
-                Staff ID (4 Digits)
+                ID / Registration Number
               </label>
               <input
                 id="username"
                 name="username"
                 type="text"
-                inputMode="numeric"
-                maxLength={4}
-                pattern="\d{4}"
                 required
                 className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                placeholder="Enter 4-digit Staff ID"
+                placeholder="Enter your ID or registration number"
                 value={formData.username}
                 onChange={handleChange}
               />
@@ -233,7 +230,7 @@ export default function Login() {
 
           <div className="mt-6 text-center">
             <p className="text-slate-500 text-sm">
-              Staff access only. Contact administrator for an account.
+              Authorized access only. Contact administrator for an account.
             </p>
           </div>
         </div>
@@ -261,7 +258,7 @@ export default function Login() {
             </div>
 
             <div className="bg-blue-900/20 border border-blue-600/30 text-blue-300 px-4 py-3 rounded-lg mb-4 text-sm">
-              <p>Enter your 4-digit Staff ID. Your PIN will be reset to your Staff ID.</p>
+              <p>Enter your ID or registration number. Your PIN will be reset to your ID.</p>
             </div>
 
             {forgotMessage.text && (
@@ -276,17 +273,14 @@ export default function Login() {
             <form onSubmit={handleForgotPassword}>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Staff ID
+                  ID / Registration Number
                 </label>
                 <input
                   type="text"
-                  inputMode="numeric"
-                  maxLength={4}
-                  pattern="\d{4}"
                   value={forgotUsername}
                   onChange={(e) => setForgotUsername(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  placeholder="Enter your 4-digit Staff ID"
+                  placeholder="Enter your ID or registration number"
                   required
                 />
               </div>

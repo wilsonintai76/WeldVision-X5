@@ -3,8 +3,14 @@ Serializers for User Authentication and Management
 """
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from django.contrib.auth.password_validation import validate_password
 from .models import User, AuditLog
+
+
+def validate_pin(value):
+    """Validate that the PIN is exactly 4 digits."""
+    if not value.isdigit() or len(value) != 4:
+        raise serializers.ValidationError("PIN must be exactly 4 digits (0–9).")
+    return value
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -37,6 +43,10 @@ class UserSerializer(serializers.ModelSerializer):
         user = User(**validated_data)
         if password:
             user.set_password(password)
+        else:
+            # Default password = staff ID (username). User must change on first login.
+            user.set_password(user.username)
+            user.must_change_password = True
         user.save()
         if assigned_classes:
             user.assigned_classes.set(assigned_classes)
@@ -107,8 +117,6 @@ class LoginSerializer(serializers.Serializer):
                     raise serializers.ValidationError("Account is disabled.")
                 if not user.is_approved and not user.is_superuser:
                     raise serializers.ValidationError("Account pending approval. Please wait for admin approval.")
-                if user.role == User.Role.STUDENT:
-                    raise serializers.ValidationError("Only staff members are allowed to log in.")
                 data['user'] = user
             else:
                 raise serializers.ValidationError("Invalid username or password.")
@@ -120,7 +128,7 @@ class LoginSerializer(serializers.Serializer):
 
 class RegisterSerializer(serializers.ModelSerializer):
     """Serializer for user registration"""
-    password = serializers.CharField(write_only=True, validators=[validate_password])
+    password = serializers.CharField(write_only=True, validators=[validate_pin])
     password_confirm = serializers.CharField(write_only=True)
     class_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     full_name = serializers.CharField(write_only=True, required=True)
@@ -203,7 +211,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 class ChangePasswordSerializer(serializers.Serializer):
     """Serializer for password change"""
     old_password = serializers.CharField(write_only=True)
-    new_password = serializers.CharField(write_only=True, validators=[validate_password])
+    new_password = serializers.CharField(write_only=True, validators=[validate_pin])
     new_password_confirm = serializers.CharField(write_only=True)
     
     def validate(self, data):
@@ -232,23 +240,21 @@ class AuditLogSerializer(serializers.ModelSerializer):
 
 
 class ForgotPasswordSerializer(serializers.Serializer):
-    """Serializer for forgot password (reset to default)"""
+    """Serializer for forgot password (reset to default = staff ID / registration number)"""
     username = serializers.CharField()
     
     def validate_username(self, value):
         try:
             user = User.objects.get(username=value)
-            if user.role != User.Role.STUDENT:
-                raise serializers.ValidationError("Password reset is only available for students. Contact admin for other roles.")
             self.user = user
         except User.DoesNotExist:
-            raise serializers.ValidationError("User not found with this registration number.")
+            raise serializers.ValidationError("User not found with this ID.")
         return value
 
 
 class ForceChangePasswordSerializer(serializers.Serializer):
     """Serializer for forced password change"""
-    new_password = serializers.CharField(write_only=True, validators=[validate_password])
+    new_password = serializers.CharField(write_only=True, validators=[validate_pin])
     new_password_confirm = serializers.CharField(write_only=True)
     
     def validate(self, data):

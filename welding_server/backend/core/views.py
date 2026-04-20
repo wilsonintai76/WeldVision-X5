@@ -6,11 +6,15 @@ import re
 import zipfile
 from io import BytesIO
 from PIL import Image
+import csv
+import io
+import pdfplumber
 from django.http import HttpResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
+from accounts.models import User
 from .models import Student, ClassGroup, StereoCalibration, DefectClass, Dataset, LabeledImage, Annotation, Session, Course
 from .serializers import (
     StudentSerializer, StudentListSerializer, ClassGroupSerializer, 
@@ -98,8 +102,6 @@ class StudentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Create student and associated user account"""
-        from accounts.models import User
-        
         student = serializer.save()
         
         # Check if user already exists
@@ -116,24 +118,28 @@ class StudentViewSet(viewsets.ModelViewSet):
                 student_profile=student
             )
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], pagination_class=None)
     def by_class(self, request):
         """Get students filtered by class group"""
         class_id = request.query_params.get('class_id')
+        
         if class_id:
-            students = self.queryset.filter(class_group_id=class_id)
+            try:
+                # Explicitly cast to integer for robust filtering
+                class_id_int = int(class_id)
+                students = self.get_queryset().filter(class_group_id=class_id_int)
+            except (ValueError, TypeError):
+                # Fallback to string if DB allows, or return empty
+                students = self.get_queryset().filter(class_group_id=class_id)
         else:
-            students = self.queryset.all()
+            students = self.get_queryset().all()
+            
         serializer = StudentListSerializer(students, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['post'])
     def bulk_import(self, request):
         """Bulk import students from CSV/Excel file"""
-        import csv
-        import io
-        from accounts.models import User
-        
         file = request.FILES.get('file')
         class_id = request.data.get('class_id')
         
@@ -258,7 +264,7 @@ names: {dataset.classes}
                         label_filename = os.path.splitext(img.filename)[0] + '.txt'
                         label_lines = []
                         for ann in annotations:
-                            class_idx = dataset.classes.index(ann.class_name) if ann.class_name in dataset.classes else 0
+                            class_idx = dataset.classes.index(ann.defect_class) if ann.defect_class in dataset.classes.all() else 0
                             label_lines.append(
                                 f"{class_idx} {ann.x_center} {ann.y_center} {ann.width} {ann.height}"
                             )
@@ -480,7 +486,7 @@ class CourseViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(instructor_id=instructor_id)
         return queryset
     
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=['get'], pagination_class=None)
     def students(self, request, pk=None):
         """Get all students enrolled in this course"""
         course = self.get_object()
@@ -536,8 +542,6 @@ class CourseViewSet(viewsets.ModelViewSet):
         - PENSY. KURSUS: INSTRUCTOR NAME
         - Student table with: BIL, NO.PEND, NAMA PELAJAR, KELAS, JABATAN
         """
-        import pdfplumber
-        from accounts.models import User
         
         file = request.FILES.get('file')
         if not file:
@@ -601,9 +605,9 @@ class CourseViewSet(viewsets.ModelViewSet):
             )
             
             # Parse student table
-            # Look for rows with: BIL, NO.PEND/NO_PEND, NAMA PELAJAR, KELAS, JABATAN
+            # Look for rows with: BIL, NO.PEND/NO_PEND, NAMA PELAJAR, KELAS
             student_pattern = re.compile(
-                r'^\s*(\d+)\s+([A-Z0-9]+)\s+(.+?)\s+([A-Z0-9]+|KELAS)\s+([A-Z]+)\s*$',
+                r'^\s*(\d+)\s+([A-Z0-9]+)\s+(.+?)\s+([A-Z0-9]+|KELAS)\s*',
                 re.MULTILINE | re.IGNORECASE
             )
             
@@ -613,10 +617,9 @@ class CourseViewSet(viewsets.ModelViewSet):
             class_groups_created = []
             
             for match in student_pattern.finditer(text_content):
-                bil, student_id, name, class_name, department = match.groups()
+                bil, student_id, name, class_name = match.groups()
                 name = name.strip()
                 class_name = class_name.upper()
-                department = department.upper()
                 
                 # Skip header row
                 if class_name == 'KELAS':
@@ -624,8 +627,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                 
                 # Get or create class group (home class)
                 class_group, cg_created = ClassGroup.objects.get_or_create(
-                    name=class_name,
-                    defaults={'department': department}
+                    name=class_name
                 )
                 if cg_created and class_name not in class_groups_created:
                     class_groups_created.append(class_name)
@@ -635,8 +637,7 @@ class CourseViewSet(viewsets.ModelViewSet):
                     student_id=student_id,
                     defaults={
                         'name': name,
-                        'class_group': class_group,
-                        'department': department
+                        'class_group': class_group
                     }
                 )
                 

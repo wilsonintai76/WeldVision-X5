@@ -7,6 +7,8 @@ import {
   BookOpen,
   Plus,
   Edit,
+  FileEdit,
+  UserPlus,
   Trash2,
   AlertCircle,
   RefreshCw,
@@ -53,6 +55,13 @@ function CourseManagement() {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [courseStudents, setCourseStudents] = useState([]);
 
+  // Enrollment Modal state
+  const [showEnrollModal, setShowEnrollModal] = useState(false);
+  const [enrollClassFilter, setEnrollClassFilter] = useState('');
+  const [availableStudents, setAvailableStudents] = useState([]);
+  const [enrollLoading, setEnrollLoading] = useState(false);
+  const [selectedEnrollIds, setSelectedEnrollIds] = useState(new Set());
+
   const [expandedSessions, setExpandedSessions] = useState({});
 
   const [sessionForm, setSessionForm] = useState({
@@ -82,7 +91,6 @@ function CourseManagement() {
   const [editingClass, setEditingClass] = useState(null);
   const [classForm, setClassForm] = useState({
     name: '',
-    department: '',
     description: '',
   });
 
@@ -273,13 +281,121 @@ function CourseManagement() {
   const handleViewStudents = async (course) => {
     setSelectedCourse(course);
     try {
-      const students = await coreAPI.getCourseStudents(course.id);
-      setCourseStudents(students);
+      setLoading(true);
+      const data = await coreAPI.getCourseStudents(course.id);
+      
+      // Handle both raw and paginated enrollment data
+      const studentArray = Array.isArray(data) 
+        ? data 
+        : (data && Array.isArray(data.results)) 
+          ? data.results 
+          : [];
+      
+      setCourseStudents(studentArray);
       setShowStudentsModal(true);
+    } catch (err) {
+      setError(err.message || "Failed to load enrolled students");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Enrollment Modal Handlers
+  const handleOpenEnrollment = () => {
+    setSelectedEnrollIds(new Set());
+    setEnrollClassFilter('');
+    setAvailableStudents([]);
+    setShowEnrollModal(true);
+  };
+
+  const fetchAvailableStudents = async (classId) => {
+    if (!classId) {
+      setAvailableStudents([]);
+      return;
+    }
+    setEnrollLoading(true);
+    console.log("[Enrollment] Fetching students for Class ID:", classId);
+    try {
+      const data = await coreAPI.getStudentsByClass(classId);
+      console.log("[Enrollment] Raw API Response:", data);
+      
+      // Robust Parsing: Handle both raw arrays and DRF paginated responses
+      const studentArray = Array.isArray(data) 
+        ? data 
+        : (data && Array.isArray(data.results)) 
+          ? data.results 
+          : [];
+          
+      console.log("[Enrollment] Parsed Student Array Count:", studentArray.length);
+      
+      // Robust ID matching with String conversion
+      const enrolledIds = new Set((courseStudents || []).map(s => String(s.id)));
+      const available = studentArray.filter(s => !enrolledIds.has(String(s.id)));
+      
+      console.log("[Enrollment] Available after filtering enrolled:", available.length);
+      setAvailableStudents(available);
+    } catch (err) {
+      console.error("[Enrollment] Error fetching students:", err);
+      setError(err.message);
+    } finally {
+      setEnrollLoading(false);
+    }
+  };
+
+  const toggleEnrollSelection = (id) => {
+    setSelectedEnrollIds(prev => {
+      const next = new Set(prev);
+      if (next.has(String(id))) next.delete(String(id));
+      else next.add(String(id));
+      return next;
+    });
+  };
+
+  const handleEnrollSubmit = async () => {
+    if (selectedEnrollIds.size === 0) return;
+    setEnrollLoading(true);
+    try {
+      const ids = Array.from(selectedEnrollIds);
+      await coreAPI.enrollStudents(selectedCourse.id, ids);
+      setSuccess(`Enrolled ${ids.length} students`);
+      
+      // Refresh current course student list
+      const updatedStudents = await coreAPI.getCourseStudents(selectedCourse.id);
+      setCourseStudents(updatedStudents);
+      setShowEnrollModal(false);
+      
+      // Update course student count in local state
+      setCourses(prev => prev.map(c => 
+        c.id === selectedCourse.id ? { ...c, student_count: updatedStudents.length } : c
+      ));
+      
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEnrollLoading(false);
+    }
+  };
+
+  const handleUnenroll = async (studentId) => {
+    if (!confirm('Remove this student from the course?')) return;
+    try {
+      await coreAPI.unenrollStudents(selectedCourse.id, [studentId]);
+      const updatedStudents = courseStudents.filter(s => s.id !== studentId);
+      setCourseStudents(updatedStudents);
+      setSuccess('Student removed from course');
+      
+      // Update course count
+      setCourses(prev => prev.map(c => 
+        c.id === selectedCourse.id ? { ...c, student_count: updatedStudents.length } : c
+      ));
+      
+      setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err.message);
     }
   };
+
 
   // PDF Import handlers
   const handleImportClick = () => {
@@ -316,7 +432,7 @@ function CourseManagement() {
 
   const handleCreateClass = () => {
     setEditingClass(null);
-    setClassForm({ name: '', department: '', description: '' });
+    setClassForm({ name: '', description: '' });
     setShowClassModal(true);
   };
 
@@ -324,7 +440,6 @@ function CourseManagement() {
     setEditingClass(cls);
     setClassForm({
       name: cls.name,
-      department: cls.department || '',
       description: cls.description || '',
     });
     setShowClassModal(true);
@@ -478,9 +593,10 @@ function CourseManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-3">
             <BookOpen className="w-7 h-7 text-emerald-400" />
             Course & Student Management
+            <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full border border-emerald-500/30 font-medium">v1.2.0-STABLE</span>
           </h2>
           <p className="text-slate-400 mt-1">Manage academic sessions, courses, classes, and students</p>
         </div>
@@ -675,20 +791,32 @@ function CourseManagement() {
                                   </button>
                                 </td>
                                 <td className="px-4 py-3 text-right">
-                                  <button
-                                    onClick={() => handleEditCourse(course)}
-                                    className="text-yellow-400 hover:text-yellow-300 p-1 mr-2"
-                                    title="Edit"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteCourse(course.id)}
-                                    className="text-red-400 hover:text-red-300 p-1"
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedCourse(course);
+                                        handleOpenEnrollment();
+                                      }}
+                                      className="p-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded transition-colors"
+                                      title="Enroll Students"
+                                    >
+                                      <UserPlus className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleEditCourse(course)}
+                                      className="p-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded transition-colors"
+                                      title="Edit Course"
+                                    >
+                                      <FileEdit className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteCourse(course.id)}
+                                      className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
+                                      title="Delete Course"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             ))}
@@ -728,7 +856,6 @@ function CourseManagement() {
                 <thead className="bg-slate-900/50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase">Class Name</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase">Department</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase">Description</th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-slate-400 uppercase">Students</th>
                     <th className="px-6 py-4 text-right text-xs font-medium text-slate-400 uppercase">Actions</th>
@@ -739,15 +866,6 @@ function CourseManagement() {
                     <tr key={cls.id} className="hover:bg-slate-700/30">
                       <td className="px-6 py-4">
                         <span className="text-white font-medium">{cls.name}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {cls.department ? (
-                          <span className="bg-blue-600/20 text-blue-400 text-xs px-2 py-1 rounded">
-                            {cls.department}
-                          </span>
-                        ) : (
-                          <span className="text-slate-500">-</span>
-                        )}
                       </td>
                       <td className="px-6 py-4 text-slate-400 text-sm max-w-xs truncate">
                         {cls.description || '-'}
@@ -1149,18 +1267,6 @@ function CourseManagement() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">
-                  Department
-                </label>
-                <input
-                  type="text"
-                  value={classForm.department}
-                  onChange={e => setClassForm({ ...classForm, department: e.target.value })}
-                  placeholder="e.g., JKM"
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
                   Description
                 </label>
                 <textarea
@@ -1270,8 +1376,7 @@ function CourseManagement() {
           </div>
         </div>
       )}
-
-      {/* CSV Import Modal */}
+      {/* CSV Import Modal Info */}
       {showBulkModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-lg">
@@ -1302,7 +1407,7 @@ function CourseManagement() {
         </div>
       )}
 
-      {/* Course Students Modal (View Only) */}
+      {/* Course Students Modal */}
       {showStudentsModal && selectedCourse && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -1310,9 +1415,18 @@ function CourseManagement() {
               <h3 className="text-lg font-semibold text-white">
                 Students Enrolled in {selectedCourse.code}
               </h3>
-              <button onClick={() => setShowStudentsModal(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleOpenEnrollment}
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  Enroll Students
+                </button>
+                <button onClick={() => setShowStudentsModal(false)} className="text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-auto">
@@ -1322,6 +1436,7 @@ function CourseManagement() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Reg. Number</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Full Name</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Class</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700">
@@ -1330,15 +1445,24 @@ function CourseManagement() {
                       <td className="px-4 py-3 text-white font-mono">{student.student_id}</td>
                       <td className="px-4 py-3 text-white">{student.name}</td>
                       <td className="px-4 py-3 text-slate-300">{student.class_group_name || '-'}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => handleUnenroll(student.id)}
+                          className="text-red-400 hover:text-red-300 p-1"
+                          title="Remove from course"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
+                  {courseStudents.length === 0 && (
+                    <tr>
+                      <td colSpan="4" className="text-center py-8 text-slate-500">No students enrolled</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
-              {courseStudents.length === 0 && (
-                <div className="text-center py-8 text-slate-500">
-                  No students enrollments
-                </div>
-              )}
             </div>
 
             <div className="pt-4 border-t border-slate-700 mt-auto flex justify-end">
@@ -1353,10 +1477,131 @@ function CourseManagement() {
         </div>
       )}
 
+      {/* Enroll Students Modal */}
+      {showEnrollModal && selectedCourse && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+          <div className="bg-slate-800 rounded-xl p-6 w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <Plus className="w-5 h-5 text-emerald-400" />
+                  Enroll Students to {selectedCourse.code}
+                </h3>
+                <p className="text-sm text-slate-400">Select students from any class to add them to this course.</p>
+              </div>
+              <button onClick={() => setShowEnrollModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Filter Bar */}
+            <div className="bg-slate-900/50 p-4 rounded-lg mb-4 flex items-center gap-4">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-slate-500 uppercase mb-1">Pick Source Class</label>
+                <select
+                  value={enrollClassFilter}
+                  onChange={(e) => {
+                    setEnrollClassFilter(e.target.value);
+                    fetchAvailableStudents(e.target.value);
+                  }}
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm"
+                >
+                  <option value="">-- Select Class --</option>
+                  {homeClasses.map(cls => (
+                    <option key={cls.id} value={cls.id}>{cls.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-slate-500 uppercase mb-1">Selected</p>
+                <p className="text-emerald-400 font-bold">{selectedEnrollIds.size} student{selectedEnrollIds.size !== 1 ? 's' : ''}</p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto bg-slate-900/30 rounded-lg">
+              {enrollLoading ? (
+                <div className="flex items-center justify-center h-48">
+                  <RefreshCw className="w-8 h-8 animate-spin text-emerald-400" />
+                </div>
+              ) : availableStudents.length === 0 ? (
+                <div className="text-center py-12 text-slate-500">
+                  {enrollClassFilter ? 'No available students in this class' : 'Select a class to browse students'}
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-slate-900/50 sticky top-0">
+                    <tr>
+                      <th className="w-10 px-4 py-3">
+                        <input
+                          type="checkbox"
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setAvailableStudents(prev => {
+                                const newIds = new Set(selectedEnrollIds);
+                                prev.forEach(s => newIds.add(String(s.id)));
+                                setSelectedEnrollIds(newIds);
+                                return prev;
+                              });
+                            } else {
+                              setSelectedEnrollIds(new Set());
+                            }
+                          }}
+                          checked={availableStudents.length > 0 && availableStudents.every(s => selectedEnrollIds.has(String(s.id)))}
+                          className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-emerald-500 focus:ring-emerald-500"
+                        />
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Reg. Number</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase">Full Name</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700">
+                    {availableStudents.map(student => (
+                      <tr
+                        key={student.id}
+                        className={`hover:bg-slate-700/50 cursor-pointer ${selectedEnrollIds.has(String(student.id)) ? 'bg-emerald-500/10' : ''}`}
+                        onClick={() => toggleEnrollSelection(student.id)}
+                      >
+                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedEnrollIds.has(String(student.id))}
+                            onChange={() => toggleEnrollSelection(student.id)}
+                            className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-emerald-500 focus:ring-emerald-500"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-white font-mono text-sm">{student.student_id}</td>
+                        <td className="px-4 py-3 text-white text-sm">{student.name}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="pt-6 border-t border-slate-700 mt-4 flex justify-end gap-3">
+              <button
+                onClick={() => setShowEnrollModal(false)}
+                className="px-4 py-2 text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEnrollSubmit}
+                disabled={selectedEnrollIds.size === 0 || enrollLoading}
+                className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-medium transition-all shadow-lg shadow-emerald-900/20"
+              >
+                {enrollLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                Enroll Selected ({selectedEnrollIds.size})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* PDF Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 rounded-xl p-6 w-full max-w-lg">
+          <div className="bg-slate-800 rounded-xl p-6 w-full max-w-lg shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                 <FileText className="w-5 h-5 text-purple-400" />
@@ -1380,17 +1625,17 @@ function CourseManagement() {
                     className="hidden"
                     id="pdf-upload"
                   />
-                  <label htmlFor="pdf-upload" className="cursor-pointer">
+                  <label htmlFor="pdf-upload" className="cursor-pointer block">
                     <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                     {importFile ? (
-                      <p className="text-emerald-400">{importFile.name}</p>
+                      <p className="text-emerald-400 font-medium">{importFile.name}</p>
                     ) : (
                       <p className="text-slate-400">Click to select PDF file</p>
                     )}
                   </label>
                 </div>
 
-                <div className="flex justify-end gap-3">
+                <div className="flex justify-end gap-3 mt-6">
                   <button
                     type="button"
                     onClick={() => setShowImportModal(false)}
@@ -1401,7 +1646,7 @@ function CourseManagement() {
                   <button
                     onClick={handleImportSubmit}
                     disabled={!importFile || importing}
-                    className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                    className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-6 py-2 rounded-lg flex items-center gap-2 font-medium transition-all"
                   >
                     {importing ? (
                       <>
@@ -1411,39 +1656,46 @@ function CourseManagement() {
                     ) : (
                       <>
                         <Upload className="w-4 h-4" />
-                        Import
+                        Import PDF
                       </>
                     )}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-4 pt-2">
                 <div className="bg-emerald-900/30 border border-emerald-600 rounded-lg p-4">
                   <h4 className="text-emerald-400 font-medium flex items-center gap-2">
                     <CheckCircle className="w-5 h-5" />
                     Import Successful
                   </h4>
                 </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-2 gap-4 text-sm mt-4">
                   <div className="bg-slate-700/50 rounded-lg p-3">
-                    <p className="text-slate-400">Session</p>
+                    <p className="text-slate-400 mb-1">Session</p>
                     <p className="text-white font-medium">{importResult.session?.name}</p>
                   </div>
                   <div className="bg-slate-700/50 rounded-lg p-3">
-                    <p className="text-slate-400">Course</p>
+                    <p className="text-slate-400 mb-1">Course</p>
                     <p className="text-white font-medium">{importResult.course?.code}</p>
                   </div>
                 </div>
-                {importResult.class_groups_created?.length > 0 && (
-                  <div className="text-sm text-slate-400">
-                    <p>New home classes created: {importResult.class_groups_created.join(', ')}</p>
+                <div className="bg-slate-900/50 rounded-lg p-3 text-sm">
+                  <p className="text-slate-400 mb-2">Summary</p>
+                  <div className="flex justify-between text-white">
+                    <span>Students Enrolled:</span>
+                    <span className="font-bold text-emerald-400">{importResult.students_enrolled}</span>
                   </div>
-                )}
-                <div className="flex justify-end">
+                  {importResult.class_groups_created?.length > 0 && (
+                    <div className="mt-2 text-blue-400 text-xs">
+                      New home classes: {importResult.class_groups_created.join(', ')}
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end mt-6">
                   <button
                     onClick={() => setShowImportModal(false)}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg"
+                    className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg transition-colors"
                   >
                     Done
                   </button>

@@ -5,7 +5,8 @@ import os
 from pathlib import Path
 
 from rest_framework import viewsets, status
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.conf import settings
 from django.utils import timezone
@@ -440,6 +441,7 @@ def reboot_device(request):
 
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
 def device_status(request):
     """
     Check RDK X5 device status
@@ -480,11 +482,6 @@ def upload_pretrained_model(request):
         
         # Create the model with uploaded status
         model = serializer.save(status='uploaded')
-        
-        # Calculate file size
-        if model.model_file:
-            model.file_size_mb = round(model.model_file.size / (1024 * 1024), 2)
-            model.save(update_fields=['file_size_mb'])
         
         logger.info(f"Pre-trained model uploaded: {model.name} v{model.version}")
         

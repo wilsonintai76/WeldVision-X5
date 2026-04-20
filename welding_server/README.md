@@ -58,8 +58,10 @@ Create `.env` file in this directory:
 DJANGO_SECRET_KEY=your-secret-key-here
 DEBUG=True
 
-# Database (optional - uses SQLite by default)
+# Database (PostgreSQL 15 default in Docker)
 DATABASE_URL=postgresql://user:password@localhost:5432/weldvision
+# For local SQLite fallback:
+# DATABASE_URL=sqlite:///db.sqlite3
 
 # RDK X5 Connection
 RDK_IP=192.168.1.100
@@ -93,6 +95,7 @@ Located in `frontend/.env`:
 - **MLOps Pipeline**: Training job management, model conversion
 - **Edge Device Management**: Register and monitor RDK X5 devices
 - **Results Collection**: Receive and store inference results
+- **Multi-Role Auth**: Supported roles for Admin, Instructor, and Students (using Registration IDs)
 
 ### Frontend Dashboard
 
@@ -138,11 +141,18 @@ npm install
 # Start dev server with hot reload
 npm run dev
 
-# Build for production
-npm run build
-
 # Preview production build
 npm run preview
+```
+
+### ⚡ Using `uv` (Recommended for Local Dev)
+
+For 10-100x faster package installation on the backend:
+
+```bash
+cd backend
+uv venv
+uv pip install -r requirements.txt
 ```
 
 ## 📝 API Endpoints

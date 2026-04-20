@@ -63,7 +63,7 @@ The PC/Server hosts the **management and training infrastructure**:
 |-----------|-----------|------|---------|
 | **Backend API** | Django 4.2 + DRF | 8000 | REST API, database, MLOps orchestration |
 | **Frontend Dashboard** | React 18 + Vite | 3000 | Web UI for monitoring, annotation, training |
-| **Database** | SQLite (dev) / PostgreSQL (prod) | - | Store datasets, models, calibrations, results |
+| **Database** | PostgreSQL 15 | - | Store datasets, models, calibrations, results |
 | **File Storage** | Local filesystem / S3 | - | Images, trained models, calibration data |
 
 **What runs on PC:**
@@ -169,6 +169,16 @@ The RDK X5 performs **real-time inference at the edge**:
 - Static IP: `192.168.1.100` (required)
 - Firewall: Allow inbound SSH (port 22)
 - Firewall: Allow outbound HTTP (port 8000) to PC
+
+### 🔌 Direct Ethernet (LAN) Setup
+If connecting the Desktop PC and RDK X5 directly with a cable (no router):
+1. **Set Static IP on PC**:
+   - IP: `192.168.1.5`
+   - Subnet: `255.255.255.0`
+2. **Set Static IP on RDK X5**:
+   - IP: `192.168.1.100`
+   - Subnet: `255.255.255.0`
+3. **Test**: Run `ping 192.168.1.100` from the Desktop.
 
 ---
 

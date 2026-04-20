@@ -16,13 +16,37 @@ services:
     environment:
       - DJANGO_SECRET_KEY=dev-secret-key-change-in-production
       - DEBUG=True
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_NAME=weldvision
+      - DB_USER=weldvision_user
+      - DB_PASSWORD=weldvision_pass
+      - DB_HOST=db
+      - DB_PORT=5432
       - RDK_IP=192.168.1.100
       - RDK_USERNAME=sunrise
       - RDK_PASSWORD=sunrise
     command: >
-      sh -c "python manage.py migrate &&
+      sh -c "while ! pg_isready -h db -p 5432 -U weldvision_user; do sleep 1; done &&
+             python manage.py makemigrations &&
+             python manage.py migrate &&
              python manage.py collectstatic --noinput &&
              python manage.py runserver 0.0.0.0:8000"
+    restart: unless-stopped
+    depends_on:
+      - db
+    networks:
+      - weldvision-network
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: weldvision-db
+    environment:
+      - POSTGRES_DB=weldvision
+      - POSTGRES_USER=weldvision_user
+      - POSTGRES_PASSWORD=weldvision_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     networks:
       - weldvision-network
@@ -50,6 +74,7 @@ services:
 volumes:
   media_data:
   static_data:
+  postgres_data:
 
 networks:
   weldvision-network:

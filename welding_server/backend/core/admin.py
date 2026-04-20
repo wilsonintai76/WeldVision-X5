@@ -39,6 +39,6 @@ class LabeledImageAdmin(admin.ModelAdmin):
 
 @admin.register(Annotation)
 class AnnotationAdmin(admin.ModelAdmin):
-    list_display = ['image', 'class_name', 'created_at']
-    search_fields = ['class_name']
-    list_filter = ['class_name', 'created_at']
+    list_display = ['image', 'defect_class', 'created_at']
+    search_fields = ['defect_class__name']
+    list_filter = ['defect_class', 'created_at']

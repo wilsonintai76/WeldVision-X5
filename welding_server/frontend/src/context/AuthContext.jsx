@@ -115,6 +115,8 @@ export function AuthProvider({ children }) {
     checkAuth,
     updateProfile,
     changePassword,
+    // Set user state directly (use when API call is already done externally)
+    setCurrentUser: (userData) => setUser(userData),
     clearError: () => setError(null),
   };
 

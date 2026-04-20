@@ -331,7 +331,9 @@ pip3 install -r requirements.txt
 ### Desktop/Server Setup
 
 1. **Install Operating System**
-   - Use recommended OS (Ubuntu 22.04 LTS preferred)
+   - **Database**:
+     - [PostgreSQL 15+](https://www.postgresql.org/) (Required for Production/Docker)
+     - SQLite (Built-in, supported for lightweight local development only)
    - Ensure all updates are installed
 
 2. **Install Software** (see Software Installation section)

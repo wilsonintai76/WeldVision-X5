@@ -20,10 +20,10 @@ function getCSRFToken() {
 
 function Dashboard() {
   const [students, setStudents] = useState([])
-  const [classGroups, setClassGroups] = useState([])
+  const [courses, setCourses] = useState([])
   const [rubrics, setRubrics] = useState([])
   const [selectedStudent, setSelectedStudent] = useState(null)
-  const [selectedClass, setSelectedClass] = useState(null)
+  const [selectedCourse, setSelectedCourse] = useState(null)
   const [selectedRubric, setSelectedRubric] = useState(null)
   const [isEvaluating, setIsEvaluating] = useState(false)
   const [evaluationResults, setEvaluationResults] = useState([])
@@ -48,9 +48,9 @@ function Dashboard() {
     },
   })
 
-  // Fetch students, class groups, and rubrics
+  // Fetch initial data
   useEffect(() => {
-    fetchClassGroups()
+    fetchCourses()
     fetchStudents()
     fetchRubrics()
   }, [])
@@ -154,27 +154,42 @@ function Dashboard() {
     }
   }, [])
 
-  const fetchClassGroups = async () => {
-    try {
-      const res = await fetch('/api/classes/', { credentials: 'include' })
-      if (res.ok) {
-        const data = await res.json()
-        setClassGroups(Array.isArray(data) ? data : (data.results || []))
-      }
-    } catch (error) {
-      console.error('Error fetching class groups:', error)
-    }
-  }
 
-  const fetchStudents = async (classId = null) => {
+  const fetchCourses = async () => {
     try {
-      const url = classId
-        ? `/api/students/by_class/?class_id=${classId}`
-        : '/api/students/'
+      // First get active session
+      const sessRes = await fetch('/api/sessions/active/', { credentials: 'include' })
+      let sessionId = null
+      if (sessRes.ok) {
+        const sessData = await sessRes.json()
+        sessionId = sessData.id
+      }
+
+      // Then get courses for that session
+      const url = sessionId ? `/api/courses/?session=${sessionId}` : '/api/courses/'
       const res = await fetch(url, { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
-        setStudents(Array.isArray(data) ? data : (data.results || []))
+        setCourses(Array.isArray(data) ? data : (data.results || []))
+      }
+    } catch (error) {
+      console.error('Error fetching courses:', error)
+    }
+  }
+
+  const fetchStudents = async (courseId = null) => {
+    try {
+      let url = '/api/students/'
+      
+      if (courseId) {
+        url = `/api/courses/${courseId}/students/`
+      }
+
+      const res = await fetch(url, { credentials: 'include' })
+      if (res.ok) {
+        const data = await res.json()
+        const studentList = Array.isArray(data) ? data : (data.results || [])
+        setStudents(studentList)
       }
     } catch (error) {
       console.error('Error fetching students:', error)
@@ -244,15 +259,12 @@ function Dashboard() {
     }
   }, [isEvaluating, selectedStudent, selectedRubric, suggestScoresFromMetrics])
 
-  const handleClassChange = (e) => {
-    const classId = e.target.value
-    setSelectedClass(classId)
+  const handleCourseChange = (e) => {
+    const courseId = e.target.value ? Number(e.target.value) : null
+    const course = courses.find(c => c.id === courseId)
+    setSelectedCourse(course || null)
     setSelectedStudent(null)
-    if (classId) {
-      fetchStudents(classId)
-    } else {
-      fetchStudents()
-    }
+    fetchStudents(courseId)
   }
 
   const startEvaluation = () => {
@@ -291,12 +303,12 @@ function Dashboard() {
       try {
         const csrfToken = getCSRFToken();
         const res = await fetch('/api/student-evaluations/', {
-          credentials: 'include', method: 'POST',
+          method: 'POST',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': csrfToken
           },
-          credentials: 'include',
           body: JSON.stringify({
             student: selectedStudent.id,
             rubric: selectedRubric.id,
@@ -383,32 +395,6 @@ function Dashboard() {
     }
   }
 
-  const downloadClassReportPdf = async (classId) => {
-    if (!classId) {
-      alert('Please select a class first')
-      return
-    }
-    try {
-      const res = await fetch(`/api/student-evaluations/class_report_pdf/?class_id=${classId}`, { credentials: 'include' })
-      if (res.ok) {
-        const blob = await res.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        const className = classGroups.find(c => c.id === classId)?.name || 'class'
-        a.download = `class_report_${className.replace(/\s/g, '_')}.pdf`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        a.remove()
-      } else {
-        alert('Failed to generate class report PDF')
-      }
-    } catch (error) {
-      console.error('Error downloading class report PDF:', error)
-      alert('Error downloading class report PDF')
-    }
-  }
 
   const handleRubricChange = (e) => {
     const rubricId = Number(e.target.value)
@@ -442,15 +428,15 @@ function Dashboard() {
       {/* Top Bar - Student Selection */}
       <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-wrap gap-4 items-center justify-between">
         <div className="flex gap-4 flex-1">
-          <div className="w-48">
-            <label className="text-xs text-slate-500 mb-1 block">Class Group</label>
+          <div className="flex-1 max-w-sm">
+            <label className="text-xs text-slate-500 mb-1 block">Course</label>
             <select
               className="w-full bg-slate-800 border-slate-700 rounded-lg text-sm text-white"
-              onChange={handleClassChange}
-              value={selectedClass || ''}
+              onChange={handleCourseChange}
+              value={selectedCourse?.id || ''}
             >
-              <option value="">All Classes</option>
-              {classGroups.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <option value="">Select Course...</option>
+              {courses.map(c => <option key={c.id} value={c.id}>{c.code} - {c.name}</option>)}
             </select>
           </div>
           <div className="flex-1 max-w-md">

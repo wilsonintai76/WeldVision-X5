@@ -208,7 +208,7 @@ function Help() {
           >
             <div className="space-y-4">
               <p className="text-slate-300 text-sm">
-                User Management handles <strong>staff accounts only</strong> (Admin, Instructor). Students do not log into this application.
+                User Management handles <strong>Instructors and Admins</strong>. Student accounts are automatically created during import.
               </p>
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-red-900/20 border border-red-600/30 rounded-lg p-3 text-center">
@@ -225,8 +225,8 @@ function Help() {
                 </div>
               </div>
               <div className="bg-slate-800 border border-slate-700 rounded-lg p-3">
-                <p className="text-white text-sm font-medium mb-1">Where to manage students</p>
-                <p className="text-slate-400 text-xs">Go to <span className="text-blue-400">Course Management</span> → select a class → Add/Import Students. Students can be bulk-imported via CSV or attendance PDF.</p>
+                <p className="text-white text-sm font-medium mb-1">Student Access</p>
+                <p className="text-slate-400 text-xs">Students can log in using their <strong>Registration Number</strong> as their username and default PIN. They can view their results and assessments once logged in.</p>
               </div>
             </div>
           </Section>
@@ -290,8 +290,8 @@ function Help() {
                 solution="Verify stereo calibration is complete and RDK X5 weldvision service is running."
               />
               <TroubleshootItem
-                issue="Student not appearing in Dashboard"
-                solution="Students are managed in Course Management, not User Management. Add students there first, then select them in Dashboard."
+                issue="Student cannot login"
+                solution="Verify the Registration Number matches exactly. Default PIN is the Registration Number itself. Ensure the account 'is_approved' in the Admin panel."
               />
             </div>
 

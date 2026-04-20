@@ -28,8 +28,6 @@ class AIModelSerializer(serializers.ModelSerializer):
             'deployed_to_device',
             'file_size_mb',
             'file_size_display',
-            'training_date',
-            'training_dataset',
             'framework_version',
             'created_at',
             'updated_at',

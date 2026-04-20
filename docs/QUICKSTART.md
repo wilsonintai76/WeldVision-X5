@@ -164,8 +164,12 @@ venv\Scripts\activate
 # Mac/Linux:
 source venv/bin/activate
 
-# Install dependencies
+# Install dependencies (Standard)
 pip install -r requirements.txt
+
+# OR use uv for 10x speed (Recommended)
+uv venv
+uv pip install -r requirements.txt
 
 # Run database migrations
 python manage.py migrate
@@ -362,8 +366,8 @@ After setup is complete:
 
 1. **Calibrate Cameras** - See [Stereo Calibration Guide](STEREO_CALIBRATION_SETUP.md)
 2. **Configure Rubrics** - Set up grading criteria in the dashboard; measurable criteria (height, width, porosity, spatter) are **AI auto-scored** from live inspection metrics — click any score to manually override
-3. **Add Students** - Import or add students under **Course Management** (students do not log in to the app)
-4. **Manage Staff Accounts** - Use **User Management** (Admin only) to manage Instructor and Admin accounts; student records are handled separately in Course Management
+3. **Add Students** - Import or add students under **Course Management**. Students can log in using their **Registration Number** and a 4-digit PIN.
+4. **Manage Staff Accounts** - Use **User Management** (Admin only) to manage Instructor and Admin accounts.
 5. **Train/Import Model** - See [Training Options](TRAINING_OPTIONS.md)
 6. **Deploy Model** - Push trained model to RDK X5
 

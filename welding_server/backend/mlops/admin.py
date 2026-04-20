@@ -15,7 +15,7 @@ class AIModelAdmin(admin.ModelAdmin):
     ]
     list_filter = ['status', 'is_deployed', 'created_at']
     search_fields = ['name', 'version', 'description']
-    readonly_fields = ['created_at', 'updated_at']
+    readonly_fields = ['file_size_mb', 'created_at', 'updated_at']
     
     fieldsets = (
         ('Model Information', {

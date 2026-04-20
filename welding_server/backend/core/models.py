@@ -59,7 +59,6 @@ class StereoCalibration(models.Model):
 class ClassGroup(models.Model):
     """Class/Group model for organizing students - represents HOME CLASS (e.g., DKM5A, DKM6A)"""
     name = models.CharField(max_length=100, unique=True, help_text="Home class name (e.g., DKM5A)")
-    department = models.CharField(max_length=100, blank=True, help_text="Department/Jabatan (e.g., JKM)")
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -138,7 +137,6 @@ class Student(models.Model):
         related_name='students',
         help_text="Student's home class (e.g., DKM5A)"
     )
-    department = models.CharField(max_length=100, blank=True, help_text="Department/Jabatan (e.g., JKM)")
     enrolled_courses = models.ManyToManyField(
         Course,
         blank=True,
@@ -281,9 +279,12 @@ class Annotation(models.Model):
         on_delete=models.CASCADE,
         related_name='annotations'
     )
-    class_name = models.CharField(
-        max_length=50,
-        help_text="Defect class name"
+    defect_class = models.ForeignKey(
+        DefectClass,
+        on_delete=models.CASCADE,
+        related_name='annotations',
+        null=True,
+        help_text="Defect class for this annotation"
     )
     # Bounding box in normalized coordinates (0-1)
     x_center = models.FloatField(help_text="Center X (normalized 0-1)")
@@ -297,4 +298,4 @@ class Annotation(models.Model):
         ordering = ['id']
     
     def __str__(self):
-        return f"{self.class_name} @ {self.image.filename}"
+        return f"{self.defect_class.display_name if self.defect_class else 'Unknown'} @ {self.image.filename}"

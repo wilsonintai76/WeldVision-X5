@@ -1,8 +1,12 @@
 """
 PDF Report Generation for Student Evaluations
 """
+import os
 from io import BytesIO
 from datetime import datetime
+from django.conf import settings
+from django.db.models import Avg, Max, Min, Count
+from accounts.models import User
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, letter
@@ -247,9 +251,6 @@ def generate_evaluation_report(evaluation, include_details=True):
         # Original Image
         if assessment.image_original and assessment.image_original.path:
             try:
-                from django.conf import settings
-                import os
-                
                 story.append(Paragraph("Original Image", subheading_style))
                 img_path = assessment.image_original.path
                 
@@ -495,7 +496,6 @@ def generate_student_summary_report(student, evaluations):
     if evaluations.exists():
         story.append(Paragraph("Statistics", heading_style))
         
-        from django.db.models import Avg, Max, Min
         stats = evaluations.aggregate(
             avg_score=Avg('total_score'),
             max_score=Max('total_score'),
@@ -600,10 +600,12 @@ def generate_class_report(class_group):
     # Class Information
     story.append(Paragraph("Class Information", heading_style))
     
+    instructors = User.objects.filter(assigned_classes=class_group)
+    instructor_names = ", ".join([f"{u.first_name} {u.last_name}".strip() or u.username for u in instructors]) or 'N/A'
+
     class_data = [
         ['Class Name:', class_group.name],
-        ['Instructor:', class_group.instructor or 'N/A'],
-        ['Semester:', class_group.semester or 'N/A'],
+        ['Instructor:', instructor_names],
         ['Total Students:', str(class_group.students.count())],
         ['Report Generated:', datetime.now().strftime('%Y-%m-%d %H:%M')],
     ]
@@ -626,8 +628,6 @@ def generate_class_report(class_group):
         
         # Build student table data
         student_data = [['Student ID', 'Name', 'Evaluations', 'Latest Score', 'Pass Rate', 'Status']]
-        
-        from django.db.models import Count, Avg
         
         overall_pass_count = 0
         overall_fail_count = 0
@@ -726,7 +726,7 @@ def generate_class_report(class_group):
         students_with_evals = sum(1 for s in students if s.evaluations.count() > 0)
         
         # Get average score across all evaluations
-        from rubrics.models import StudentEvaluation
+        from .models import StudentEvaluation
         all_evals = StudentEvaluation.objects.filter(student__class_group=class_group)
         avg_score = all_evals.aggregate(Avg('total_score'))['total_score__avg'] or 0
         

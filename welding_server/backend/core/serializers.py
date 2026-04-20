@@ -84,7 +84,7 @@ class ClassGroupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ClassGroup
-        fields = ['id', 'name', 'department', 'description', 'student_count', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'student_count', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
     def get_student_count(self, obj):
@@ -98,7 +98,7 @@ class StudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = ['id', 'student_id', 'name', 'class_group', 'class_group_name', 
-                  'department', 'enrolled_courses', 'enrolled_course_names',
+                  'enrolled_courses', 'enrolled_course_names',
                   'email', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
@@ -112,7 +112,7 @@ class StudentListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Student
-        fields = ['id', 'student_id', 'name', 'class_group_name', 'department']
+        fields = ['id', 'student_id', 'name', 'class_group_name']
 
 
 class DefectClassSerializer(serializers.ModelSerializer):
@@ -129,7 +129,7 @@ class AnnotationSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Annotation
-        fields = ['id', 'image', 'class_name', 'x_center', 'y_center', 'width', 'height', 'created_at']
+        fields = ['id', 'image', 'defect_class', 'x_center', 'y_center', 'width', 'height', 'created_at']
         read_only_fields = ['created_at']
 
 

@@ -4,7 +4,7 @@ djangorestframework
 django-cors-headers
 
 # Database
-# psycopg2-binary  # Only needed for PostgreSQL (production)
+psycopg2-binary  # Needed for PostgreSQL
 
 # Image Processing
 Pillow

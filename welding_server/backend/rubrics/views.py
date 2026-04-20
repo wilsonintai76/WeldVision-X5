@@ -5,12 +5,22 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.http import HttpResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
+from django.utils import timezone
+from datetime import datetime
+
+from core.models import Student, ClassGroup
 from .models import Rubric, AssessmentRubric, RubricCriterion, StudentEvaluation, CriterionScore
 from .serializers import (
     RubricSerializer, AssessmentRubricSerializer, RubricCriterionSerializer,
     StudentEvaluationSerializer, StudentEvaluationCreateSerializer
+)
+from .reports import (
+    generate_evaluation_report, 
+    generate_student_summary_report, 
+    generate_class_report
 )
 
 
@@ -244,9 +254,6 @@ class StudentEvaluationViewSet(viewsets.ModelViewSet):
         
         GET /api/student-evaluations/{id}/report_pdf/
         """
-        from django.http import HttpResponse
-        from .reports import generate_evaluation_report
-        
         evaluation = self.get_object()
         include_details = request.query_params.get('details', 'true').lower() == 'true'
         
@@ -265,10 +272,6 @@ class StudentEvaluationViewSet(viewsets.ModelViewSet):
         
         GET /api/student-evaluations/student_report_pdf/?student_id=STU001
         """
-        from django.http import HttpResponse
-        from core.models import Student
-        from .reports import generate_student_summary_report
-        
         student_id = request.query_params.get('student_id')
         if not student_id:
             return Response({'detail': 'student_id query parameter required'}, status=400)
@@ -282,7 +285,6 @@ class StudentEvaluationViewSet(viewsets.ModelViewSet):
         
         pdf_buffer = generate_student_summary_report(student, evaluations)
         
-        from datetime import datetime
         filename = f"student_report_{student.student_id}_{datetime.now().strftime('%Y%m%d')}.pdf"
         
         response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
@@ -296,10 +298,6 @@ class StudentEvaluationViewSet(viewsets.ModelViewSet):
         
         GET /api/student-evaluations/class_report_pdf/?class_id=1
         """
-        from django.http import HttpResponse
-        from core.models import ClassGroup
-        from .reports import generate_class_report
-        
         class_id = request.query_params.get('class_id')
         if not class_id:
             return Response({'detail': 'class_id query parameter required'}, status=400)
@@ -311,7 +309,6 @@ class StudentEvaluationViewSet(viewsets.ModelViewSet):
         
         pdf_buffer = generate_class_report(class_group)
         
-        from datetime import datetime
         filename = f"class_report_{class_group.name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf"
         
         response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')

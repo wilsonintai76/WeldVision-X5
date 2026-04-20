@@ -625,9 +625,9 @@ function Labeling({ initialView = 'datasets' }) {
       
       // Draw existing annotations
       annotations.forEach(ann => {
-        const defectClass = selectedDataset?.classes?.find(cls => cls.name === ann.class_name)
+        const defectClass = selectedDataset?.classes?.find(cls => cls.id === ann.defect_class)
         const classColor = defectClass?.color || '#6B7280'
-        const displayName = defectClass?.display_name || ann.class_name
+        const displayName = defectClass?.display_name || 'Unknown'
         drawBox(ctx, ann, classColor, displayName, canvas.width, canvas.height)
       })
       
@@ -667,7 +667,7 @@ function Labeling({ initialView = 'datasets' }) {
     ctx.fillRect(x, y, width, height)
     
     // Draw label
-    const labelText = displayName || ann.class_name
+    const labelText = displayName
     const textWidth = ctx.measureText(labelText).width
     ctx.fillStyle = color
     ctx.fillRect(x, y - 20, textWidth + 10, 20)
@@ -741,7 +741,7 @@ function Labeling({ initialView = 'datasets' }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image: selectedImage.id,
-          class_name: selectedClassForAnnotation,
+          defect_class: selectedClassForAnnotation,
           x_center: pendingBox.x_center,
           y_center: pendingBox.y_center,
           width: pendingBox.width,
@@ -2027,7 +2027,7 @@ function Labeling({ initialView = 'datasets' }) {
               <label className="text-slate-300 text-xs font-medium mb-1 block">Label</label>
               <input
                 type="text"
-                value={selectedClassForAnnotation ? defectClasses.find(c => c.name === selectedClassForAnnotation)?.display_name || '' : ''}
+                value={selectedClassForAnnotation ? defectClasses.find(c => c.id === selectedClassForAnnotation)?.display_name || '' : ''}
                 placeholder="Select a class below"
                 className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
                 readOnly
@@ -2058,9 +2058,9 @@ function Labeling({ initialView = 'datasets' }) {
                 {defectClasses.map((defectClass, idx) => (
                   <button
                     key={defectClass.id}
-                    onClick={() => setSelectedClassForAnnotation(defectClass.name)}
+                    onClick={() => setSelectedClassForAnnotation(defectClass.id)}
                     className={`w-full flex items-center gap-2 p-2 rounded text-left transition-colors ${
-                      selectedClassForAnnotation === defectClass.name 
+                      selectedClassForAnnotation === defectClass.id 
                         ? 'bg-emerald-600 hover:bg-emerald-700' 
                         : 'hover:bg-slate-800'
                     }`}

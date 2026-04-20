@@ -311,11 +311,18 @@ function MainApp() {
           {/* Logout Button */}
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg transition-colors"
+            className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white py-2 rounded-lg transition-colors mb-4"
           >
             <LogOut className="w-4 h-4" />
             <span className="text-sm">Logout</span>
           </button>
+
+          {/* System Version */}
+          <div className="text-center">
+            <span className="text-[10px] font-medium text-slate-600 bg-slate-800/30 px-2 py-0.5 rounded-full border border-slate-800/50 uppercase tracking-widest">
+              v1.2.0-STABLE
+            </span>
+          </div>
         </div>
       </aside>
 
@@ -357,7 +364,7 @@ function LandingWrapper() {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter future={{ v7_relativeSplatPath: true }}>
+      <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <Routes>
           <Route path="/" element={<LandingWrapper />} />
           <Route path="/login" element={<Login />} />
