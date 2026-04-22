@@ -5,9 +5,9 @@
 const API_BASE = '/api';
 
 // Helper to get CSRF token from cookies
-function getCSRFToken() {
+function getCSRFToken(): string | null {
   const name = 'csrftoken';
-  let cookieValue = null;
+  let cookieValue: string | null = null;
   if (document.cookie && document.cookie !== '') {
     const cookies = document.cookie.split(';');
     for (let i = 0; i < cookies.length; i++) {
@@ -22,10 +22,10 @@ function getCSRFToken() {
 }
 
 // Fetch with credentials and CSRF token
-async function apiFetch(url, options = {}) {
-  const headers = {
+async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
   };
   
   if (options.method && options.method !== 'GET') {
@@ -46,7 +46,7 @@ async function apiFetch(url, options = {}) {
 
 export const coreAPI = {
   // Classes
-  async getClasses() {
+  async getClasses(): Promise<any> {
     const response = await apiFetch('/classes/');
     if (!response.ok) {
       throw new Error('Failed to get classes');
@@ -54,7 +54,7 @@ export const coreAPI = {
     return response.json();
   },
   
-  async getClass(id) {
+  async getClass(id: number | string): Promise<any> {
     const response = await apiFetch(`/classes/${id}/`);
     if (!response.ok) {
       throw new Error('Failed to get class');
@@ -62,7 +62,7 @@ export const coreAPI = {
     return response.json();
   },
   
-  async createClass(data) {
+  async createClass(data: any): Promise<any> {
     const response = await apiFetch('/classes/', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -73,7 +73,7 @@ export const coreAPI = {
     return response.json();
   },
   
-  async updateClass(id, data) {
+  async updateClass(id: number | string, data: any): Promise<any> {
     const response = await apiFetch(`/classes/${id}/`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -84,7 +84,7 @@ export const coreAPI = {
     return response.json();
   },
   
-  async deleteClass(id) {
+  async deleteClass(id: number | string): Promise<{ success: boolean }> {
     const response = await apiFetch(`/classes/${id}/`, {
       method: 'DELETE',
     });
@@ -95,7 +95,7 @@ export const coreAPI = {
   },
   
   // Students
-  async getStudents(filters = {}) {
+  async getStudents(filters: Record<string, any> = {}): Promise<any> {
     const params = new URLSearchParams(filters);
     const response = await apiFetch(`/students/?${params}`);
     if (!response.ok) {
@@ -104,7 +104,7 @@ export const coreAPI = {
     return response.json();
   },
   
-  async getStudentsByClass(classId) {
+  async getStudentsByClass(classId: number | string): Promise<any> {
     const response = await apiFetch(`/students/by_class/?class_id=${classId}`);
     if (!response.ok) {
       throw new Error('Failed to get students');
@@ -112,7 +112,7 @@ export const coreAPI = {
     return response.json();
   },
   
-  async createStudent(data) {
+  async createStudent(data: any): Promise<any> {
     const response = await apiFetch('/students/', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -123,7 +123,7 @@ export const coreAPI = {
     return response.json();
   },
   
-  async updateStudent(id, data) {
+  async updateStudent(id: number | string, data: any): Promise<any> {
     const response = await apiFetch(`/students/${id}/`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -134,7 +134,7 @@ export const coreAPI = {
     return response.json();
   },
   
-  async deleteStudent(id) {
+  async deleteStudent(id: number | string): Promise<{ success: boolean }> {
     const response = await apiFetch(`/students/${id}/`, {
       method: 'DELETE',
     });
@@ -144,10 +144,10 @@ export const coreAPI = {
     return { success: true };
   },
   
-  async bulkImportStudents(file, classId) {
+  async bulkImportStudents(file: File, classId: number | string): Promise<any> {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('class_id', classId);
+    formData.append('class_id', String(classId));
     
     const csrfToken = getCSRFToken();
     const response = await fetch(`${API_BASE}/students/bulk_import/`, {
@@ -165,24 +165,24 @@ export const coreAPI = {
   },
   
   // Instructors
-  async getInstructors() {
+  async getInstructors(): Promise<any> {
     const response = await apiFetch('/users/?role=instructor');
     if (!response.ok) {
       throw new Error('Failed to get instructors');
     }
     return response.json();
   },
-
+  
   // Sessions (Academic Semesters)
-  async getSessions() {
+  async getSessions(): Promise<any> {
     const response = await apiFetch('/sessions/');
     if (!response.ok) {
       throw new Error('Failed to get sessions');
     }
     return response.json();
   },
-
-  async getActiveSession() {
+  
+  async getActiveSession(): Promise<any> {
     const response = await apiFetch('/sessions/active/');
     if (response.status === 404) {
       return null;
@@ -192,8 +192,8 @@ export const coreAPI = {
     }
     return response.json();
   },
-
-  async createSession(data) {
+  
+  async createSession(data: any): Promise<any> {
     const response = await apiFetch('/sessions/', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -203,8 +203,8 @@ export const coreAPI = {
     }
     return response.json();
   },
-
-  async updateSession(id, data) {
+  
+  async updateSession(id: number | string, data: any): Promise<any> {
     const response = await apiFetch(`/sessions/${id}/`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -214,8 +214,8 @@ export const coreAPI = {
     }
     return response.json();
   },
-
-  async deleteSession(id) {
+  
+  async deleteSession(id: number | string): Promise<{ success: boolean }> {
     const response = await apiFetch(`/sessions/${id}/`, {
       method: 'DELETE',
     });
@@ -224,8 +224,8 @@ export const coreAPI = {
     }
     return { success: true };
   },
-
-  async setActiveSession(id) {
+  
+  async setActiveSession(id: number | string): Promise<any> {
     const response = await apiFetch(`/sessions/${id}/set_active/`, {
       method: 'POST',
     });
@@ -234,9 +234,9 @@ export const coreAPI = {
     }
     return response.json();
   },
-
+  
   // Courses
-  async getCourses(filters = {}) {
+  async getCourses(filters: Record<string, any> = {}): Promise<any> {
     const params = new URLSearchParams(filters);
     const response = await apiFetch(`/courses/?${params}`);
     if (!response.ok) {
@@ -244,16 +244,16 @@ export const coreAPI = {
     }
     return response.json();
   },
-
-  async getCourse(id) {
+  
+  async getCourse(id: number | string): Promise<any> {
     const response = await apiFetch(`/courses/${id}/`);
     if (!response.ok) {
       throw new Error('Failed to get course');
     }
     return response.json();
   },
-
-  async createCourse(data) {
+  
+  async createCourse(data: any): Promise<any> {
     const response = await apiFetch('/courses/', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -263,8 +263,8 @@ export const coreAPI = {
     }
     return response.json();
   },
-
-  async updateCourse(id, data) {
+  
+  async updateCourse(id: number | string, data: any): Promise<any> {
     const response = await apiFetch(`/courses/${id}/`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -274,8 +274,8 @@ export const coreAPI = {
     }
     return response.json();
   },
-
-  async deleteCourse(id) {
+  
+  async deleteCourse(id: number | string): Promise<{ success: boolean }> {
     const response = await apiFetch(`/courses/${id}/`, {
       method: 'DELETE',
     });
@@ -284,16 +284,16 @@ export const coreAPI = {
     }
     return { success: true };
   },
-
-  async getCourseStudents(courseId) {
+  
+  async getCourseStudents(courseId: number | string): Promise<any> {
     const response = await apiFetch(`/courses/${courseId}/students/`);
     if (!response.ok) {
       throw new Error('Failed to get course students');
     }
     return response.json();
   },
-
-  async enrollStudents(courseId, studentIds) {
+  
+  async enrollStudents(courseId: number | string, studentIds: (number | string)[]): Promise<any> {
     const response = await apiFetch(`/courses/${courseId}/enroll/`, {
       method: 'POST',
       body: JSON.stringify({ student_ids: studentIds }),
@@ -303,8 +303,8 @@ export const coreAPI = {
     }
     return response.json();
   },
-
-  async unenrollStudents(courseId, studentIds) {
+  
+  async unenrollStudents(courseId: number | string, studentIds: (number | string)[]): Promise<any> {
     const response = await apiFetch(`/courses/${courseId}/unenroll/`, {
       method: 'POST',
       body: JSON.stringify({ student_ids: studentIds }),
@@ -314,8 +314,8 @@ export const coreAPI = {
     }
     return response.json();
   },
-
-  async importPDF(file) {
+  
+  async importPDF(file: File): Promise<any> {
     const formData = new FormData();
     formData.append('file', file);
     

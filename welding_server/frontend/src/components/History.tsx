@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, FC } from 'react'
 import {
     History as HistoryIcon,
     Download,
@@ -23,31 +23,41 @@ import WeldViewer3D from './WeldViewer3D'
 
 const API_BASE = '/api'
 
+interface AssessmentEntry {
+    id: string | number;
+    original_id?: number;
+    student_name: string;
+    student_id: string;
+    timestamp: string;
+    final_score: number;
+    image_heatmap_url: string | null;
+    has_3d_data: boolean;
+    assessment?: number;
+    evaluation_id?: number;
+    type: 'scan' | 'manual';
+    rubric_name?: string;
+    passed?: boolean;
+}
+
 /**
  * History Page - Assessment history with 3D preview capabilities
- * 
- * Features:
- * - List all assessments in a TABLE format
- * - Tier 1: Web-based 3D preview (Student View) 
- * - Tier 2: Full PLY download (Instructor View)
- * - Report Generation for all assessed sessions
  */
-export default function History() {
+const History: FC = () => {
     console.log("HISTORY_TABLE_VERSION_2.1_LOADED");
 
-    const [assessments, setAssessments] = useState([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState(null)
-    const [selectedAssessment, setSelectedAssessment] = useState(null)
-    const [show3DViewer, setShow3DViewer] = useState(false)
+    const [assessments, setAssessments] = useState<AssessmentEntry[]>([])
+    const [loading, setLoading] = useState<boolean>(true)
+    const [error, setError] = useState<string | null>(null)
+    const [selectedAssessment, setSelectedAssessment] = useState<AssessmentEntry | null>(null)
+    const [show3DViewer, setShow3DViewer] = useState<boolean>(false)
 
     // Filters
-    const [searchQuery, setSearchQuery] = useState('')
-    const [dateFilter, setDateFilter] = useState('')
-    const [scoreFilter, setScoreFilter] = useState('all')
+    const [searchQuery, setSearchQuery] = useState<string>('')
+    const [dateFilter, setDateFilter] = useState<string>('')
+    const [scoreFilter, setScoreFilter] = useState<string>('all')
 
     // Pagination
-    const [currentPage, setCurrentPage] = useState(1)
+    const [currentPage, setCurrentPage] = useState<number>(1)
     const itemsPerPage = 12
 
     // Fetch assessments
@@ -72,9 +82,9 @@ export default function History() {
             const evaluationsData = evaluationsRes.ok ? await evaluationsRes.json() : []
 
             // Normalize StudentEvaluations (Manual Grading)
-            const evaluationMap = new Map()
-            const manuals = (Array.isArray(evaluationsData) ? evaluationsData : evaluationsData.results || []).map(e => {
-                const manual = {
+            const evaluationMap = new Map<number, AssessmentEntry>()
+            const manuals = (Array.isArray(evaluationsData) ? evaluationsData : evaluationsData.results || []).map((e: any) => {
+                const manual: AssessmentEntry = {
                     id: `manual-${e.id}`,
                     original_id: e.id,
                     student_name: e.student_name,
@@ -97,10 +107,10 @@ export default function History() {
 
             // Normalize Assessments (RDK Scans)
             const scans = (Array.isArray(assessmentsData) ? assessmentsData : assessmentsData.results || [])
-                .filter(a => !evaluationMap.has(a.id)) // Skip if already covered by an evaluation
-                .map(a => ({
+                .filter((a: any) => !evaluationMap.has(a.id)) // Skip if already covered by an evaluation
+                .map((a: any) => ({
                     ...a,
-                    type: 'scan',
+                    type: 'scan' as const,
                     timestamp: a.timestamp,
                     final_score: (a.final_score / 20), // Convert 0-100 to 0-5 scale for consistency
                     has_3d_data: a.has_3d_data,
@@ -109,13 +119,13 @@ export default function History() {
 
             // Merge and Sort by Date (Desc)
             const merged = [...scans, ...manuals].sort((a, b) => {
-                const dateA = a.timestamp ? new Date(a.timestamp) : new Date(0)
-                const dateB = b.timestamp ? new Date(b.timestamp) : new Date(0)
+                const dateA = a.timestamp ? new Date(a.timestamp).getTime() : 0
+                const dateB = b.timestamp ? new Date(b.timestamp).getTime() : 0
                 return dateB - dateA
             })
 
             setAssessments(merged)
-        } catch (err) {
+        } catch (err: any) {
             console.error(err)
             setError(err.message)
         } finally {
@@ -168,18 +178,20 @@ export default function History() {
     )
 
     // Handle 3D preview
-    const handleView3D = (assessmentId) => {
+    const handleView3D = (assessmentId: number) => {
         // Find full assessment details for 3D viewer
         const assessment = assessments.find(a =>
             (a.type === 'scan' && a.id === assessmentId) ||
             (a.type === 'manual' && a.assessment === assessmentId)
         );
-        setSelectedAssessment({ ...assessment, id: assessmentId })
-        setShow3DViewer(true)
+        if (assessment) {
+            setSelectedAssessment({ ...assessment, id: assessmentId })
+            setShow3DViewer(true)
+        }
     }
 
     // Handle PLY download
-    const handleDownloadPLY = async (assessmentId) => {
+    const handleDownloadPLY = async (assessmentId: number) => {
         try {
             window.open(`${API_BASE}/assessments/${assessmentId}/download-ply/`, '_blank')
         } catch (err) {
@@ -188,7 +200,7 @@ export default function History() {
     }
 
     // Handle Report download
-    const handleDownloadReport = (assessment) => {
+    const handleDownloadReport = (assessment: AssessmentEntry) => {
         const evalId = assessment.type === 'manual' ? assessment.original_id : assessment.evaluation_id
         if (!evalId) {
             alert('No report available for this entry.')
@@ -198,7 +210,7 @@ export default function History() {
     }
 
     // Score badge color
-    const getScoreColor = (score) => {
+    const getScoreColor = (score: number) => {
         if (score >= 4.2) return 'text-emerald-400'
         if (score >= 3.5) return 'text-blue-400'
         if (score >= 3.0) return 'text-amber-400'
@@ -391,14 +403,14 @@ export default function History() {
                                                         {(assessment.type === 'scan' || assessment.assessment) && (
                                                             <>
                                                                 <button
-                                                                    onClick={() => handleView3D(assessment.type === 'scan' ? assessment.id : assessment.assessment)}
+                                                                    onClick={() => handleView3D(assessment.type === 'scan' ? (assessment.id as number) : assessment.assessment!)}
                                                                     className="p-2.5 bg-slate-800 hover:bg-purple-600/20 text-slate-400 hover:text-purple-400 rounded-lg transition-all border border-slate-700 hover:border-purple-500/40 shadow-sm"
                                                                     title="View 3D Interactive Model"
                                                                 >
                                                                     <Eye className="w-4.5 h-4.5" />
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => handleDownloadPLY(assessment.type === 'scan' ? assessment.id : assessment.assessment)}
+                                                                    onClick={() => handleDownloadPLY(assessment.type === 'scan' ? (assessment.id as number) : assessment.assessment!)}
                                                                     className="p-2.5 bg-slate-800 hover:bg-blue-600/20 text-slate-400 hover:text-blue-400 rounded-lg transition-all border border-slate-700 hover:border-blue-500/40 shadow-sm"
                                                                     title="Download 3D Data (CloudCompare)"
                                                                 >
@@ -486,7 +498,7 @@ export default function History() {
                             </div>
                             <div className="flex items-center gap-3">
                                 <button
-                                    onClick={() => handleDownloadPLY(selectedAssessment.id)}
+                                    onClick={() => handleDownloadPLY(selectedAssessment.id as number)}
                                     className="hidden sm:flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl transition-all text-sm font-bold shadow-lg shadow-emerald-500/20 active:scale-95"
                                 >
                                     <Download className="w-4 h-4" />
@@ -504,7 +516,7 @@ export default function History() {
                         {/* 3D Viewer Area */}
                         <div className="flex-1 bg-black relative">
                             <WeldViewer3D
-                                assessmentId={selectedAssessment.id}
+                                assessmentId={selectedAssessment.id as number}
                                 className="w-full h-full"
                                 autoRotate
                             />
@@ -554,3 +566,5 @@ export default function History() {
         </div>
     )
 }
+
+export default History

@@ -1,36 +1,36 @@
-import { useState } from 'react';
+import React, { useState, FC, ChangeEvent, FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import authAPI from '../services/authAPI';
 import { Eye, EyeOff, LogIn, KeyRound, X } from 'lucide-react';
 
-export default function Login() {
+const Login: FC = () => {
   const [formData, setFormData] = useState({
     username: '',
     password: '',
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
   const navigate = useNavigate();
   const { setCurrentUser } = useAuth();
 
   // Forgot password modal state
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [forgotUsername, setForgotUsername] = useState('');
-  const [forgotLoading, setForgotLoading] = useState(false);
-  const [forgotMessage, setForgotMessage] = useState({ type: '', text: '' });
+  const [showForgotPassword, setShowForgotPassword] = useState<boolean>(false);
+  const [forgotUsername, setForgotUsername] = useState<string>('');
+  const [forgotLoading, setForgotLoading] = useState<boolean>(false);
+  const [forgotMessage, setForgotMessage] = useState<{ type: string; text: string }>({ type: '', text: '' });
 
   // Force change password modal state
-  const [showForceChangePassword, setShowForceChangePassword] = useState(false);
+  const [showForceChangePassword, setShowForceChangePassword] = useState<boolean>(false);
   const [changePasswordData, setChangePasswordData] = useState({
     newPassword: '',
     confirmPassword: '',
   });
-  const [changeLoading, setChangeLoading] = useState(false);
-  const [changeError, setChangeError] = useState('');
+  const [changeLoading, setChangeLoading] = useState<boolean>(false);
+  const [changeError, setChangeError] = useState<string>('');
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
@@ -38,7 +38,7 @@ export default function Login() {
     setError('');
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -55,7 +55,7 @@ export default function Login() {
 
       setCurrentUser(response.user);
       navigate('/app');
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
@@ -63,7 +63,7 @@ export default function Login() {
   };
 
   // Handle forgot password
-  const handleForgotPassword = async (e) => {
+  const handleForgotPassword = async (e: FormEvent) => {
     e.preventDefault();
     setForgotLoading(true);
     setForgotMessage({ type: '', text: '' });
@@ -75,7 +75,7 @@ export default function Login() {
         text: 'PIN has been reset to your Staff ID. Please login with your Staff ID as your PIN.',
       });
       setForgotUsername('');
-    } catch (err) {
+    } catch (err: any) {
       setForgotMessage({
         type: 'error',
         text: err.message || 'Password reset failed.',
@@ -86,7 +86,7 @@ export default function Login() {
   };
 
   // Handle force change password
-  const handleForceChangePassword = async (e) => {
+  const handleForceChangePassword = async (e: FormEvent) => {
     e.preventDefault();
     setChangeLoading(true);
     setChangeError('');
@@ -112,7 +112,7 @@ export default function Login() {
       // Session is established — just sync user state into React context
       setCurrentUser(response.user);
       navigate('/app');
-    } catch (err) {
+    } catch (err: any) {
       setChangeError(err.message || 'Password change failed.');
     } finally {
       setChangeLoading(false);
@@ -228,9 +228,15 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-slate-500 text-sm">
-              Authorized access only. Contact administrator for an account.
+          <div className="mt-6 pt-6 border-t border-slate-800 text-center">
+            <p className="text-slate-400 text-sm">
+              Don't have an account?{' '}
+              <Link 
+                to="/register" 
+                className="text-emerald-400 hover:text-emerald-300 font-medium"
+              >
+                Sign up
+              </Link>
             </p>
           </div>
         </div>
@@ -386,5 +392,7 @@ export default function Login() {
     </div>
   );
 }
+
+export default Login
 
 

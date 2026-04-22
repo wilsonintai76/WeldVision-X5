@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom'
+import packageJson from '../package.json'
 import {
   Upload,
   Image,
@@ -42,7 +43,11 @@ import History from './components/History'
 import { AuthProvider, useAuth } from './context/AuthContext'
 
 // Protected Route Component
-function ProtectedRoute({ children }) {
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth()
 
   if (loading) {
@@ -60,20 +65,20 @@ function ProtectedRoute({ children }) {
     return <Navigate to="/login" replace />
   }
 
-  return children
+  return <>{children}</>
 }
 
-function MainApp() {
+const MainApp: React.FC = () => {
   const navigate = useNavigate()
   const { user, logout, permissions } = useAuth()
 
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [activeTab, setActiveTab] = useState<string>('dashboard')
   const [expandedSections, setExpandedSections] = useState({
     mlops: true,
     system: false
   })
 
-  const toggleSection = (section) => {
+  const toggleSection = (section: 'mlops' | 'system') => {
     setExpandedSections(prev => ({
       ...prev,
       [section]: !prev[section]
@@ -86,10 +91,10 @@ function MainApp() {
   }
 
   // Role-based access
-  const canAccessMLOps = permissions.can_access_mlops
-  const canManageUsers = permissions.can_manage_users
-  const canCreateEvaluation = permissions.can_create_evaluation
-  const isStudent = permissions.is_student
+  const canAccessMLOps = permissions?.can_access_mlops
+  const canManageUsers = permissions?.can_manage_users
+  const canCreateEvaluation = permissions?.can_create_evaluation
+  const isStudent = permissions?.is_student
 
   return (
     <div className="flex h-screen bg-slate-950">
@@ -320,7 +325,7 @@ function MainApp() {
           {/* System Version */}
           <div className="text-center">
             <span className="text-[10px] font-medium text-slate-600 bg-slate-800/30 px-2 py-0.5 rounded-full border border-slate-800/50 uppercase tracking-widest">
-              v1.2.0-STABLE
+              v{packageJson.version}
             </span>
           </div>
         </div>
@@ -346,7 +351,7 @@ function MainApp() {
   )
 }
 
-function LandingWrapper() {
+const LandingWrapper: React.FC = () => {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
 
@@ -361,7 +366,7 @@ function LandingWrapper() {
   return <LandingPage onEnterApp={handleEnterApp} />
 }
 
-function App() {
+const App: React.FC = () => {
   return (
     <AuthProvider>
       <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>

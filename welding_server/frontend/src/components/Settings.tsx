@@ -1,13 +1,35 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, FC } from 'react'
 import { Camera, Plus, Edit2, Trash2, X, Save, CheckCircle, Circle, Info, AlertCircle, BookOpen } from 'lucide-react'
 
-function Settings() {
-  const [calibrations, setCalibrations] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [showModal, setShowModal] = useState(false)
-  const [editingCalibration, setEditingCalibration] = useState(null)
+interface StereoCalibration {
+  id: number;
+  name: string;
+  image_width: number;
+  image_height: number;
+  board_width: number;
+  board_height: number;
+  square_size_mm: number;
+  is_active: boolean;
+  updated_at: string;
+}
+
+interface CalibrationForm {
+  name: string;
+  image_width: number;
+  image_height: number;
+  board_width: number;
+  board_height: number;
+  square_size_mm: number;
+  is_active: boolean;
+}
+
+const Settings: FC = () => {
+  const [calibrations, setCalibrations] = useState<StereoCalibration[]>([])
+  const [loading, setLoading] = useState<boolean>(false)
+  const [showModal, setShowModal] = useState<boolean>(false)
+  const [editingCalibration, setEditingCalibration] = useState<StereoCalibration | null>(null)
   
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<CalibrationForm>({
     name: '',
     image_width: 1280,
     image_height: 720,
@@ -26,7 +48,7 @@ function Settings() {
     try {
       const response = await fetch('/api/stereo-calibrations/', { credentials: 'include' })
       const data = await response.json()
-      setCalibrations(data)
+      setCalibrations(Array.isArray(data) ? data : (data.results || []))
     } catch (error) {
       console.error('Error fetching calibrations:', error)
     } finally {
@@ -34,7 +56,7 @@ function Settings() {
     }
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
@@ -68,7 +90,7 @@ function Settings() {
     }
   }
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this calibration?')) return
 
     setLoading(true)
@@ -86,7 +108,7 @@ function Settings() {
     }
   }
 
-  const handleSetActive = async (id) => {
+  const handleSetActive = async (id: number) => {
     setLoading(true)
     try {
       const response = await fetch(`/api/stereo-calibrations/${id}/set_active/`, { credentials: 'include', method: 'POST',
@@ -102,7 +124,7 @@ function Settings() {
     }
   }
 
-  const openModal = (calibration = null) => {
+  const openModal = (calibration: StereoCalibration | null = null) => {
     if (calibration) {
       setEditingCalibration(calibration)
       setForm({

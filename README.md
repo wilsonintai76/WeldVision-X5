@@ -98,9 +98,10 @@ chmod +x start-weldvision.sh
 ### Manual Start (If Easy Start Doesn't Work)
 
 ```bash
-cd WeldVision-X5/welding_server
 docker compose up -d
 ```
+
+This will start the **Database**, **Backend**, **Frontend**, and a **Mock Edge Device** (Simulator).
 
 Then open your browser to: **http://localhost:3000**
 
@@ -201,7 +202,7 @@ sudo systemctl start weldvision
 
 ### Check Edge Device
 1. Go to **Dashboard** → **System** → **Edge Management**
-2. You should see your RDK X5 listed and connected
+2. You should see your RDK X5 (or the **weldvision-mock-rdk** simulator) listed and connected
 
 ### Test Camera Feed
 1. Go to **Live Monitoring**

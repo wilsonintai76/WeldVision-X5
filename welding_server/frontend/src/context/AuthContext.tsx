@@ -1,15 +1,56 @@
 /**
  * Authentication Context Provider
  */
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, FC, ReactNode } from 'react';
 import authAPI from '../services/authAPI';
 
-const AuthContext = createContext(null);
+export interface Permissions {
+  is_admin: boolean;
+  is_instructor: boolean;
+  is_student: boolean;
+  can_access_mlops: boolean;
+  can_manage_users: boolean;
+  can_create_evaluation: boolean;
+  [key: string]: boolean;
+}
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+  permissions: Permissions;
+}
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  isInstructor: boolean;
+  isStudent: boolean;
+  permissions: Permissions | null;
+  login: (credentials: any) => Promise<any>;
+  logout: () => Promise<void>;
+  register: (userData: any) => Promise<any>;
+  checkAuth: () => Promise<void>;
+  updateProfile: (data: any) => Promise<any>;
+  changePassword: (old: string, newP: string, confirmP: string) => Promise<any>;
+  setCurrentUser: (userData: User | null) => void;
+  clearError: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Check authentication on mount
   useEffect(() => {
@@ -38,14 +79,14 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = useCallback(async (credentials) => {
+  const login = useCallback(async (credentials: any) => {
     try {
       setLoading(true);
       setError(null);
       const data = await authAPI.login(credentials);
       setUser(data.user);
       return data;
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
       throw err;
     } finally {
@@ -66,13 +107,13 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const register = useCallback(async (userData) => {
+  const register = useCallback(async (userData: any) => {
     try {
       setLoading(true);
       setError(null);
       const data = await authAPI.register(userData);
       return data;
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
       throw err;
     } finally {
@@ -80,27 +121,27 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const updateProfile = useCallback(async (data) => {
+  const updateProfile = useCallback(async (data: any) => {
     try {
       const updated = await authAPI.updateProfile(data);
-      setUser(prev => ({ ...prev, ...updated }));
+      setUser(prev => (prev ? { ...prev, ...updated } : null));
       return updated;
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
       throw err;
     }
   }, []);
 
-  const changePassword = useCallback(async (oldPassword, newPassword, confirmPassword) => {
+  const changePassword = useCallback(async (oldPassword: string, newPassword: string, confirmPassword: string) => {
     try {
       return await authAPI.changePassword(oldPassword, newPassword, confirmPassword);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
       throw err;
     }
   }, []);
 
-  const value = {
+  const value: AuthContextType = {
     user,
     loading,
     error,
@@ -108,14 +149,13 @@ export function AuthProvider({ children }) {
     isAdmin: user?.permissions?.is_admin || false,
     isInstructor: user?.permissions?.is_instructor || false,
     isStudent: user?.permissions?.is_student || false,
-    permissions: user?.permissions || {},
+    permissions: user?.permissions || null,
     login,
     logout,
     register,
     checkAuth,
     updateProfile,
     changePassword,
-    // Set user state directly (use when API call is already done externally)
     setCurrentUser: (userData) => setUser(userData),
     clearError: () => setError(null),
   };
@@ -127,7 +167,7 @@ export function AuthProvider({ children }) {
   );
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');

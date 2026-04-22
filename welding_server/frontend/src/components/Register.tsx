@@ -1,7 +1,7 @@
 /**
  * Register Page Component
  */
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, FC, ChangeEvent, FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import authAPI from '../services/authAPI';
@@ -10,7 +10,6 @@ import {
   UserPlus, 
   User, 
   Lock, 
-  Mail,
   AlertCircle, 
   Eye, 
   EyeOff,
@@ -21,8 +20,13 @@ import {
   ChevronDown
 } from 'lucide-react';
 
-function Register() {
-  const navigate = useNavigate();
+interface ClassInfo {
+  id: number;
+  name: string;
+  semester?: string;
+}
+
+const Register: FC = () => {
   const { register, loading, error, clearError } = useAuth();
   
   const [formData, setFormData] = useState({
@@ -31,14 +35,14 @@ function Register() {
     full_name: '',
     password: '',
     password_confirm: '',
-    role: 'student',
+    role: 'student' as 'student' | 'instructor',
     class_id: '',
   });
-  const [classes, setClasses] = useState([]);
-  const [loadingClasses, setLoadingClasses] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [localError, setLocalError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [classes, setClasses] = useState<ClassInfo[]>([]);
+  const [loadingClasses, setLoadingClasses] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [localError, setLocalError] = useState<string>('');
+  const [success, setSuccess] = useState<boolean>(false);
 
   useEffect(() => {
     loadClasses();
@@ -56,12 +60,12 @@ function Register() {
     }
   };
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLocalError('');
     clearError();
@@ -80,15 +84,15 @@ function Register() {
       return;
     }
     if (!formData.password) {
-      setLocalError('Password is required');
+      setLocalError('PIN is required');
       return;
     }
-    if (formData.password.length < 8) {
-      setLocalError('Password must be at least 8 characters');
+    if (!/^\d{4}$/.test(formData.password)) {
+      setLocalError('PIN must be exactly 4 numeric digits');
       return;
     }
     if (formData.password !== formData.password_confirm) {
-      setLocalError('Passwords do not match');
+      setLocalError('PINs do not match');
       return;
     }
 
@@ -100,7 +104,7 @@ function Register() {
       };
       await register(dataToSubmit);
       setSuccess(true);
-    } catch (err) {
+    } catch (err: any) {
       setLocalError(err.message);
     }
   };
@@ -276,20 +280,23 @@ function Register() {
               </div>
             )}
 
-            {/* Password */}
+            {/* Password (PIN) */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Password *
+                PIN (4 Digits) *
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  inputMode="numeric"
+                  maxLength={4}
+                  pattern="\d{4}"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-11 pr-12 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                  placeholder="Min 8 characters"
+                  placeholder="Enter 4-digit PIN"
                   disabled={loading}
                   autoComplete="new-password"
                 />
@@ -303,20 +310,23 @@ function Register() {
               </div>
             </div>
 
-            {/* Confirm Password */}
+            {/* Confirm Password (PIN) */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Confirm Password *
+                Confirm PIN *
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  inputMode="numeric"
+                  maxLength={4}
+                  pattern="\d{4}"
                   name="password_confirm"
                   value={formData.password_confirm}
                   onChange={handleChange}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-11 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                  placeholder="Repeat your password"
+                  placeholder="Repeat your PIN"
                   disabled={loading}
                   autoComplete="new-password"
                 />

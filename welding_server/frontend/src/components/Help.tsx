@@ -1,15 +1,13 @@
-import { useState } from 'react'
+import React, { useState, FC, ReactNode } from 'react'
 import {
   BookOpen,
   AlertCircle,
-  CheckCircle,
   ChevronRight,
   ChevronDown,
   Terminal,
   ExternalLink,
   Home,
   Keyboard,
-  HelpCircle,
   Lightbulb,
   Cpu,
   Users,
@@ -17,8 +15,17 @@ import {
   Server
 } from 'lucide-react'
 
-function Help() {
-  const [expandedSections, setExpandedSections] = useState({
+interface ExpandedSections {
+  shortcuts: boolean;
+  workflow: boolean;
+  rubric: boolean;
+  usermgmt: boolean;
+  production: boolean;
+  troubleshooting: boolean;
+}
+
+const Help: FC = () => {
+  const [expandedSections, setExpandedSections] = useState<ExpandedSections>({
     shortcuts: true,
     workflow: false,
     rubric: false,
@@ -27,7 +34,7 @@ function Help() {
     troubleshooting: false
   })
 
-  const toggleSection = (section) => {
+  const toggleSection = (section: keyof ExpandedSections) => {
     setExpandedSections(prev => ({
       ...prev,
       [section]: !prev[section]
@@ -332,7 +339,15 @@ function Help() {
 }
 
 // Helper Components
-function Section({ title, icon, expanded, onToggle, children }) {
+interface SectionProps {
+  title: string;
+  icon: ReactNode;
+  expanded: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}
+
+const Section: FC<SectionProps> = ({ title, icon, expanded, onToggle, children }) => {
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
       <button
@@ -358,7 +373,13 @@ function Section({ title, icon, expanded, onToggle, children }) {
   )
 }
 
-function ShortcutCard({ title, description, location }) {
+interface ShortcutCardProps {
+  title: string;
+  description: string;
+  location: string;
+}
+
+const ShortcutCard: FC<ShortcutCardProps> = ({ title, description, location }) => {
   return (
     <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
       <h4 className="text-white font-semibold text-sm mb-1">{title}</h4>
@@ -371,7 +392,12 @@ function ShortcutCard({ title, description, location }) {
   )
 }
 
-function WorkflowStep({ number, title }) {
+interface WorkflowStepProps {
+  number: number;
+  title: string;
+}
+
+const WorkflowStep: FC<WorkflowStepProps> = ({ number, title }) => {
   return (
     <div className="flex items-center gap-2">
       <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
@@ -382,7 +408,12 @@ function WorkflowStep({ number, title }) {
   )
 }
 
-function TroubleshootItem({ issue, solution }) {
+interface TroubleshootItemProps {
+  issue: string;
+  solution: string;
+}
+
+const TroubleshootItem: FC<TroubleshootItemProps> = ({ issue, solution }) => {
   return (
     <div className="flex items-start gap-3 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
       <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
@@ -394,7 +425,12 @@ function TroubleshootItem({ issue, solution }) {
   )
 }
 
-function ResourceLink({ title, href }) {
+interface ResourceLinkProps {
+  title: string;
+  href: string;
+}
+
+const ResourceLink: FC<ResourceLinkProps> = ({ title, href }) => {
   return (
     <a
       href={href}

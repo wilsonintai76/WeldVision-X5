@@ -5,9 +5,9 @@
 const API_BASE = '/api';
 
 // Helper to get CSRF token from cookies
-function getCSRFToken() {
+function getCSRFToken(): string | null {
   const name = 'csrftoken';
-  let cookieValue = null;
+  let cookieValue: string | null = null;
   if (document.cookie && document.cookie !== '') {
     const cookies = document.cookie.split(';');
     for (let i = 0; i < cookies.length; i++) {
@@ -22,10 +22,10 @@ function getCSRFToken() {
 }
 
 // Fetch with credentials and CSRF token
-async function authFetch(url, options = {}) {
-  const headers = {
+async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
   };
   
   // Add CSRF token for non-GET requests
@@ -47,19 +47,19 @@ async function authFetch(url, options = {}) {
 
 export const authAPI = {
   // Get CSRF token
-  async getCSRFToken() {
+  async getCSRFToken(): Promise<any> {
     const response = await authFetch('/auth/csrf/');
     return response.json();
   },
   
   // Check authentication status
-  async checkAuth() {
+  async checkAuth(): Promise<any> {
     const response = await authFetch('/auth/check/');
     return response.json();
   },
   
   // Login
-  async login(credentials) {
+  async login(credentials: any): Promise<any> {
     // Ensure CSRF token is fetched first
     await this.getCSRFToken();
     
@@ -82,7 +82,7 @@ export const authAPI = {
   },
   
   // Logout
-  async logout() {
+  async logout(): Promise<any> {
     const response = await authFetch('/auth/logout/', {
       method: 'POST',
     });
@@ -90,7 +90,7 @@ export const authAPI = {
   },
   
   // Register
-  async register(userData) {
+  async register(userData: any): Promise<any> {
     const response = await authFetch('/auth/register/', {
       method: 'POST',
       body: JSON.stringify(userData),
@@ -98,7 +98,7 @@ export const authAPI = {
     const data = await response.json();
     if (!response.ok) {
       // Format validation errors
-      const errors = [];
+      const errors: string[] = [];
       for (const [field, messages] of Object.entries(data)) {
         if (Array.isArray(messages)) {
           errors.push(`${field}: ${messages.join(', ')}`);
@@ -112,7 +112,7 @@ export const authAPI = {
   },
   
   // Get profile
-  async getProfile() {
+  async getProfile(): Promise<any> {
     const response = await authFetch('/auth/profile/');
     if (!response.ok) {
       throw new Error('Failed to get profile');
@@ -121,7 +121,7 @@ export const authAPI = {
   },
   
   // Update profile
-  async updateProfile(data) {
+  async updateProfile(data: any): Promise<any> {
     const response = await authFetch('/auth/profile/', {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -133,7 +133,7 @@ export const authAPI = {
   },
   
   // Change password
-  async changePassword(oldPassword, newPassword, newPasswordConfirm) {
+  async changePassword(oldPassword: string, newPassword: string, newPasswordConfirm: string): Promise<any> {
     const response = await authFetch('/auth/change-password/', {
       method: 'POST',
       body: JSON.stringify({
@@ -150,7 +150,7 @@ export const authAPI = {
   },
   
   // Admin: Get all users
-  async getUsers(filters = {}) {
+  async getUsers(filters: Record<string, string> = {}): Promise<any> {
     const params = new URLSearchParams(filters);
     const response = await authFetch(`/users/?${params}`);
     if (!response.ok) {
@@ -160,7 +160,7 @@ export const authAPI = {
   },
   
   // Admin: Get pending users
-  async getPendingUsers() {
+  async getPendingUsers(): Promise<any> {
     const response = await authFetch('/users/pending/');
     if (!response.ok) {
       throw new Error('Failed to get pending users');
@@ -169,7 +169,7 @@ export const authAPI = {
   },
   
   // Admin: Approve user
-  async approveUser(userId, approve = true) {
+  async approveUser(userId: number, approve = true): Promise<any> {
     const response = await authFetch(`/users/${userId}/approve/`, {
       method: 'POST',
       body: JSON.stringify({ approve }),
@@ -181,7 +181,7 @@ export const authAPI = {
   },
   
   // Admin: Update user
-  async updateUser(userId, data) {
+  async updateUser(userId: number, data: any): Promise<any> {
     const response = await authFetch(`/users/${userId}/`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -193,7 +193,7 @@ export const authAPI = {
   },
   
   // Admin: Delete user
-  async deleteUser(userId) {
+  async deleteUser(userId: number): Promise<{ success: boolean }> {
     const response = await authFetch(`/users/${userId}/`, {
       method: 'DELETE',
     });
@@ -204,7 +204,7 @@ export const authAPI = {
   },
   
   // Admin: Get audit logs
-  async getAuditLogs(filters = {}) {
+  async getAuditLogs(filters: Record<string, any> = {}): Promise<any> {
     const params = new URLSearchParams(filters);
     const response = await authFetch(`/audit-logs/?${params}`);
     if (!response.ok) {
@@ -214,7 +214,7 @@ export const authAPI = {
   },
   
   // Get available classes for registration
-  async getAvailableClasses() {
+  async getAvailableClasses(): Promise<any> {
     const response = await authFetch('/auth/available-classes/');
     if (!response.ok) {
       throw new Error('Failed to get available classes');
@@ -223,7 +223,7 @@ export const authAPI = {
   },
   
   // Forgot password - reset to default
-  async forgotPassword(username) {
+  async forgotPassword(username: string): Promise<any> {
     const response = await authFetch('/auth/forgot-password/', {
       method: 'POST',
       body: JSON.stringify({ username }),
@@ -236,7 +236,7 @@ export const authAPI = {
   },
   
   // Force change password (for must_change_password users)
-  async forceChangePassword(newPassword, newPasswordConfirm) {
+  async forceChangePassword(newPassword: string, newPasswordConfirm: string): Promise<any> {
     const response = await authFetch('/auth/force-change-password/', {
       method: 'POST',
       body: JSON.stringify({

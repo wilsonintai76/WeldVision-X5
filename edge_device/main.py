@@ -135,7 +135,14 @@ logger = logging.getLogger(__name__)
 try:
     from modules.buffering import LocalBuffer
     from modules.overlay_stream import LiveState, OverlayStreamServer
-    from modules.stereo_depth import StereoDepthEstimator, load_calibration_json, depth_to_colormap
+    from modules.stereo_depth import (
+        StereoDepthEstimator, 
+        load_calibration_json, 
+        depth_to_colormap,
+        WeldFeatureExtractor,
+        DepthFusionEngine
+    )
+    from modules.stereonet_bpu import StereoNetBPU
     from modules.ply_exporter import generate_ply_from_depth, generate_preview_json, decimate_point_cloud
 except Exception:
     LocalBuffer = None
@@ -144,9 +151,18 @@ except Exception:
     StereoDepthEstimator = None
     load_calibration_json = None
     depth_to_colormap = None
+    WeldFeatureExtractor = None
+    DepthFusionEngine = None
+    StereoNetBPU = None
     generate_ply_from_depth = None
     generate_preview_json = None
     decimate_point_cloud = None
+
+
+# ============================================================================
+# PATHS / EXTRA CONFIG
+# ============================================================================
+STEREONET_PATH = os.getenv('STEREONET_PATH', os.path.join(MODEL_DIR, 'stereonet.bin'))
 
 
 # ============================================================================
@@ -689,6 +705,9 @@ class ProcessWorker(threading.Thread):
         out_q: queue.Queue,
         live_state,
         depth_estimator=None,
+        stereonet_bpu=None,
+        feature_extractor=None,
+        fusion_engine=None,
     ):
         super().__init__(daemon=True)
         self.stop_event = stop_event
@@ -697,6 +716,9 @@ class ProcessWorker(threading.Thread):
         self.out_q = out_q
         self.live_state = live_state
         self.depth_estimator = depth_estimator
+        self.stereonet_bpu = stereonet_bpu
+        self.feature_extractor = feature_extractor
+        self.fusion_engine = fusion_engine
 
     def run(self):
         while not self.stop_event.is_set():
@@ -717,21 +739,45 @@ class ProcessWorker(threading.Thread):
             if self.depth_estimator is not None and right is not None:
                 try:
                     left_rect, right_rect = self.depth_estimator.rectify(left, right)
-                    disp = self.depth_estimator.disparity(left_rect, right_rect)
+                    
+                    # 1. StereoSGBM (OpenCV) - Explainable baseline
+                    disp_sgbm = self.depth_estimator.disparity(left_rect, right_rect)
+                    
+                    # 2. Hobot StereoNet (BPU) - Robust on reflective surfaces
+                    disp_sn = np.zeros_like(disp_sgbm)
+                    if self.stereonet_bpu:
+                        disp_sn = self.stereonet_bpu.compute_disparity(left_rect, right_rect)
+                    
+                    # 3. Depth Fusion
+                    if self.fusion_engine:
+                        disp = self.fusion_engine.fuse_disparity(disp_sgbm, disp_sn)
+                    else:
+                        disp = disp_sgbm
+                    
                     Z = self.depth_estimator.depth_map(disp)
-                    sgbm_metrics = self.depth_estimator.depth_metrics(Z)
+                    
+                    # 4. Feature Extraction (width, height, undercut)
+                    if self.feature_extractor:
+                        # Convert ROI percentages to pixel coordinates
+                        h_orig, w_orig = left.shape[:2]
+                        roi_px = (
+                            int(ROI_X_PCT * w_orig),
+                            int(ROI_Y_PCT * h_orig),
+                            int(ROI_W_PCT * w_orig),
+                            int(ROI_H_PCT * h_orig)
+                        )
+                        geometric_metrics = self.feature_extractor.extract_features(Z, roi_px)
+                        
+                        # 5. Rule-based scoring + ML fusion
+                        if self.fusion_engine:
+                            scoring = self.fusion_engine.score_weld(geometric_metrics)
+                            geometric_metrics.update(scoring)
+                    
                     if depth_to_colormap is not None:
                         depth_heat = depth_to_colormap(disp)
 
-                    geometric_metrics = {
-                        'reinforcement_height_mm': None,
-                        'bead_width_mm': None,
-                        'undercut_depth_mm': None,
-                        'hi_lo_misalignment_mm': None,
-                        **sgbm_metrics,
-                    }
                 except Exception as e:
-                    logger.warning(f"SGBM depth failed, using mock: {e}")
+                    logger.warning(f"Depth pipeline failed: {e}")
 
             if geometric_metrics is None:
                 geometric_metrics = calculate_depth(left)
@@ -917,15 +963,32 @@ def main():
             live_state = None
             stream_server = None
 
-    # Optional: stereo depth
+    # Optional: stereo depth + stereonet bpu + fusion
     depth_estimator = None
+    stereonet_bpu = None
+    feature_extractor = None
+    fusion_engine = None
+
     if StereoDepthEstimator is not None and ENABLE_STEREO:
         try:
             depth_estimator = StereoDepthEstimator.from_json_path(STEREO_CALIB_PATH)
             logger.info(f"🟦 Stereo depth enabled using {STEREO_CALIB_PATH}")
+            
+            # Initialize new pipeline components
+            if StereoNetBPU:
+                stereonet_bpu = StereoNetBPU(STEREONET_PATH)
+            
+            if WeldFeatureExtractor:
+                # Assume focal length and baseline from calibration if available
+                f = depth_estimator.calib.Q[2, 3] if hasattr(depth_estimator.calib, 'Q') else 800.0
+                b = 1.0 / depth_estimator.calib.Q[3, 2] if hasattr(depth_estimator.calib, 'Q') else 65.0
+                feature_extractor = WeldFeatureExtractor(focal_length_px=f, baseline_mm=b)
+                
+            if DepthFusionEngine:
+                fusion_engine = DepthFusionEngine()
+                
         except Exception as e:
-            logger.warning(f"Stereo depth disabled: {e}")
-            depth_estimator = None
+            logger.warning(f"Stereo depth disabled or partially failed: {e}")
 
     # Start threaded pipeline
     stop_event = threading.Event()
@@ -940,6 +1003,9 @@ def main():
         out_q=q_out,
         live_state=live_state,
         depth_estimator=depth_estimator,
+        stereonet_bpu=stereonet_bpu,
+        feature_extractor=feature_extractor,
+        fusion_engine=fusion_engine,
     )
     up_worker = UploadWorker(stop_event, in_q=q_out, buffer_obj=buffer_obj)
 

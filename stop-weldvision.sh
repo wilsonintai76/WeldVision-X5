@@ -13,7 +13,7 @@ echo ""
 
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/welding_server"
+cd "$SCRIPT_DIR"
 
 # Determine if using 'docker-compose' or 'docker compose'
 if command -v docker-compose > /dev/null 2>&1; then

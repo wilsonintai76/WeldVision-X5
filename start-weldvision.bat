@@ -34,9 +34,9 @@ if %errorlevel% neq 0 (
 )
 echo     [OK] Docker is running
 
-:: Navigate to welding_server directory
+:: Start WeldVision services
 echo [2/4] Starting WeldVision services...
-cd /d "%~dp0welding_server"
+cd /d "%~dp0"
 
 :: Start containers
 docker-compose up -d --build

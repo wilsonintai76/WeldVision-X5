@@ -1,10 +1,6 @@
-/**
- * User Management Component (Admin Only)
- */
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, FC, FormEvent } from 'react';
 import { 
   Users, 
-  UserPlus, 
   CheckCircle, 
   XCircle, 
   AlertCircle,
@@ -16,23 +12,45 @@ import {
   RefreshCw,
   Trash2,
   Edit,
-  Eye,
   ChevronDown,
   Filter
 } from 'lucide-react';
 import authAPI from '../services/authAPI';
 
-function UserManagement() {
-  const [users, setUsers] = useState([]);
-  const [pendingUsers, setPendingUsers] = useState([]);
-  const [auditLogs, setAuditLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('all'); // all, pending, logs
-  const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
+interface ManagedUser {
+  id: number;
+  username: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  role: 'admin' | 'instructor' | 'student';
+  is_approved: boolean;
+  is_active: boolean;
+  date_joined: string;
+}
+
+interface AuditLog {
+  id: number;
+  timestamp: string;
+  username?: string;
+  action: string;
+  action_display: string;
+  model_name?: string;
+  object_repr?: string;
+  ip_address?: string;
+}
+
+const UserManagement: FC = () => {
+  const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<ManagedUser[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('all'); // all, pending, logs
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [roleFilter, setRoleFilter] = useState<string>('');
+  const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
+  const [showEditModal, setShowEditModal] = useState<boolean>(false);
 
   useEffect(() => {
     loadData();
@@ -50,44 +68,44 @@ function UserManagement() {
       setUsers(usersData);
       setPendingUsers(pendingData);
       setAuditLogs(logsData);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleApprove = async (userId, approve = true) => {
+  const handleApprove = async (userId: number, approve = true) => {
     try {
       await authAPI.approveUser(userId, approve);
       await loadData();
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     }
   };
 
-  const handleDeleteUser = async (userId) => {
+  const handleDeleteUser = async (userId: number) => {
     if (!confirm('Are you sure you want to delete this user?')) return;
     try {
       await authAPI.deleteUser(userId);
       await loadData();
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     }
   };
 
-  const handleUpdateUser = async (userId, data) => {
+  const handleUpdateUser = async (userId: number, data: any) => {
     try {
       await authAPI.updateUser(userId, data);
       setShowEditModal(false);
       setSelectedUser(null);
       await loadData();
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     }
   };
 
-  const getRoleIcon = (role) => {
+  const getRoleIcon = (role: string) => {
     switch (role) {
       case 'admin': return <Shield className="w-4 h-4 text-red-400" />;
       case 'instructor': return <BookOpen className="w-4 h-4 text-blue-400" />;
@@ -96,8 +114,8 @@ function UserManagement() {
     }
   };
 
-  const getRoleBadge = (role) => {
-    const colors = {
+  const getRoleBadge = (role: string) => {
+    const colors: Record<string, string> = {
       admin: 'bg-red-500/20 text-red-300 border-red-500/30',
       instructor: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
       student: 'bg-green-500/20 text-green-300 border-green-500/30',
@@ -438,14 +456,20 @@ function UserManagement() {
   );
 }
 
-function EditUserModal({ user, onSave, onClose }) {
+interface EditUserModalProps {
+  user: ManagedUser;
+  onSave: (data: any) => void;
+  onClose: () => void;
+}
+
+const EditUserModal: FC<EditUserModalProps> = ({ user, onSave, onClose }) => {
   const [formData, setFormData] = useState({
     role: user.role,
     is_approved: user.is_approved,
     is_active: user.is_active,
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSave(formData);
   };
@@ -459,7 +483,7 @@ function EditUserModal({ user, onSave, onClose }) {
             <label className="block text-sm font-medium text-slate-300 mb-2">Role</label>
             <select
               value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 px-4 text-white"
             >
               <option value="instructor">Instructor</option>

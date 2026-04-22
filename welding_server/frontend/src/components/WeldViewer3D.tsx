@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import React, { useState, useRef, useEffect, useMemo, FC } from 'react'
+import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei'
 import * as THREE from 'three'
 
@@ -10,9 +10,24 @@ import * as THREE from 'three'
  * Uses react-three-fiber for WebGL rendering
  */
 
+interface MeshData {
+  points: [number, number, number][];
+  colors?: [number, number, number][];
+  bounds?: {
+    min: [number, number, number];
+    max: [number, number, number];
+  };
+  count?: number;
+}
+
+interface PointCloudProps {
+  meshData: MeshData;
+  pointSize?: number;
+}
+
 // Point cloud component that renders the mesh data
-function PointCloud({ meshData, pointSize = 0.5 }) {
-  const pointsRef = useRef()
+const PointCloud: FC<PointCloudProps> = ({ meshData, pointSize = 0.5 }) => {
+  const pointsRef = useRef<THREE.Points>(null)
   
   const { positions, colors } = useMemo(() => {
     if (!meshData || !meshData.points || meshData.points.length === 0) {
@@ -88,8 +103,12 @@ function PointCloud({ meshData, pointSize = 0.5 }) {
   )
 }
 
+interface CameraControllerProps {
+  autoRotate?: boolean;
+}
+
 // Auto-rotating camera controller
-function CameraController({ autoRotate = false }) {
+const CameraController: FC<CameraControllerProps> = ({ autoRotate = false }) => {
   const { camera } = useThree()
   
   useEffect(() => {
@@ -110,7 +129,7 @@ function CameraController({ autoRotate = false }) {
 }
 
 // Loading indicator component
-function LoadingIndicator() {
+const LoadingIndicator: FC = () => {
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
       <div className="text-center">
@@ -121,8 +140,12 @@ function LoadingIndicator() {
   )
 }
 
+interface ErrorDisplayProps {
+  message: string;
+}
+
 // Error display component
-function ErrorDisplay({ message }) {
+const ErrorDisplay: FC<ErrorDisplayProps> = ({ message }) => {
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80">
       <div className="text-center p-6">
@@ -137,8 +160,18 @@ function ErrorDisplay({ message }) {
   )
 }
 
+interface WeldViewer3DProps {
+  assessmentId?: number | string;
+  meshData?: MeshData | null;
+  onLoad?: (data: any) => void;
+  onError?: (error: Error) => void;
+  autoRotate?: boolean;
+  className?: string;
+  pointSize?: number;
+}
+
 // Main WeldViewer3D component
-export default function WeldViewer3D({ 
+const WeldViewer3D: FC<WeldViewer3DProps> = ({ 
   assessmentId,
   meshData = null,
   onLoad = null,
@@ -146,10 +179,10 @@ export default function WeldViewer3D({
   autoRotate = false,
   className = '',
   pointSize = 0.5,
-}) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [data, setData] = useState(meshData)
+}) => {
+  const [loading, setLoading] = useState<boolean>(false)
+  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState<MeshData | null>(meshData)
   
   // Fetch mesh data from API if assessmentId provided
   useEffect(() => {
@@ -182,7 +215,7 @@ export default function WeldViewer3D({
         if (onLoad) {
           onLoad(result)
         }
-      } catch (err) {
+      } catch (err: any) {
         setError(err.message)
         if (onError) {
           onError(err)
@@ -255,3 +288,5 @@ export default function WeldViewer3D({
     </div>
   )
 }
+
+export default WeldViewer3D

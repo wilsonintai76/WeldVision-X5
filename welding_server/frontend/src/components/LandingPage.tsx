@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, FC, ReactNode } from 'react'
 import {
   Cpu,
   Rocket,
@@ -17,12 +17,26 @@ import {
   RefreshCw
 } from 'lucide-react'
 
-function LandingPage({ onEnterApp }) {
-  const [systemStatus, setSystemStatus] = useState({
+interface StatusInfo {
+  status: 'online' | 'offline' | 'warning' | 'checking' | 'error';
+  message: string;
+}
+
+interface SystemStatus {
+  backend: StatusInfo;
+  edgeDevice: StatusInfo;
+}
+
+interface LandingPageProps {
+  onEnterApp: () => void;
+}
+
+const LandingPage: FC<LandingPageProps> = ({ onEnterApp }) => {
+  const [systemStatus, setSystemStatus] = useState<SystemStatus>({
     backend: { status: 'checking', message: 'Checking...' },
     edgeDevice: { status: 'checking', message: 'Checking...' }
   })
-  const [isChecking, setIsChecking] = useState(true)
+  const [isChecking, setIsChecking] = useState<boolean>(true)
 
   useEffect(() => {
     checkSystemStatus()
@@ -91,7 +105,7 @@ function LandingPage({ onEnterApp }) {
     setIsChecking(false)
   }
 
-  const getStatusIcon = (status) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
       case 'online':
         return <CheckCircle className="w-5 h-5 text-emerald-400" />
@@ -104,7 +118,7 @@ function LandingPage({ onEnterApp }) {
     }
   }
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'online':
         return 'border-emerald-500/50 bg-emerald-500/10'
@@ -284,7 +298,15 @@ function LandingPage({ onEnterApp }) {
 }
 
 // Helper Components
-function QuickStartCard({ icon, title, description, href, color }) {
+interface QuickStartCardProps {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  href: string;
+  color: 'emerald' | 'blue' | 'purple';
+}
+
+const QuickStartCard: FC<QuickStartCardProps> = ({ icon, title, description, href, color }) => {
   const colorClasses = {
     emerald: 'from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 shadow-emerald-500/20',
     blue: 'from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 shadow-blue-500/20',
@@ -308,7 +330,13 @@ function QuickStartCard({ icon, title, description, href, color }) {
   )
 }
 
-function FeatureCard({ icon, title, description }) {
+interface FeatureCardProps {
+  icon: ReactNode;
+  title: string;
+  description: string;
+}
+
+const FeatureCard: FC<FeatureCardProps> = ({ icon, title, description }) => {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center hover:border-slate-700 transition-colors">
       <div className="text-emerald-400 flex justify-center mb-3">{icon}</div>
@@ -318,7 +346,12 @@ function FeatureCard({ icon, title, description }) {
   )
 }
 
-function FooterLink({ href, children }) {
+interface FooterLinkProps {
+  href: string;
+  children: ReactNode;
+}
+
+const FooterLink: FC<FooterLinkProps> = ({ href, children }) => {
   return (
     <li>
       <a

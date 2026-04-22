@@ -1,13 +1,8 @@
-/**
- * Course & Student Management Component
- * Unified interface for managing Sessions, Courses, Home Classes, and Students
- */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, FC } from 'react';
 import {
   BookOpen,
   Plus,
   Edit,
-  FileEdit,
   UserPlus,
   Trash2,
   AlertCircle,
@@ -17,31 +12,80 @@ import {
   Upload,
   X,
   Save,
-  FileText,
   CheckCircle,
   ChevronDown,
   ChevronUp,
   GraduationCap,
   Filter,
   Info,
-  Edit2
+  FileText,
+  Edit2,
+  FileEdit
 } from 'lucide-react';
 import coreAPI from '../services/coreAPI';
 import { useAuth } from '../context/AuthContext';
 
-function CourseManagement() {
+// Interfaces
+interface Session {
+  id: number;
+  name: string;
+  is_active: boolean;
+  start_date?: string;
+  end_date?: string;
+  course_count?: number;
+}
+
+interface Instructor {
+  id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+}
+
+interface Course {
+  id: number;
+  code: string;
+  name: string;
+  section: string;
+  session: number;
+  instructor?: number;
+  instructor_name?: string;
+  description?: string;
+  student_count?: number;
+}
+
+interface HomeClass {
+  id: number;
+  name: string;
+  description?: string;
+  student_count?: number;
+}
+
+interface Student {
+  id: number;
+  student_id: string;
+  name: string;
+  class_group?: number;
+  class_group_name?: string;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+}
+
+const CourseManagement: FC = () => {
   const { user, permissions } = useAuth();
   const [activeTab, setActiveTab] = useState('courses'); // 'courses', 'classes', 'students'
 
   // Shared State
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // --- Course Tab State ---
-  const [sessions, setSessions] = useState([]);
-  const [courses, setCourses] = useState([]);
-  const [instructors, setInstructors] = useState([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
 
   // Modal states (Course Tab)
   const [showSessionModal, setShowSessionModal] = useState(false);
@@ -50,19 +94,19 @@ function CourseManagement() {
   const [showStudentsModal, setShowStudentsModal] = useState(false); // For viewing enrolled students
 
   // Edit states (Course Tab)
-  const [editingSession, setEditingSession] = useState(null);
-  const [editingCourse, setEditingCourse] = useState(null);
-  const [selectedCourse, setSelectedCourse] = useState(null);
-  const [courseStudents, setCourseStudents] = useState([]);
+  const [editingSession, setEditingSession] = useState<Session | null>(null);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [courseStudents, setCourseStudents] = useState<Student[]>([]);
 
   // Enrollment Modal state
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [enrollClassFilter, setEnrollClassFilter] = useState('');
-  const [availableStudents, setAvailableStudents] = useState([]);
+  const [availableStudents, setAvailableStudents] = useState<Student[]>([]);
   const [enrollLoading, setEnrollLoading] = useState(false);
-  const [selectedEnrollIds, setSelectedEnrollIds] = useState(new Set());
+  const [selectedEnrollIds, setSelectedEnrollIds] = useState(new Set<string>());
 
-  const [expandedSessions, setExpandedSessions] = useState({});
+  const [expandedSessions, setExpandedSessions] = useState<Record<number, boolean>>({});
 
   const [sessionForm, setSessionForm] = useState({
     name: '',
@@ -75,44 +119,44 @@ function CourseManagement() {
     code: '',
     name: '',
     section: '',
-    session: '',
-    instructor: '',
+    session: '' as string | number,
+    instructor: '' as string | number,
     description: ''
   });
 
   // PDF Import state
-  const [importFile, setImportFile] = useState(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState(null);
+  const [importResult, setImportResult] = useState<any>(null);
 
   // --- Home Class Tab State ---
-  const [homeClasses, setHomeClasses] = useState([]);
+  const [homeClasses, setHomeClasses] = useState<HomeClass[]>([]);
   const [showClassModal, setShowClassModal] = useState(false);
-  const [editingClass, setEditingClass] = useState(null);
+  const [editingClass, setEditingClass] = useState<HomeClass | null>(null);
   const [classForm, setClassForm] = useState({
     name: '',
     description: '',
   });
 
   // --- Student Tab State ---
-  const [students, setStudents] = useState([]);
-  const [filterClassId, setFilterClassId] = useState('');
+  const [students, setStudents] = useState<Student[]>([]);
+  const [filterClassId, setFilterClassId] = useState<string | number>('');
   const [studentLoading, setStudentLoading] = useState(false);
 
   const [showStudentModalCRUD, setShowStudentModalCRUD] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
-  const [editingStudent, setEditingStudent] = useState(null);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
 
   const [studentForm, setStudentForm] = useState({
     student_id: '',
     name: '',
-    class_group: ''
+    class_group: '' as string | number
   });
 
   // Bulk CSV state
-  const [bulkResult, setBulkResult] = useState(null);
+  const [bulkResult, setBulkResult] = useState<any>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadData();
@@ -141,11 +185,11 @@ function CourseManagement() {
       setHomeClasses(classesData);
 
       // Auto-expand active session
-      const activeSession = sessionsData.find(s => s.is_active);
+      const activeSession = sessionsData.find((s: Session) => s.is_active);
       if (activeSession) {
         setExpandedSessions({ [activeSession.id]: true });
       }
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
@@ -154,7 +198,7 @@ function CourseManagement() {
 
   // --- Course Tab Logic ---
 
-  const toggleSession = (sessionId) => {
+  const toggleSession = (sessionId: number) => {
     setExpandedSessions(prev => ({
       ...prev,
       [sessionId]: !prev[sessionId]
@@ -168,7 +212,7 @@ function CourseManagement() {
     setShowSessionModal(true);
   };
 
-  const handleEditSession = (session) => {
+  const handleEditSession = (session: Session) => {
     setEditingSession(session);
     setSessionForm({
       name: session.name,
@@ -179,30 +223,30 @@ function CourseManagement() {
     setShowSessionModal(true);
   };
 
-  const handleDeleteSession = async (id) => {
+  const handleDeleteSession = async (id: number) => {
     if (!confirm('Delete this session? All courses in this session will also be deleted.')) return;
     try {
       await coreAPI.deleteSession(id);
       await loadData();
       setSuccess('Session deleted');
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     }
   };
 
-  const handleSetActiveSession = async (id) => {
+  const handleSetActiveSession = async (id: number) => {
     try {
       await coreAPI.setActiveSession(id);
       await loadData();
       setSuccess('Active session updated');
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     }
   };
 
-  const handleSessionSubmit = async (e) => {
+  const handleSessionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     try {
@@ -215,13 +259,13 @@ function CourseManagement() {
       await loadData();
       setSuccess(editingSession ? 'Session updated' : 'Session created');
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     }
   };
 
   // Course handlers
-  const handleCreateCourse = (sessionId = null) => {
+  const handleCreateCourse = (sessionId: string | number | null = null) => {
     setEditingCourse(null);
     setCourseForm({
       code: '',
@@ -234,7 +278,7 @@ function CourseManagement() {
     setShowCourseModal(true);
   };
 
-  const handleEditCourse = (course) => {
+  const handleEditCourse = (course: Course) => {
     setEditingCourse(course);
     setCourseForm({
       code: course.code,
@@ -247,19 +291,19 @@ function CourseManagement() {
     setShowCourseModal(true);
   };
 
-  const handleDeleteCourse = async (id) => {
+  const handleDeleteCourse = async (id: number) => {
     if (!confirm('Delete this course? All enrollments will be removed.')) return;
     try {
       await coreAPI.deleteCourse(id);
       await loadData();
       setSuccess('Course deleted');
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     }
   };
 
-  const handleCourseSubmit = async (e) => {
+  const handleCourseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     try {
@@ -272,13 +316,13 @@ function CourseManagement() {
       await loadData();
       setSuccess(editingCourse ? 'Course updated' : 'Course created');
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     }
   };
 
   // View course students
-  const handleViewStudents = async (course) => {
+  const handleViewStudents = async (course: Course) => {
     setSelectedCourse(course);
     try {
       setLoading(true);
@@ -293,7 +337,7 @@ function CourseManagement() {
       
       setCourseStudents(studentArray);
       setShowStudentsModal(true);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message || "Failed to load enrolled students");
     } finally {
       setLoading(false);
@@ -308,7 +352,7 @@ function CourseManagement() {
     setShowEnrollModal(true);
   };
 
-  const fetchAvailableStudents = async (classId) => {
+  const fetchAvailableStudents = async (classId: string | number) => {
     if (!classId) {
       setAvailableStudents([]);
       return;
@@ -330,11 +374,11 @@ function CourseManagement() {
       
       // Robust ID matching with String conversion
       const enrolledIds = new Set((courseStudents || []).map(s => String(s.id)));
-      const available = studentArray.filter(s => !enrolledIds.has(String(s.id)));
+      const available = studentArray.filter((s: Student) => !enrolledIds.has(String(s.id)));
       
       console.log("[Enrollment] Available after filtering enrolled:", available.length);
       setAvailableStudents(available);
-    } catch (err) {
+    } catch (err: any) {
       console.error("[Enrollment] Error fetching students:", err);
       setError(err.message);
     } finally {
@@ -342,7 +386,7 @@ function CourseManagement() {
     }
   };
 
-  const toggleEnrollSelection = (id) => {
+  const toggleEnrollSelection = (id: string | number) => {
     setSelectedEnrollIds(prev => {
       const next = new Set(prev);
       if (next.has(String(id))) next.delete(String(id));
@@ -352,7 +396,7 @@ function CourseManagement() {
   };
 
   const handleEnrollSubmit = async () => {
-    if (selectedEnrollIds.size === 0) return;
+    if (selectedEnrollIds.size === 0 || !selectedCourse) return;
     setEnrollLoading(true);
     try {
       const ids = Array.from(selectedEnrollIds);
@@ -370,15 +414,15 @@ function CourseManagement() {
       ));
       
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     } finally {
       setEnrollLoading(false);
     }
   };
 
-  const handleUnenroll = async (studentId) => {
-    if (!confirm('Remove this student from the course?')) return;
+  const handleUnenroll = async (studentId: number) => {
+    if (!confirm('Remove this student from the course?') || !selectedCourse) return;
     try {
       await coreAPI.unenrollStudents(selectedCourse.id, [studentId]);
       const updatedStudents = courseStudents.filter(s => s.id !== studentId);
@@ -391,7 +435,7 @@ function CourseManagement() {
       ));
       
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     }
   };
@@ -417,14 +461,14 @@ function CourseManagement() {
       setImportResult(result);
       await loadData(); // Reload all data as imports affect sessions, courses, classes, and students
       if (activeTab === 'students') fetchStudents();
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     } finally {
       setImporting(false);
     }
   };
 
-  const getSessionCourses = (sessionId) => {
+  const getSessionCourses = (sessionId: number) => {
     return courses.filter(c => c.session === sessionId);
   };
 
@@ -436,7 +480,7 @@ function CourseManagement() {
     setShowClassModal(true);
   };
 
-  const handleEditClass = (cls) => {
+  const handleEditClass = (cls: HomeClass) => {
     setEditingClass(cls);
     setClassForm({
       name: cls.name,
@@ -445,19 +489,19 @@ function CourseManagement() {
     setShowClassModal(true);
   };
 
-  const handleDeleteClass = async (id) => {
+  const handleDeleteClass = async (id: number) => {
     if (!confirm('Delete this home class? Students will lose their home class assignment.')) return;
     try {
       await coreAPI.deleteClass(id);
       await loadData();
       setSuccess('Home class deleted');
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     }
   };
 
-  const handleClassSubmit = async (e) => {
+  const handleClassSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     try {
@@ -470,7 +514,7 @@ function CourseManagement() {
       await loadData();
       setSuccess(editingClass ? 'Home class updated' : 'Home class created');
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     }
   };
@@ -484,14 +528,14 @@ function CourseManagement() {
         ? await coreAPI.getStudentsByClass(filterClassId)
         : await coreAPI.getStudents();
       setStudents(data);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     } finally {
       setStudentLoading(false);
     }
   };
 
-  const openStudentModal = (student = null) => {
+  const openStudentModal = (student: Student | null = null) => {
     if (student) {
       setEditingStudent(student);
       setStudentForm({
@@ -521,12 +565,13 @@ function CourseManagement() {
       fetchStudents();
       setShowStudentModalCRUD(false);
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     }
   };
 
   const handleUpdateStudent = async () => {
+    if (!editingStudent) return;
     try {
       await coreAPI.updateStudent(editingStudent.id, {
         student_id: studentForm.student_id,
@@ -538,25 +583,26 @@ function CourseManagement() {
       setShowStudentModalCRUD(false);
       setEditingStudent(null);
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     }
   };
 
-  const handleDeleteStudent = async (id) => {
+  const handleDeleteStudent = async (id: number) => {
     if (!confirm('Delete this student? This will also delete their user account.')) return;
     try {
       await coreAPI.deleteStudent(id);
       fetchStudents();
       setSuccess('Student deleted');
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     }
   };
 
-  const handleBulkImport = async (e) => {
-    const file = e.target.files?.[0];
+  const handleBulkImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const file = e.target.files[0];
     if (!file) return;
 
     if (!filterClassId) {
@@ -572,7 +618,7 @@ function CourseManagement() {
       const result = await coreAPI.bulkImportStudents(file, filterClassId);
       setBulkResult(result);
       fetchStudents();
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     } finally {
       setBulkLoading(false);
@@ -1458,7 +1504,7 @@ function CourseManagement() {
                   ))}
                   {courseStudents.length === 0 && (
                     <tr>
-                      <td colSpan="4" className="text-center py-8 text-slate-500">No students enrolled</td>
+                      <td colSpan={4} className="text-center py-8 text-slate-500">No students enrolled</td>
                     </tr>
                   )}
                 </tbody>
@@ -1621,7 +1667,7 @@ function CourseManagement() {
                   <input
                     type="file"
                     accept=".pdf"
-                    onChange={e => setImportFile(e.target.files[0])}
+                    onChange={e => setImportFile(e.target.files?.[0] || null)}
                     className="hidden"
                     id="pdf-upload"
                   />

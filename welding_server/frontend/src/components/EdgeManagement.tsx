@@ -1,13 +1,69 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, FC } from 'react'
 import { Wifi, WifiOff, RefreshCw, Camera, Settings, Power, Save, AlertTriangle, CheckCircle, Grid3X3, Play, Trash2, Image, ChevronRight, Eye } from 'lucide-react'
 
-function EdgeManagement() {
-  const [activeTab, setActiveTab] = useState('device') // 'device' | 'calibration'
-  const [connectionStatus, setConnectionStatus] = useState('disconnected')
-  const [deviceInfo, setDeviceInfo] = useState(null)
-  const [loading, setLoading] = useState(false)
+interface DeviceInfo {
+  hostname?: string;
+  firmware?: string;
+  uptime?: string;
+  temperature?: string;
+  [key: string]: any;
+}
+
+interface EdgeConfig {
+  device_ip: string;
+  device_port: string;
+  stream_port: string;
+  model_path: string;
+}
+
+interface CheckerboardConfig {
+  rows: number;
+  cols: number;
+  square_size: number;
+  name: string;
+}
+
+interface CapturedImage {
+  id: number;
+  left: string | null;
+  right: string | null;
+  corners_found: boolean;
+  timestamp: string;
+}
+
+interface CalibrationResults {
+  name: string;
+  baseline: number;
+  focal_length_left: number;
+  focal_length_right: number;
+  principal_point_left: { x: number; y: number };
+  principal_point_right: { x: number; y: number };
+  reprojection_error: number;
+  image_width: number;
+  image_height: number;
+  distortion_left: number[];
+  distortion_right: number[];
+  rectification_valid: boolean;
+}
+
+interface Calibration {
+  id: number;
+  name: string;
+  baseline: number;
+  focal_length: number;
+  image_width: number;
+  image_height: number;
+  reprojection_error: number;
+  is_active: boolean;
+}
+
+const EdgeManagement: FC = () => {
+  const [activeTab, setActiveTab] = useState<'device' | 'calibration'>('device')
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'error'>('disconnected')
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null)
+  const [loading, setLoading] = useState<boolean>(false)
   
-  const [edgeConfig, setEdgeConfig] = useState({
+  const [edgeConfig, setEdgeConfig] = useState<EdgeConfig>({
     device_ip: '192.168.1.100',
     device_port: '8080',
     stream_port: '8554',
@@ -15,19 +71,19 @@ function EdgeManagement() {
   })
   
   // Stereo Calibration State
-  const [calibrationStep, setCalibrationStep] = useState(1) // 1: Setup, 2: Capture, 3: Calibrate, 4: Results
-  const [checkerboardConfig, setCheckerboardConfig] = useState({
+  const [calibrationStep, setCalibrationStep] = useState<number>(1) // 1: Setup, 2: Capture, 3: Calibrate, 4: Results
+  const [checkerboardConfig, setCheckerboardConfig] = useState<CheckerboardConfig>({
     rows: 6,
     cols: 9,
     square_size: 25, // mm
     name: ''
   })
-  const [capturedImages, setCapturedImages] = useState([])
-  const [isCapturing, setIsCapturing] = useState(false)
-  const [calibrationResults, setCalibrationResults] = useState(null)
-  const [isCalibrating, setIsCalibrating] = useState(false)
+  const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([])
+  const [isCapturing, setIsCapturing] = useState<boolean>(false)
+  const [calibrationResults, setCalibrationResults] = useState<CalibrationResults | null>(null)
+  const [isCalibrating, setIsCalibrating] = useState<boolean>(false)
   
-  const [calibrations, setCalibrations] = useState([])
+  const [calibrations, setCalibrations] = useState<Calibration[]>([])
 
   useEffect(() => {
     checkConnection()
@@ -38,8 +94,10 @@ function EdgeManagement() {
     setLoading(true)
     try {
       // Try to connect to RDK X5
-      const res = await fetch(`http://${edgeConfig.device_ip}:${edgeConfig.device_port}/health`, { credentials: 'include', method: 'GET',
-        signal: AbortSignal.timeout(3000)
+      const res = await fetch(`http://${edgeConfig.device_ip}:${edgeConfig.device_port}/health`, { 
+        credentials: 'include', 
+        method: 'GET',
+        signal: (AbortSignal as any).timeout(3000)
       })
       if (res.ok) {
         setConnectionStatus('connected')
@@ -60,52 +118,38 @@ function EdgeManagement() {
       const res = await fetch('/api/stereo-calibrations/', { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
-        setCalibrations(Array.isArray(data) ? data : (data.results || []))
+        setCalibrations((Array.isArray(data) ? data : (data.results || [])) as Calibration[])
       }
     } catch (error) {
       console.error('Error fetching calibrations:', error)
     }
   }
 
-  const saveCalibration = async () => {
-    if (!calibration.name) {
-      alert('Please enter a calibration name')
-      return
-    }
-    
+  const activateCalibration = async (id: number) => {
     try {
-      const res = await fetch('/api/stereo-calibrations/', { credentials: 'include', method: 'POST',
+      const res = await fetch(`/api/stereo-calibrations/${id}/deploy/`, { 
+        credentials: 'include', 
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(calibration)
+        body: JSON.stringify({ 
+          ip: edgeConfig.device_ip,
+          port: edgeConfig.device_port
+        })
       })
       if (res.ok) {
-        alert('Calibration saved successfully')
+        const data = await res.json()
+        alert(data.message || 'Calibration deployed successfully')
         fetchCalibrations()
-        setCalibration({ name: '', baseline: 120, focal_length: 800, image_width: 1920, image_height: 1080, is_active: false })
       } else {
-        const err = await res.json()
-        alert(`Error: ${err.detail || 'Failed to save calibration'}`)
+        alert('Failed to deploy calibration')
       }
-    } catch (error) {
-      alert('Error saving calibration: ' + error.message)
-    }
-  }
-
-  const activateCalibration = async (id) => {
-    try {
-      const res = await fetch(`/api/stereo-calibrations/${id}/`, { credentials: 'include', method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: true })
-      })
-      if (res.ok) {
-        fetchCalibrations()
-      }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error activating calibration:', error)
+      alert('Error deploying calibration: ' + error.message)
     }
   }
 
-  const deleteCalibration = async (id) => {
+  const deleteCalibration = async (id: number) => {
     if (!confirm('Delete this calibration?')) return
     
     try {
@@ -130,13 +174,15 @@ function EdgeManagement() {
     setIsCapturing(true)
     try {
       // Simulate capturing stereo pair from RDK X5
-      const res = await fetch(`http://${edgeConfig.device_ip}:${edgeConfig.device_port}/capture-stereo`, { credentials: 'include', method: 'POST',
+      const res = await fetch(`http://${edgeConfig.device_ip}:${edgeConfig.device_port}/capture-stereo`, { 
+        credentials: 'include', 
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           rows: checkerboardConfig.rows, 
           cols: checkerboardConfig.cols 
         }),
-        signal: AbortSignal.timeout(5000)
+        signal: (AbortSignal as any).timeout(5000)
       })
       if (res.ok) {
         const data = await res.json()
@@ -161,7 +207,7 @@ function EdgeManagement() {
     setIsCapturing(false)
   }
 
-  const removeCalibrationImage = (id) => {
+  const removeCalibrationImage = (id: number) => {
     setCapturedImages(prev => prev.filter(img => img.id !== id))
   }
 
@@ -247,7 +293,12 @@ function EdgeManagement() {
     setCheckerboardConfig({ rows: 6, cols: 9, square_size: 25, name: '' })
   }
 
-  const InfoRow = ({ label, value }) => (
+  interface InfoRowProps {
+    label: string;
+    value: string | number | undefined;
+  }
+
+  const InfoRow: FC<InfoRowProps> = ({ label, value }) => (
     <div className="flex justify-between py-2 border-b border-industrial-gray/50 last:border-0">
       <span className="text-sm text-slate-400">{label}</span>
       <span className="text-sm font-medium text-white">{value}</span>

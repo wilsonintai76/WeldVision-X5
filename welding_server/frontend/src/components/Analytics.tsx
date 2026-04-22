@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, FC } from 'react'
 import { 
   BarChart3, 
   TrendingUp, 
@@ -12,9 +12,43 @@ import {
   AlertCircle
 } from 'lucide-react'
 
-function Analytics() {
-  const [datasets, setDatasets] = useState([])
-  const [stats, setStats] = useState({
+interface Annotation {
+  id: number;
+  class_name: string;
+  bbox: number[];
+}
+
+interface DatasetImage {
+  id: number;
+  file_path: string;
+  annotations?: Annotation[];
+}
+
+interface Dataset {
+  id: number;
+  name: string;
+  images?: DatasetImage[];
+  classes?: string[];
+  train_count?: number;
+  valid_count?: number;
+  test_count?: number;
+  train_split?: number;
+  valid_split?: number;
+  test_split?: number;
+}
+
+interface AnalyticsStats {
+  totalDatasets: number;
+  totalImages: number;
+  totalAnnotations: number;
+  totalClasses: number;
+  avgImagesPerDataset: number;
+  annotationCoverage: number;
+}
+
+const Analytics: FC = () => {
+  const [datasets, setDatasets] = useState<Dataset[]>([])
+  const [stats, setStats] = useState<AnalyticsStats>({
     totalDatasets: 0,
     totalImages: 0,
     totalAnnotations: 0,
@@ -31,7 +65,7 @@ function Analytics() {
     try {
       const res = await fetch('/api/datasets/', { credentials: 'include' })
       if (res.ok) {
-        const data = await res.json()
+        const data: Dataset[] = await res.json()
         setDatasets(data)
         
         // Calculate statistics
@@ -40,7 +74,7 @@ function Analytics() {
           return sum + (ds.images?.reduce((imgSum, img) => imgSum + (img.annotations?.length || 0), 0) || 0)
         }, 0)
         
-        const allClasses = new Set()
+        const allClasses = new Set<string>()
         data.forEach(ds => {
           ds.classes?.forEach(cls => allClasses.add(cls))
         })

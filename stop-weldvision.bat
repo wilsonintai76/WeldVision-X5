@@ -8,7 +8,7 @@ echo  ║               Stopping WeldVision-X5...                       ║
 echo  ╚══════════════════════════════════════════════════════════════╝
 echo.
 
-cd /d "%~dp0welding_server"
+cd /d "%~dp0"
 
 echo [1/2] Stopping containers...
 docker-compose down

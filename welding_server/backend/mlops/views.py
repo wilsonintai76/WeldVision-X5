@@ -337,32 +337,21 @@ def deploy_model(request):
     Body:
     {
         "model_id": 1,
-        "ip": "192.168.1.100",  // optional
-        "username": "sunrise",   // optional
-        "password": "sunrise",   // optional
-        "device_id": "RDK-X5-01" // optional
+        "ip": "192.168.1.100",  // optional, defaults to RDK_IP env
+        "reboot": true          // optional
     }
     """
     model_id = request.data.get('model_id')
-    
-    if not model_id:
-        return Response(
-            {'error': 'model_id is required'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
+    ip = request.data.get('ip') or os.getenv('RDK_IP', '192.168.1.100')
+    username = os.getenv('RDK_USERNAME', 'sunrise')
+    password = os.getenv('RDK_PASSWORD', 'sunrise')
+    should_reboot = request.data.get('reboot', False)
+
     try:
         model = AIModel.objects.get(id=model_id)
     except AIModel.DoesNotExist:
-        return Response(
-            {'error': f'Model with ID {model_id} not found'},
-            status=status.HTTP_404_NOT_FOUND
-        )
+        return Response({'error': f'Model with ID {model_id} not found'}, status=status.HTTP_404_NOT_FOUND)
     
-    # Get connection details
-    ip = request.data.get('ip', settings.RDK_DEFAULT_IP)
-    username = request.data.get('username', settings.RDK_DEFAULT_USERNAME)
-    password = request.data.get('password', settings.RDK_DEFAULT_PASSWORD)
     device_id = request.data.get('device_id', f'RDK-{ip}')
     
     # Create deployment log
@@ -391,9 +380,14 @@ def deploy_model(request):
         model.deployed_to_device = device_id
         model.save()
         
+        # Optional Reboot
+        if should_reboot:
+            reboot_rdk(ip, username, password)
+            result['message'] += " and reboot initiated"
+
         return Response({
             'status': 'success',
-            'message': f'Model {model.version} deployed to {ip}',
+            'message': f'Model {model.version} deployed to {ip}' + (' and reboot initiated' if should_reboot else ''),
             'deployment_log_id': deployment_log.id,
             'result': result
         })

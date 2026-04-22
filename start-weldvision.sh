@@ -38,9 +38,9 @@ if ! docker info > /dev/null 2>&1; then
 fi
 echo -e "    ${GREEN}[OK]${NC} Docker is running"
 
-# Navigate to welding_server directory
+# Start WeldVision services
 echo "[2/4] Starting WeldVision services..."
-cd "$SCRIPT_DIR/welding_server"
+cd "$SCRIPT_DIR"
 
 # Determine if using 'docker-compose' or 'docker compose'
 if command -v docker-compose > /dev/null 2>&1; then

@@ -1,27 +1,97 @@
-import { useState, useEffect, useRef } from 'react'
-import { FolderPlus, ImagePlus, Download, Tag, Trash2, X, Save, ChevronLeft, ChevronRight, Wand2, Upload, Plus, Search, Folder, Image as ImageIcon, Check, Database } from 'lucide-react'
+import React, { useState, useEffect, useRef, FC } from 'react'
+import { FolderPlus, ImagePlus, Download, Tag, Trash2, X, Save, ChevronLeft, ChevronRight, Wand2, Plus, Search, Folder, Image as ImageIcon, Check, Database, Upload } from 'lucide-react'
 
-function Labeling({ initialView = 'datasets' }) {
+// Interfaces
+interface DefectClass {
+  id: number;
+  name: string;
+  display_name: string;
+  color: string;
+  description?: string;
+}
+
+interface Dataset {
+  id: number;
+  name: string;
+  description?: string;
+  created_by?: string;
+  created_at?: string;
+  train_split: number;
+  valid_split: number;
+  test_split: number;
+  classes?: DefectClass[];
+  image_count?: number;
+  train_count?: number;
+  valid_count?: number;
+  test_count?: number;
+}
+
+interface LabeledImage {
+  id: number;
+  dataset: number;
+  image_url: string;
+  filename: string;
+  created_at?: string;
+  width?: number;
+  height?: number;
+  annotation_count?: number;
+  is_labeled?: boolean;
+  split?: 'train' | 'valid' | 'test' | 'unassigned';
+}
+
+interface Annotation {
+  id: number;
+  image: number;
+  defect_class: number;
+  x_center: number;
+  y_center: number;
+  width: number;
+  height: number;
+  created_at?: string;
+  class_name?: string;
+}
+
+interface DatasetForm {
+  name: string;
+  description: string;
+  created_by: string;
+  train_split: number;
+  valid_split: number;
+  test_split: number;
+}
+
+interface ClassForm {
+  name: string;
+  display_name: string;
+  color: string;
+  description: string;
+}
+
+interface LabelingProps {
+  initialView?: string;
+}
+
+const Labeling: FC<LabelingProps> = ({ initialView = 'datasets' }) => {
   const [currentView, setCurrentView] = useState(initialView) // 'upload', 'annotate', 'datasets', 'classes'
-  const [datasets, setDatasets] = useState([])
-  const [defectClasses, setDefectClasses] = useState([]) // All available defect classes
-  const [selectedDataset, setSelectedDataset] = useState(null)
-  const [images, setImages] = useState([])
-  const [selectedImage, setSelectedImage] = useState(null)
-  const [annotations, setAnnotations] = useState([])
-  const [selectedClass, setSelectedClass] = useState(null)
+  const [datasets, setDatasets] = useState<Dataset[]>([])
+  const [defectClasses, setDefectClasses] = useState<DefectClass[]>([]) // All available defect classes
+  const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null)
+  const [images, setImages] = useState<LabeledImage[]>([])
+  const [selectedImage, setSelectedImage] = useState<LabeledImage | null>(null)
+  const [annotations, setAnnotations] = useState<Annotation[]>([])
+  const [selectedClass, setSelectedClass] = useState<string | null>(null)
   const [annotationMode, setAnnotationMode] = useState(false) // Toggle between list and annotation view
-  const [pendingBox, setPendingBox] = useState(null) // Box waiting for class selection
+  const [pendingBox, setPendingBox] = useState<any>(null) // Box waiting for class selection
   const [showClassPicker, setShowClassPicker] = useState(false) // Show class picker modal
-  const [selectedClassForAnnotation, setSelectedClassForAnnotation] = useState(null) // Selected class in annotation editor
-  const [selectedImages, setSelectedImages] = useState([]) // Selected images for bulk operations
+  const [selectedClassForAnnotation, setSelectedClassForAnnotation] = useState<number | null>(null) // Selected class in annotation editor
+  const [selectedImages, setSelectedImages] = useState<number[]>([]) // Selected images for bulk operations
   const [selectMode, setSelectMode] = useState(false) // Enable/disable selection mode
   
   // Canvas state
-  const canvasRef = useRef(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
-  const [startPoint, setStartPoint] = useState(null)
-  const [currentBox, setCurrentBox] = useState(null)
+  const [startPoint, setStartPoint] = useState<{x: number, y: number} | null>(null)
+  const [currentBox, setCurrentBox] = useState<any>(null)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 })
   
@@ -32,12 +102,12 @@ function Labeling({ initialView = 'datasets' }) {
   const [isDragging, setIsDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 })
-  const fileInputRef = useRef(null)
-  const folderInputRef = useRef(null)
-  const [selectedClassIds, setSelectedClassIds] = useState([]) // IDs of classes selected for dataset
-  const [editingClass, setEditingClass] = useState(null) // Class being edited
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const folderInputRef = useRef<HTMLInputElement>(null)
+  const [selectedClassIds, setSelectedClassIds] = useState<number[]>([]) // IDs of classes selected for dataset
+  const [editingClass, setEditingClass] = useState<DefectClass | null>(null) // Class being edited
   const [batchName, setBatchName] = useState(`Uploaded on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`)
-  const [datasetForm, setDatasetForm] = useState({
+  const [datasetForm, setDatasetForm] = useState<DatasetForm>({
     name: '',
     description: '',
     created_by: '',
@@ -45,7 +115,7 @@ function Labeling({ initialView = 'datasets' }) {
     valid_split: 10,
     test_split: 10
   })
-  const [classForm, setClassForm] = useState({
+  const [classForm, setClassForm] = useState<ClassForm>({
     name: '',
     display_name: '',
     color: '#3B82F6',
@@ -95,7 +165,7 @@ function Labeling({ initialView = 'datasets' }) {
 
   // Keyboard shortcuts
   useEffect(() => {
-    const handleKeyPress = (e) => {
+    const handleKeyPress = (e: KeyboardEvent) => {
       if (!selectedImage) return
       
       // Escape key - cancel pending box or exit annotation mode
@@ -122,7 +192,7 @@ function Labeling({ initialView = 'datasets' }) {
         const num = parseInt(e.key)
         const classList = selectedDataset?.classes || []
         if (num >= 1 && num <= classList.length && num <= 9) {
-          saveAnnotationWithClass(classList[num - 1].name)
+          saveAnnotationWithClassTyped(classList[num - 1].id)
         }
       }
       
@@ -136,6 +206,36 @@ function Labeling({ initialView = 'datasets' }) {
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [selectedImage, annotations, showClassPicker, pendingBox])
+
+  const saveAnnotationWithClassTyped = async (classId: number) => {
+    if (!pendingBox || !selectedImage) return
+    
+    try {
+      const response = await fetch('/api/annotations/', { credentials: 'include', method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: selectedImage.id,
+          defect_class: classId,
+          x_center: pendingBox.x_center,
+          y_center: pendingBox.y_center,
+          width: pendingBox.width,
+          height: pendingBox.height
+        }),
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to save annotation')
+      }
+      
+      fetchAnnotations(selectedImage.id)
+      setPendingBox(null)
+      setCurrentBox(null)
+      setShowClassPicker(false)
+      setSelectedClassForAnnotation(null)
+    } catch (error) {
+      console.error('Error saving annotation:', error)
+    }
+  }
 
   const fetchDefectClasses = async () => {
     try {
@@ -157,7 +257,7 @@ function Labeling({ initialView = 'datasets' }) {
     }
   }
 
-  const fetchImages = async (datasetId) => {
+  const fetchImages = async (datasetId: number) => {
     try {
       const response = await fetch(`/api/labeled-images/?dataset=${datasetId}`, { credentials: 'include' })
       const data = await response.json()
@@ -167,7 +267,7 @@ function Labeling({ initialView = 'datasets' }) {
     }
   }
 
-  const fetchAnnotations = async (imageId) => {
+  const fetchAnnotations = async (imageId: number) => {
     try {
       const response = await fetch(`/api/annotations/?image=${imageId}`, { credentials: 'include' })
       const data = await response.json()
@@ -177,7 +277,7 @@ function Labeling({ initialView = 'datasets' }) {
     }
   }
 
-  const createDataset = async (e) => {
+  const createDataset = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       const response = await fetch('/api/datasets/', { credentials: 'include', method: 'POST',
@@ -190,7 +290,7 @@ function Labeling({ initialView = 'datasets' }) {
       if (response.ok) {
         await fetchDatasets()
         setShowDatasetModal(false)
-        setDatasetForm({ name: '', description: '', created_by: '' })
+        setDatasetForm({ name: '', description: '', created_by: '', train_split: 80, valid_split: 10, test_split: 10 })
         setSelectedClassIds([])
         return
       }
@@ -203,7 +303,7 @@ function Labeling({ initialView = 'datasets' }) {
     }
   }
 
-  const createDefectClass = async (e) => {
+  const createDefectClass = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       const url = editingClass 
@@ -245,7 +345,7 @@ function Labeling({ initialView = 'datasets' }) {
     }
   }
 
-  const deleteDefectClass = async (classId) => {
+  const deleteDefectClass = async (classId: number) => {
     if (!confirm('Are you sure you want to delete this defect class?')) return
     
     try {
@@ -263,7 +363,7 @@ function Labeling({ initialView = 'datasets' }) {
     }
   }
 
-  const updateDatasetClasses = async (e) => {
+  const updateDatasetClasses = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedDataset) return
     
@@ -293,14 +393,14 @@ function Labeling({ initialView = 'datasets' }) {
     }
   }
 
-  const uploadImages = async (e) => {
-    let files = Array.from(e.target.files)
+  const uploadImages = async (e: any) => {
+    let files = Array.from(e.target.files as FileList)
     
     // Filter only image files (for folder uploads that might include non-image files)
     files = files.filter(file => file.type.startsWith('image/'))
     
-    if (files.length === 0) {
-      alert('No image files found. Please select JPG, PNG, or other image files.')
+    if (files.length === 0 || !selectedDataset) {
+      alert('No image files found or no dataset selected.')
       return
     }
     
@@ -311,7 +411,7 @@ function Labeling({ initialView = 'datasets' }) {
     setUploadProgress({ current: 0, total: files.length })
     const chunkSize = 20 // Upload 20 images at a time
     let totalUploaded = 0
-    let totalErrors = []
+    let totalErrors: string[] = []
     
     try {
       for (let i = 0; i < files.length; i += chunkSize) {
@@ -337,7 +437,7 @@ function Labeling({ initialView = 'datasets' }) {
             console.error(`Chunk upload failed:`, await response.text())
             totalErrors.push(`Failed to upload chunk ${i / chunkSize + 1}`)
           }
-        } catch (chunkError) {
+        } catch (chunkError: any) {
           console.error('Error uploading chunk:', chunkError)
           totalErrors.push(`Error uploading chunk ${i / chunkSize + 1}: ${chunkError.message}`)
         }
@@ -352,7 +452,7 @@ function Labeling({ initialView = 'datasets' }) {
       }
       
       fetchImages(selectedDataset.id)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading images:', error)
       alert('Failed to upload images: ' + error.message)
     } finally {
@@ -365,7 +465,7 @@ function Labeling({ initialView = 'datasets' }) {
     }
   }
 
-  const deleteImage = async (imageId) => {
+  const deleteImage = async (imageId: number) => {
     if (!confirm('Are you sure you want to delete this image and all its annotations?')) return
     
     try {
@@ -418,13 +518,13 @@ function Labeling({ initialView = 'datasets' }) {
       setSelectedImages([])
       setSelectMode(false)
       alert(`✓ Deleted ${deleted} images. ${failed > 0 ? `${failed} failed.` : ''}`)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error bulk deleting images:', error)
       alert('Bulk delete failed: ' + error.message)
     }
   }
 
-  const toggleImageSelection = (imageId) => {
+  const toggleImageSelection = (imageId: number) => {
     setSelectedImages(prev => 
       prev.includes(imageId) 
         ? prev.filter(id => id !== imageId)
@@ -440,7 +540,7 @@ function Labeling({ initialView = 'datasets' }) {
     setSelectedImages([])
   }
 
-  const deleteDataset = async (datasetId) => {
+  const deleteDataset = async (datasetId: number) => {
     if (!confirm('Are you sure you want to delete this dataset? All images and annotations will be permanently deleted.')) return
     
     try {
@@ -464,24 +564,24 @@ function Labeling({ initialView = 'datasets' }) {
   }
 
   // Drag and drop handlers
-  const handleDragEnter = (e) => {
+  const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setIsDragging(true)
   }
 
-  const handleDragLeave = (e) => {
+  const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setIsDragging(false)
   }
 
-  const handleDragOver = (e) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
   }
 
-  const handleDrop = async (e) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setIsDragging(false)
@@ -553,7 +653,8 @@ function Labeling({ initialView = 'datasets' }) {
     }
   }
 
-  const deleteAnnotation = async (annId) => {
+  const deleteAnnotation = async (annId: number) => {
+    if (!selectedImage) return
     try {
       await fetch(`/api/annotations/${annId}/`, { credentials: 'include', method: 'DELETE' })
       fetchAnnotations(selectedImage.id)
@@ -563,7 +664,7 @@ function Labeling({ initialView = 'datasets' }) {
   }
 
   // Canvas drawing functions
-  const loadImage = (imgUrl) => {
+  const loadImage = (imgUrl: string) => {
     const canvas = canvasRef.current
     if (!canvas) {
       console.error('Canvas not available')
@@ -575,6 +676,8 @@ function Labeling({ initialView = 'datasets' }) {
     console.log('Loading image:', fullUrl)
 
     const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
@@ -611,6 +714,7 @@ function Labeling({ initialView = 'datasets' }) {
     if (!canvas || !selectedImage) return
 
     const ctx = canvas.getContext('2d')
+    if (!ctx) return
     
     // Make sure we have full URL
     const imgUrl = selectedImage.image_url
@@ -653,7 +757,7 @@ function Labeling({ initialView = 'datasets' }) {
     img.src = fullUrl
   }
 
-  const drawBox = (ctx, ann, color, displayName, canvasWidth, canvasHeight) => {
+  const drawBox = (ctx: CanvasRenderingContext2D, ann: Annotation, color: string, displayName: string, canvasWidth: number, canvasHeight: number) => {
     // Convert normalized coordinates to pixel coordinates
     const x = (ann.x_center - ann.width / 2) * canvasWidth
     const y = (ann.y_center - ann.height / 2) * canvasHeight
@@ -676,8 +780,8 @@ function Labeling({ initialView = 'datasets' }) {
     ctx.fillText(labelText, x + 5, y - 5)
   }
 
-  const handleMouseDown = (e) => {
-    if (!selectedImage) return
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!selectedImage || !canvasRef.current) return
     const rect = canvasRef.current.getBoundingClientRect()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
@@ -685,8 +789,8 @@ function Labeling({ initialView = 'datasets' }) {
     setStartPoint({ x, y })
   }
 
-  const handleMouseMove = (e) => {
-    if (!isDrawing || !startPoint) return
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDrawing || !startPoint || !canvasRef.current) return
     const rect = canvasRef.current.getBoundingClientRect()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
@@ -699,7 +803,7 @@ function Labeling({ initialView = 'datasets' }) {
   }
 
   const handleMouseUp = () => {
-    if (!isDrawing || !currentBox || !selectedImage) return
+    if (!isDrawing || !currentBox || !selectedImage || !canvasRef.current) return
     
     const canvas = canvasRef.current
     // Convert pixel coordinates to normalized YOLO format
@@ -760,7 +864,7 @@ function Labeling({ initialView = 'datasets' }) {
       setCurrentBox(null)
       setShowClassPicker(false)
       setSelectedClassForAnnotation(null)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving annotation:', error)
       alert('Failed to save annotation: ' + error.message)
     }
@@ -773,7 +877,7 @@ function Labeling({ initialView = 'datasets' }) {
     setSelectedClassForAnnotation(null)
   }
 
-  const selectImage = (img) => {
+  const selectImage = (img: LabeledImage) => {
     setSelectedImage(img)
     setAnnotationMode(true) // Enter annotation mode
     setImageLoaded(false)
@@ -788,7 +892,7 @@ function Labeling({ initialView = 'datasets' }) {
     setImageLoaded(false)
   }
 
-  const navigateImage = (direction) => {
+  const navigateImage = (direction: 'next' | 'prev') => {
     const currentIndex = images.findIndex(img => img.id === selectedImage?.id)
     if (currentIndex === -1) return
     
@@ -845,7 +949,7 @@ function Labeling({ initialView = 'datasets' }) {
                   value={selectedDataset?.id || ''}
                   onChange={(e) => {
                     const dataset = datasets.find(d => d.id === parseInt(e.target.value))
-                    setSelectedDataset(dataset)
+                    setSelectedDataset(dataset || null)
                   }}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:ring-2 focus:ring-purple-500"
                 >
@@ -885,13 +989,15 @@ function Labeling({ initialView = 'datasets' }) {
                     Select Folder
                   </div>
                   <input
-                    ref={folderInputRef}
-                    type="file"
-                    multiple
-                    onChange={uploadImages}
-                    className="hidden"
-                    disabled={uploading || !selectedDataset}
-                    webkitdirectory="true"
+                    {...({
+                      ref: folderInputRef,
+                      type: "file",
+                      multiple: true,
+                      onChange: uploadImages,
+                      className: "hidden",
+                      disabled: uploading || !selectedDataset,
+                      webkitdirectory: "true"
+                    } as any)}
                   />
                 </label>
               </div>
@@ -981,7 +1087,7 @@ function Labeling({ initialView = 'datasets' }) {
                   <div
                     onClick={() => {
                       setSelectedDataset(ds)
-                      if (ds.classes?.length > 0) {
+                      if (ds.classes && ds.classes.length > 0) {
                         setSelectedClass(ds.classes[0].name)
                       }
                     }}
@@ -1003,7 +1109,7 @@ function Labeling({ initialView = 'datasets' }) {
                             ></div>
                           ))}
                           {(ds.classes?.length || 0) > 3 && (
-                            <span className="text-xs text-slate-500">+{ds.classes.length - 3}</span>
+                            <span className="text-xs text-slate-500">+{(ds.classes?.length || 0) - 3}</span>
                           )}
                         </div>
                       </div>
@@ -1289,8 +1395,8 @@ function Labeling({ initialView = 'datasets' }) {
                 value={selectedDataset?.id || ''}
                 onChange={(e) => {
                   const dataset = datasets.find(d => d.id === parseInt(e.target.value))
-                  setSelectedDataset(dataset)
-                  if (dataset?.classes?.length > 0) {
+                  setSelectedDataset(dataset || null)
+                  if (dataset && dataset.classes && dataset.classes.length > 0) {
                     setSelectedClass(dataset.classes[0].name)
                   }
                 }}
@@ -1515,9 +1621,9 @@ function Labeling({ initialView = 'datasets' }) {
                           })
                           if (res.ok) {
                             setImages(images.map(img => 
-                              img.id === selectedImage.id ? { ...img, split: newSplit } : img
+                              img.id === selectedImage.id ? { ...img, split: newSplit as any } : img
                             ))
-                            setSelectedImage({ ...selectedImage, split: newSplit })
+                            setSelectedImage({ ...selectedImage, split: newSplit as any })
                           }
                         } catch (error) {
                           console.error('Error updating split:', error)
@@ -1551,7 +1657,7 @@ function Labeling({ initialView = 'datasets' }) {
                   </div>
                   {annotations.length > 0 && (
                     <div className="text-xs text-slate-400 mb-2">
-                      Group: {annotations[0].class_name.replace(/_/g, ' ')}
+                      Group: {annotations[0]?.class_name?.replace(/_/g, ' ') || ''}
                     </div>
                   )}
                 </div>
@@ -1666,7 +1772,7 @@ function Labeling({ initialView = 'datasets' }) {
                     value={datasetForm.description}
                     onChange={(e) => setDatasetForm({ ...datasetForm, description: e.target.value })}
                     className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
-                    rows="3"
+                    rows={3}
                   />
                 </div>
 
@@ -1906,7 +2012,7 @@ function Labeling({ initialView = 'datasets' }) {
                     value={classForm.description}
                     onChange={(e) => setClassForm({ ...classForm, description: e.target.value })}
                     className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white"
-                    rows="3"
+                    rows={3}
                     placeholder="Brief description of this defect type"
                   />
                 </div>

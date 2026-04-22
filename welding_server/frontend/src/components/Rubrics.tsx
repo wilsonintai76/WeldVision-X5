@@ -1,10 +1,48 @@
-import { useState, useEffect } from 'react'
-import { ClipboardCheck, Plus, Edit2, Trash2, X, Save, CheckCircle, ChevronDown, ChevronRight, Star, AlertTriangle } from 'lucide-react'
+import React, { useState, useEffect, FC } from 'react'
+import { ClipboardCheck, Plus, Edit2, Trash2, X, Save, Star, AlertTriangle } from 'lucide-react'
+
+// Interfaces
+interface Criterion {
+  id?: number;
+  name: string;
+  category: 'geometric' | 'visual' | 'technique' | 'safety';
+  weight: number;
+  order: number;
+  score_1_label: string;
+  score_1_description: string;
+  score_2_label: string;
+  score_2_description: string;
+  score_3_label: string;
+  score_3_description: string;
+  score_4_label: string;
+  score_4_description: string;
+  score_5_label: string;
+  score_5_description: string;
+  [key: string]: any; // To allow score_n_label/description access
+}
+
+interface Rubric {
+  id: number;
+  name: string;
+  description: string;
+  rubric_type: string;
+  passing_score: number;
+  is_active: boolean;
+  criteria_count?: number;
+  criteria?: Criterion[];
+}
+
+interface RubricForm {
+  name: string;
+  description: string;
+  rubric_type: string;
+  passing_score: number;
+}
 
 // Helper to get CSRF token
-function getCSRFToken() {
+function getCSRFToken(): string | null {
   const name = 'csrftoken';
-  let cookieValue = null;
+  let cookieValue: string | null = null;
   if (document.cookie && document.cookie !== '') {
     const cookies = document.cookie.split(';');
     for (let i = 0; i < cookies.length; i++) {
@@ -18,26 +56,26 @@ function getCSRFToken() {
   return cookieValue;
 }
 
-function Rubrics() {
-  const [rubrics, setRubrics] = useState([])
-  const [selectedRubric, setSelectedRubric] = useState(null)
+const Rubrics: FC = () => {
+  const [rubrics, setRubrics] = useState<Rubric[]>([])
+  const [selectedRubric, setSelectedRubric] = useState<Rubric | null>(null)
   const [loading, setLoading] = useState(false)
 
   // Modal states
   const [showRubricModal, setShowRubricModal] = useState(false)
   const [showCriterionModal, setShowCriterionModal] = useState(false)
-  const [editingRubric, setEditingRubric] = useState(null)
-  const [editingCriterion, setEditingCriterion] = useState(null)
+  const [editingRubric, setEditingRubric] = useState<Rubric | null>(null)
+  const [editingCriterion, setEditingCriterion] = useState<Criterion | null>(null)
 
   // Forms
-  const [rubricForm, setRubricForm] = useState({
+  const [rubricForm, setRubricForm] = useState<RubricForm>({
     name: '',
     description: '',
     rubric_type: 'custom',
     passing_score: 3.0
   })
 
-  const [criterionForm, setCriterionForm] = useState({
+  const [criterionForm, setCriterionForm] = useState<Criterion>({
     name: '',
     category: 'visual',
     weight: 1.0,
@@ -81,7 +119,7 @@ function Rubrics() {
         credentials: 'include', method: editingRubric ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken
+          'X-CSRFToken': csrfToken || ''
         },
         body: JSON.stringify(rubricForm)
       })
@@ -96,14 +134,14 @@ function Rubrics() {
     setLoading(false)
   }
 
-  const deleteRubric = async (id) => {
+  const deleteRubric = async (id: number) => {
     if (!confirm('Delete this rubric? All criteria will also be deleted.')) return
     try {
       const csrfToken = getCSRFToken();
       await fetch(`/api/assessment-rubrics/${id}/`, {
         credentials: 'include',
         method: 'DELETE',
-        headers: { 'X-CSRFToken': csrfToken }
+        headers: { 'X-CSRFToken': csrfToken || '' }
       })
       fetchRubrics()
       if (selectedRubric?.id === id) setSelectedRubric(null)
@@ -112,15 +150,19 @@ function Rubrics() {
     }
   }
 
-  const activateRubric = async (id) => {
+  const activateRubric = async (id: number) => {
     try {
       const csrfToken = getCSRFToken();
       await fetch(`/api/assessment-rubrics/${id}/activate/`, {
         credentials: 'include',
         method: 'POST',
-        headers: { 'X-CSRFToken': csrfToken }
+        headers: { 'X-CSRFToken': csrfToken || '' }
       })
       fetchRubrics()
+      // If the selected rubric was activated, update it
+      if (selectedRubric?.id === id) {
+        setSelectedRubric({ ...selectedRubric, is_active: true })
+      }
     } catch (error) {
       console.error('Error activating rubric:', error)
     }
@@ -134,7 +176,7 @@ function Rubrics() {
         credentials: 'include', method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken
+          'X-CSRFToken': csrfToken || ''
         },
         body: JSON.stringify({ name: `ISO 5817 Rubric - ${new Date().toLocaleString()}` })
       })
@@ -164,7 +206,7 @@ function Rubrics() {
         credentials: 'include', method: editingCriterion ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken
+          'X-CSRFToken': csrfToken || ''
         },
         body: JSON.stringify(criterionForm)
       })
@@ -184,19 +226,21 @@ function Rubrics() {
     setLoading(false)
   }
 
-  const deleteCriterion = async (id) => {
+  const deleteCriterion = async (id: number) => {
     if (!confirm('Delete this criterion?')) return
     try {
       const csrfToken = getCSRFToken();
       await fetch(`/api/rubric-criteria/${id}/`, {
         credentials: 'include',
         method: 'DELETE',
-        headers: { 'X-CSRFToken': csrfToken }
+        headers: { 'X-CSRFToken': csrfToken || '' }
       })
       // Refresh selected rubric
-      const res = await fetch(`/api/assessment-rubrics/${selectedRubric.id}/`, { credentials: 'include' })
-      if (res.ok) {
-        setSelectedRubric(await res.json())
+      if (selectedRubric) {
+        const res = await fetch(`/api/assessment-rubrics/${selectedRubric.id}/`, { credentials: 'include' })
+        if (res.ok) {
+          setSelectedRubric(await res.json())
+        }
       }
       fetchRubrics()
     } catch (error) {
@@ -204,7 +248,7 @@ function Rubrics() {
     }
   }
 
-  const openRubricModal = (rubric = null) => {
+  const openRubricModal = (rubric: Rubric | null = null) => {
     if (rubric) {
       setEditingRubric(rubric)
       setRubricForm({
@@ -220,7 +264,7 @@ function Rubrics() {
     setShowRubricModal(true)
   }
 
-  const openCriterionModal = (criterion = null) => {
+  const openCriterionModal = (criterion: Criterion | null = null) => {
     if (criterion) {
       setEditingCriterion(criterion)
       setCriterionForm({ ...criterion })
@@ -248,7 +292,7 @@ function Rubrics() {
     setEditingCriterion(null)
   }
 
-  const categoryColors = {
+  const categoryColors: Record<string, string> = {
     geometric: 'bg-blue-900/50 text-blue-400',
     visual: 'bg-purple-900/50 text-purple-400',
     technique: 'bg-emerald-900/50 text-emerald-400',
@@ -423,7 +467,7 @@ function Rubrics() {
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => deleteCriterion(criterion.id)}
+                            onClick={() => (criterion.id && deleteCriterion(criterion.id))}
                             className="p-1.5 text-slate-500 hover:text-red-400 transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -572,7 +616,7 @@ function Rubrics() {
                   <label className="block text-sm font-medium text-slate-300 mb-1">Category</label>
                   <select
                     value={criterionForm.category}
-                    onChange={(e) => setCriterionForm({ ...criterionForm, category: e.target.value })}
+                    onChange={(e) => setCriterionForm({ ...criterionForm, category: e.target.value as any })}
                     className="w-full px-3 py-2 bg-industrial-dark border border-industrial-gray rounded text-white"
                   >
                     <option value="visual">Visual Inspection</option>
@@ -614,22 +658,22 @@ function Rubrics() {
                 <h4 className="text-white font-medium mb-3">Likert Scale Descriptors (1-5)</h4>
                 <div className="space-y-3">
                   {[1, 2, 3, 4, 5].map(score => (
-                    <div key={score} className={`p-3 rounded-lg ${score >= (selectedRubric?.passing_score || 3) ? 'bg-green-950/30 border border-green-800' : 'bg-red-950/30 border border-red-800'}`}>
+                    <div key={score} className={`p-3 rounded-lg ${(selectedRubric && score >= selectedRubric.passing_score) ? 'bg-green-950/30 border border-green-800' : 'bg-red-950/30 border border-red-800'}`}>
                       <div className="flex items-center gap-3 mb-2">
-                        <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${score >= (selectedRubric?.passing_score || 3) ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                        <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${(selectedRubric && score >= selectedRubric.passing_score) ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
                           }`}>
                           {score}
                         </span>
                         <input
                           type="text"
-                          value={criterionForm[`score_${score}_label`]}
+                          value={criterionForm[`score_${score}_label` as keyof Criterion] as string}
                           onChange={(e) => setCriterionForm({ ...criterionForm, [`score_${score}_label`]: e.target.value })}
                           className="flex-1 px-3 py-1 bg-industrial-dark border border-industrial-gray rounded text-white text-sm"
                           placeholder="Label (e.g., Excellent)"
                         />
                       </div>
                       <textarea
-                        value={criterionForm[`score_${score}_description`]}
+                        value={criterionForm[`score_${score}_description` as keyof Criterion] as string}
                         onChange={(e) => setCriterionForm({ ...criterionForm, [`score_${score}_description`]: e.target.value })}
                         className="w-full px-3 py-2 bg-industrial-dark border border-industrial-gray rounded text-white text-sm"
                         rows={2}
