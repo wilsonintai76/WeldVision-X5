@@ -42,8 +42,18 @@ echo -e "    ${GREEN}[OK]${NC} Docker is running"
 echo "[2/4] Starting WeldVision services..."
 cd "$SCRIPT_DIR/welding_server"
 
+# Determine if using 'docker-compose' or 'docker compose'
+if command -v docker-compose > /dev/null 2>&1; then
+    DOCKER_COMPOSE="docker-compose"
+elif docker compose version > /dev/null 2>&1; then
+    DOCKER_COMPOSE="docker compose"
+else
+    echo -e "${RED}ERROR: Neither 'docker-compose' nor 'docker compose' found!${NC}"
+    exit 1
+fi
+
 # Start containers
-docker-compose up -d --build
+$DOCKER_COMPOSE up -d --build
 
 if [ $? -ne 0 ]; then
     echo ""

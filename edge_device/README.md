@@ -1,402 +1,169 @@
-# WeldVision X5 - Edge Device
+# 🏗️ WeldVision X5 — Edge Device Runtime
 
-Python script for RDK X5 edge device that handles:
-- Stereo camera capture
-- YOLOv8 defect detection
-- Depth calculation (SGBM when calibration is provided; mock fallback)
-- Real-time overlay streaming (MJPEG)
-- Local data buffering when server offline
-- Data upload to Django backend
+[![Hardware: RDK X5](https://img.shields.io/badge/Hardware-Horizon_RDK_X5-orange.svg)](https://developer.horizon.cc/)
+[![AI: YOLOv8](https://img.shields.io/badge/AI-YOLOv8_BPU-blue.svg)](https://github.com/ultralytics/ultralytics)
+[![Framework: Python 3.x](https://img.shields.io/badge/Language-Python_3.x-yellow.svg)](https://www.python.org/)
 
-## Hardware Requirements
+The **WeldVision X5 Edge Runtime** is a production-grade industrial computer vision application designed for the Horizon Robotics RDK X5. It orchestrates high-speed stereo capture, hardware-accelerated AI inference, and real-time triangulation to monitor welding quality in educational and industrial environments.
 
-- RDK X5 Development Board
-- Stereo camera module (1080p)
-- Network connection to server
+---
 
-## Dependencies
+## 🚀 Key Features
 
-### Pre-installed on RDK X5:
-- `hobot_dnn` - Horizon Robotics DNN inference library
-- `libsrcampy` - Camera interface library
+*   **⚡ BPU Acceleration**: Leverages the RDK X5's Brain Processing Unit for sub-100ms YOLOv8 inference.
+*   **📷 Stereo Analytics**: Simultaneous capture from dual-lens modules for depth estimation.
+*   **📶 Resilient Sync**: Local data buffering ensures no data loss during network instability.
+*   **🌐 Live Monitoring**: Low-latency MJPEG streaming with diagnostic overlays.
+*   **🛠️ Hot-Swap Models**: Update AI models remotely without service interruption.
 
-### Install via pip:
+---
+
+## 🔌 Hardware Setup
+
+To achieve optimal performance, ensure your hardware is configured as follows:
+
+1.  **Workstation**: Horizon RDK X5 (4GB/8GB RAM recommended).
+2.  **Vision**: 1080p Stereo Camera Module (USB or MIPI).
+3.  **Storage**: Class 10 U3 microSD card (32GB+).
+4.  **Network**: Gigabit Ethernet or 5G Wi-Fi for real-time dashboard updates.
+
+### Wiring Diagram
+| Component | Port | Purpose |
+| :--- | :--- | :--- |
+| Stereo Camera | USB 3.0 / MIPI CSI | Frame Capture |
+| Power Supply | USB-C (12V/2A) | System Power |
+| Network | Ethernet | Backend Communication |
+
+---
+
+## 📀 Software Environment
+
+The edge device requires the official **Horizon RDK Ubuntu Image**.
+
+### 1. Initial Access
+Flash the SD card and boot the RDK. Default credentials:
+*   **User**: `sunrise`
+*   **Pass**: `sunrise`
+
+### 2. Core Dependencies
+The runtime depends on proprietary Horizon libraries pre-installed on the default image:
+- `hobot_dnn`: BPU inference orchestration.
+- `libsrcampy`: Hardware-accelerated camera capturing.
+
+### 3. Application Dependencies
+Install the required Python packages:
+```bash
+pip3 install opencv-python numpy requests
+```
+
+---
+
+## 🛠️ Installation & Deployment
+
+### Step 1: Clone and Prepare
+Login to the RDK and navigate to your home directory:
+
+```bash
+cd /home/sunrise
+# Clone the full repository
+git clone https://github.com/wilsonintai76/WeldVision-X5.git
+cd WeldVision-X5/edge_device
+```
+
+### Step 2: Set up Runtime Directory
+Create the production directory and copy the edge application files:
+
+```bash
+mkdir -p /home/sunrise/welding_app
+# Copy only the edge_device components
+cp -r * /home/sunrise/welding_app/
+cd /home/sunrise/welding_app
+```
+
+### Step 3: Install Dependencies
 ```bash
 pip3 install -r requirements.txt
 ```
 
-## Setup
+---
 
-### 1. Create Application Directory
+## ⚙️ Configuration
 
-```bash
-mkdir -p /home/sunrise/welding_app
-cd /home/sunrise/welding_app
-```
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `BACKEND_URL` | `http://127.0.0.1:8000` | URL of the WeldVision backend. |
+| `WELDVISION_DEVICE_ID` | `RDK-X5-01` | Unique identifier for this unit. |
+| `WELDVISION_STUDENT_ID` | `S001` | Current student ID (manual/RFID). |
+| `WELDVISION_STREAM_PORT` | `8080` | Port for the live MJPEG stream. |
 
-### 2. Copy Files
+### Step 4: Enable Auto-Start (Production)
+Deploy as a systemd service to ensure high availability:
 
-```bash
-# Copy main.py to RDK X5
-scp main.py sunrise@192.168.1.100:/home/sunrise/welding_app/
+1.  **Copy Service File**:
+    ```bash
+    sudo cp weldvision.service /etc/systemd/system/
+    ```
+2.  **Initialize Service**:
+    ```bash
+    sudo systemctl daemon-reload
+    sudo systemctl enable weldvision
+    sudo systemctl start weldvision
+    ```
+3.  **Monitor Output**:
+    ```bash
+    sudo journalctl -u weldvision -f
+    ```
 
-# Copy model file
-scp model.bin sunrise@192.168.1.100:/home/sunrise/welding_app/
-```
+---
 
-### 3. Install Dependencies
+## 📏 Guide Calibration (ROI Tuning)
 
-```bash
-pip3 install cv2-python numpy requests
-```
-
-### 4. Configure Settings
-
-Prefer environment variables (recommended for systemd / production):
-
-```bash
-# Server
-export BACKEND_URL="http://192.168.1.100:8000"
-
-# Identity
-export WELDVISION_STUDENT_ID="S001"
-export WELDVISION_DEVICE_ID="RDK-X5-WORKSHOP-01"
-
-# Optional features
-export WELDVISION_ENABLE_STREAM=1
-export WELDVISION_STREAM_PORT=8080
-export WELDVISION_ENABLE_BUFFERING=1
-
-# Optional stereo depth (requires calibration json)
-export WELDVISION_ENABLE_STEREO=1
-export WELDVISION_STEREO_CALIB_PATH=/home/sunrise/welding_app/stereo_calib.json
-
-# Workpiece placement guide overlay
-export WELDVISION_WORKPIECE_WIDTH_MM=100   # specimen width in mm (label only)
-export WELDVISION_WORKPIECE_HEIGHT_MM=50   # specimen height in mm (label only)
-# ROI fractions - adjust until the green box fits your workpiece in frame
-export WELDVISION_ROI_X_PCT=0.08           # left edge (0.0-1.0)
-export WELDVISION_ROI_Y_PCT=0.15           # top edge
-export WELDVISION_ROI_W_PCT=0.84           # box width fraction
-export WELDVISION_ROI_H_PCT=0.70           # box height fraction
-export WELDVISION_GRID_COLS=4              # vertical grid lines inside ROI
-export WELDVISION_GRID_ROWS=3              # horizontal grid lines inside ROI
-```
-
-## Running
-
-### Manual Start
+The runtime draws a visual guide to ensure students place workpieces correctly. Adjust these in your environment settings:
 
 ```bash
-cd /home/sunrise/welding_app
-python3 main.py
+# Example: Center and scale the ROI box
+export WELDVISION_ROI_X_PCT=0.08  # Left offset
+export WELDVISION_ROI_Y_PCT=0.15  # Top offset
+export WELDVISION_ROI_W_PCT=0.84  # Width fraction
+export WELDVISION_ROI_H_PCT=0.70  # Height fraction
 ```
 
-### Auto-Start on Boot (systemd)
+> [!TIP]
+> Open `http://<device-ip>:8080/stream.mjpg` in a browser while adjusting these values to see the changes in real-time.
 
-Create service file: `/etc/systemd/system/weldvision.service`
+---
 
-```ini
-[Unit]
-Description=WeldVision X5 Edge Device
-After=network.target
+## 📐 Stereo Calibration (SGBM)
 
-[Service]
-Type=simple
-User=sunrise
-WorkingDirectory=/home/sunrise/welding_app
-Environment=BACKEND_URL=http://192.168.1.100:8000
-Environment=WELDVISION_STUDENT_ID=S001
-Environment=WELDVISION_DEVICE_ID=RDK-X5-WORKSHOP-01
-Environment=WELDVISION_ENABLE_STREAM=1
-Environment=WELDVISION_STREAM_PORT=8080
-Environment=WELDVISION_ENABLE_BUFFERING=1
-Environment=WELDVISION_BUFFER_DIR=/home/sunrise/welding_app/buffer
-Environment=WELDVISION_BUFFER_MAX_BYTES=2147483648
-Environment=WELDVISION_LOG_PATH=/home/sunrise/welding_app/weldvision.log
-# Optional stereo depth (requires calibration JSON)
-#Environment=WELDVISION_ENABLE_STEREO=1
-#Environment=WELDVISION_STEREO_CALIB_PATH=/home/sunrise/welding_app/stereo_calib.json
-ExecStart=/usr/bin/python3 /home/sunrise/welding_app/main.py
-Restart=always
-RestartSec=10
+For accurate depth measurements (Bead Height, Undercut Depth), you must provide a calibration file:
 
-[Install]
-WantedBy=multi-user.target
-```
+1.  **Capture**: Use `/tools/stereo_calibrate.py` to capture chessboard images.
+2.  **Generate**: Run the script to produce `stereo_calib.json`.
+3.  **Upload**: Place the file in the `/home/sunrise/welding_app/` directory.
+4.  **Enable**: Set `WELDVISION_ENABLE_STEREO=1` in your service environment.
 
-Enable and start:
+---
 
-```bash
-sudo systemctl enable weldvision
-sudo systemctl start weldvision
-sudo systemctl status weldvision
-```
+## 📂 Data Management
 
-Tip: if you prefer keeping config out of the unit file, create an environment file like
-`/etc/default/weldvision` and use `EnvironmentFile=/etc/default/weldvision` instead.
+*   **Buffering**: If the server is offline, data is stored in `/buffer/` and uploaded automatically when connection is restored.
+*   **Logs**: System logs are persisted at `weldvision.log`.
+*   **Model Updates**: Drop a new `model_update.bin` into the app folder; the watchdog will swap it automatically with zero downtime.
 
-## Architecture
+---
 
-### Pipeline Flow (Multi-threaded)
+## 🛑 Troubleshooting
 
-```
-┌──────────────────────────────────────────────────────────┐
-│  ModelWatchdog                                           │
-│  - watches model_update.bin                              │
-│  - atomically swaps to model.bin                         │
-└───────────────────────────────┬──────────────────────────┘
-                                │
-┌───────────────────────────────▼──────────────────────────┐
-│  CaptureWorker (thread)                                  │
-│  - capture frame or stereo pair                          │
-└───────────────────────────────┬──────────────────────────┘
-                                │  queue
-┌───────────────────────────────▼──────────────────────────┐
-│  ProcessWorker (thread)                                  │
-│  - YOLO inference                                        │
-│  - optional SGBM depth (if calibrated)                   │
-│  - draw overlay + publish to MJPEG stream state          │
-└───────────────────────────────┬──────────────────────────┘
-                                │  queue
-┌───────────────────────────────▼──────────────────────────┐
-│  UploadWorker (thread)                                   │
-│  - POST /api/upload-assessment/                          │
-│  - if offline: spool bundle to disk buffer               │
-│  - periodically flush buffer when server returns         │
-└──────────────────────────────────────────────────────────┘
-```
+| Issue | Potential Cause | Resolution |
+| :--- | :--- | :--- |
+| `Camera not found` | Loose cable or power drop | Check USB/MIPI seating; use 12V adapter. |
+| `DNN fail to load` | Corrupt `.bin` file | Verify model matches BPU version (HB Mapper). |
+| `Upload Timed Out` | Network firewall | Port-forward 8000 on the server; check `BACKEND_URL`. |
+| `No route to host` | WiFi Disconnected | Check `nmcli device wifi` or Ethernet cable. |
+| `Connection Refused`| Wrong IP Address | Verify `BACKEND_URL` matches server's current IP. |
 
-## Model Update Mechanism
+---
 
-The script implements a **hot-swap watchdog**:
-
-1. Backend SCPs model to `/home/sunrise/welding_app/model_update.bin`
-2. Watchdog detects `model_update.bin` in main loop
-3. Backs up `model.bin` → `model.bin.backup`
-4. Renames `model_update.bin` → `model.bin`
-5. Reloads DNN model
-6. Continues processing (no downtime)
-
-**Why `model_update.bin`?**
-- Prevents corruption if model.bin is being read during upload
-- Atomic swap ensures clean model updates
-- No service restart required
-
-## Configuration
-
-### Camera Settings
-
-```python
-CAMERA_WIDTH = 1920
-CAMERA_HEIGHT = 1080
-CAMERA_FPS = 30
-```
-
-### Model Settings
-
-```python
-MODEL_PATH = "/home/sunrise/welding_app/model.bin"
-CONFIDENCE_THRESHOLD = 0.5  # Detection confidence
-```
-
-### Upload Settings
-
-```python
-BACKEND_URL = "http://192.168.1.100:8000"
-CAPTURE_INTERVAL = 5  # seconds between captures
-MAX_RETRIES = 3
-```
-
-### Live Stream (MJPEG)
-
-When `WELDVISION_ENABLE_STREAM=1`:
-
-- `http://<device-ip>:8080/stream.mjpg`
-- `http://<device-ip>:8080/snapshot.jpg`
-- `http://<device-ip>:8080/metrics.json`
-
-### Workpiece Guide Overlay
-
-Every frame from the edge device has three layers of visual guidance drawn on top:
-
-| Layer | Colour | Purpose |
-|-------|--------|---------|
-| Grid lines | Dark green | Divide the ROI into cells for rough alignment |
-| ROI rectangle + corner ticks | Bright green | Shows exact placement zone for the workpiece |
-| Centre crosshair + dot | Cyan | Marks the centre of the weld area |
-
-The dimension label (`100 x 50 mm` by default) is printed above the ROI box and the hint **PLACE WORKPIECE IN GUIDE** appears below it.
-
-**Tuning the ROI for your setup:**
-
-1. Start the edge device and open `http://<device-ip>:8080/stream.mjpg` in a browser.
-2. Place a workpiece on the fixture.
-3. Adjust `WELDVISION_ROI_[X/Y/W/H]_PCT` until the green box tightly frames the specimen.
-4. Update `WELDVISION_WORKPIECE_WIDTH_MM` / `WELDVISION_WORKPIECE_HEIGHT_MM` to match the actual specimen dimensions (used for the label only).
-5. Save values in `weldvision.service` (or `/etc/default/weldvision`) and restart the service.
-
-### Local Buffering (Offline)
-
-When `WELDVISION_ENABLE_BUFFERING=1`, failed uploads are spooled to:
-
-- `/home/sunrise/welding_app/buffer/` (default)
-
-The uploader periodically retries buffered items.
-
-## Defect Classes
-
-YOLOv8 model detects 4 visual defect types:
-
-```python
-DEFECT_CLASSES = {
-    0: 'porosity',
-    1: 'spatter',
-    2: 'slag_inclusion',
-    3: 'burn_through'
-}
-```
-
-## Depth Calculation (Placeholder)
-
-Current implementation uses **mock data** for testing:
-
-```python
-def calculate_depth(left_image, right_image=None):
-    # Returns random values in acceptable ranges
-    return {
-        'reinforcement_height_mm': 2.1,  # 1-3mm
-        'bead_width_mm': 10.2,           # 8-12mm
-        'undercut_depth_mm': 0.3,
-        'hi_lo_misalignment_mm': 0.1
-    }
-```
-
-### Optional: Real SGBM Stereo Depth
-
-If you provide a calibration JSON (see next section) and enable stereo depth, the edge runtime will compute disparity/depth using SGBM and include additional metrics.
-
-Implementation reference (simplified):
-
-```python
-stereo = cv2.StereoSGBM_create(
-    minDisparity=0,
-    numDisparities=16*5,
-    blockSize=5
-)
-disparity = stereo.compute(left_gray, right_gray)
-depth = (focal_length * baseline) / disparity
-```
-
-## Stereo Calibration (PC/Laptop)
-
-To enable SGBM depth you need a rectified stereo calibration file (`stereo_calib.json`).
-
-1) Capture stereo images on a PC (or from device) with a chessboard target.
-
-2) Run the calibration tool:
-
-```bash
-cd edge_device/tools
-python3 stereo_calibrate.py --help
-```
-
-3) Copy `stereo_calib.json` to the device:
-
-```bash
-scp stereo_calib.json sunrise@192.168.1.100:/home/sunrise/welding_app/stereo_calib.json
-```
-
-4) Enable stereo mode:
-
-```bash
-export WELDVISION_ENABLE_STEREO=1
-export WELDVISION_STEREO_CALIB_PATH=/home/sunrise/welding_app/stereo_calib.json
-```
-
-## Error Handling
-
-The script is designed to **never crash**:
-
-- ✅ Server offline: Logs warning, continues processing
-- ✅ Camera failure: Skips frame, retries next iteration
-- ✅ Model load error: Exits gracefully
-- ✅ Inference failure: Logs error, continues
-- ✅ Upload timeout: Non-blocking, continues capture
-
-## Logging
-
-Logs are written to:
-- **File**: `/home/sunrise/welding_app/weldvision.log` (default; configurable via `WELDVISION_LOG_PATH`)
-- **Console**: stdout (for systemd journal)
-
-View logs:
-```bash
-# Tail log file
-tail -f /home/sunrise/welding_app/weldvision.log
-
-# systemd journal
-sudo journalctl -u weldvision -f
-```
-
-## Testing Without RDK Hardware
-
-The script can run in **simulation mode** on any Linux system:
-
-```bash
-# hobot_dnn and libsrcampy imports will fail gracefully
-python3 main.py
-```
-
-Simulation mode:
-- Generates fake images
-- Returns mock detections
-- Tests upload logic without hardware
-
-## Troubleshooting
-
-### Camera Not Detected
-
-```bash
-# Check camera device
-ls /dev/video*
-
-# Test camera
-v4l2-ctl --list-devices
-```
-
-### Model Load Failure
-
-```bash
-# Check model file exists
-ls -lh /home/sunrise/welding_app/model.bin
-
-# Check permissions
-chmod 644 /home/sunrise/welding_app/model.bin
-```
-
-### Upload Fails
-
-```bash
-# Test server connectivity
-curl http://192.168.1.100:8000/api/assessments/
-
-# Check network
-ping 192.168.1.100
-```
-
-## Performance
-
-- **Inference**: ~50-100ms per frame (RDK X5 BPU)
-- **Capture**: 30 FPS (processed at 0.2 FPS)
-- **Upload**: ~200-500ms (depends on network)
-- **Total cycle**: ~5-6 seconds
-
-## Future Enhancements
-
-- [x] Implement actual SGBM depth calculation (optional via calibration JSON; mock fallback)
-- [ ] Add RFID reader integration for student ID
-- [x] Real-time visualization overlay (MJPEG stream)
-- [x] Local data buffering when server offline
-- [x] Multi-threading for parallel processing
-- [x] Hardware-accelerated inference via RDK X5 BPU (`hobot_dnn`)
+<p align="center">
+  <b>WeldVision X5</b> • Precision Engineering through Visual Intelligence
+</p>

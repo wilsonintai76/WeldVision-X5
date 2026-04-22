@@ -15,8 +15,17 @@ echo ""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/welding_server"
 
+# Determine if using 'docker-compose' or 'docker compose'
+if command -v docker-compose > /dev/null 2>&1; then
+    DOCKER_COMPOSE="docker-compose"
+elif docker compose version > /dev/null 2>&1; then
+    DOCKER_COMPOSE="docker compose"
+else
+    DOCKER_COMPOSE="docker-compose" # fallback
+fi
+
 echo "[1/2] Stopping containers..."
-docker-compose down
+$DOCKER_COMPOSE down
 
 echo "[2/2] Cleanup complete"
 
