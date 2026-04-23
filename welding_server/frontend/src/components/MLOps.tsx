@@ -31,16 +31,14 @@ interface UploadForm {
 }
 
 interface ConvertForm {
-  source_job_id: string;
   model_id: string;
-  weights_path: string;
   format: string;
   imgsz: number;
   name: string;
   version: string;
 }
 
-const MLOps: FC = () => {
+const MLOps = () => {
   const [apiStatus, setApiStatus] = useState<boolean>(false)
   const [jobs, setJobs] = useState<Job[]>([])
   const [jobsLoading, setJobsLoading] = useState<boolean>(false)
@@ -56,15 +54,12 @@ const MLOps: FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   const [convertForm, setConvertForm] = useState<ConvertForm>({
-    source_job_id: '',
     model_id: '',
-    weights_path: '',
     format: 'onnx',
     imgsz: 640,
     name: 'weldvision-yolo',
     version: '',
   })
-  const [convertSource, setConvertSource] = useState<'model' | 'job' | 'manual'>('model')
 
   const apiBase = useMemo(() => '/api', [])
 
@@ -132,7 +127,6 @@ const MLOps: FC = () => {
 
 
   const startConvert = async () => {
-    // Build payload based on source type
     const payload: any = {
       format: convertForm.format,
       imgsz: convertForm.imgsz,
@@ -140,14 +134,10 @@ const MLOps: FC = () => {
       version: convertForm.version,
     }
 
-    if (convertSource === 'model' && convertForm.model_id) {
+    if (convertForm.model_id) {
       payload.model_id = Number(convertForm.model_id)
-    } else if (convertSource === 'job' && convertForm.source_job_id) {
-      payload.source_job_id = Number(convertForm.source_job_id)
-    } else if (convertSource === 'manual' && convertForm.weights_path) {
-      payload.weights_path = convertForm.weights_path
     } else {
-      alert('Please select a source: uploaded model, training job, or enter manual path')
+      alert('Please select an uploaded model weights file.')
       return
     }
 
@@ -239,7 +229,7 @@ const MLOps: FC = () => {
   }
 
   const handleDeploy = async (modelId: string | number) => {
-    const model = models.find(m => m.id === modelId)
+    const model = models.find((m: Model) => m.id === modelId)
     if (!model) return
 
     if (!window.confirm(`Deploy "${model.name}" (v${model.version}) to RDK X5?`)) return
@@ -348,7 +338,7 @@ const MLOps: FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
-                {models.map((model) => (
+                {models.map((model: Model) => (
                   <tr key={model.id} className="hover:bg-slate-800/30 transition-colors group">
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
@@ -401,10 +391,7 @@ const MLOps: FC = () => {
         <BPUConverter 
           convertForm={convertForm}
           setConvertForm={setConvertForm}
-          convertSource={convertSource}
-          setConvertSource={setConvertSource}
           convertibleModels={convertibleModels}
-          jobs={jobs}
           onConvert={startConvert}
         />
 
@@ -439,7 +426,7 @@ const MLOps: FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/30">
-                {jobs.map((j) => (
+                {jobs.map((j: Job) => (
                   <tr key={j.id} className="group">
                     <td className="py-3 px-3 text-slate-500 text-xs">#{j.id}</td>
                     <td className="py-3 px-3">

@@ -26,16 +26,18 @@ The central server hosts the Django REST API, PostgreSQL database, and the React
     chmod +x start-weldvision.sh
     ./start-weldvision.sh
     ```
-    *Alternatively, manually start Docker Compose:*
+    *Alternatively, manually start Docker Compose from the root:*
     ```bash
-    cd welding_server
-    docker-compose up -d --build
+    docker compose up -d --build
     ```
 
 3.  **Access the System**:
     *   **Instructor Dashboard**: `http://localhost:3000`
     *   **Backend API**: `http://localhost:8000/api/`
     *   **Admin Interface**: `http://localhost:8000/admin/`
+
+> [!NOTE]
+> **Simulation Mode**: The root `docker-compose.yml` includes a `mock-rdk` service. This is a simulator used for development and testing on the server. In actual production, this service is replaced by real Edge Devices.
 
 ---
 

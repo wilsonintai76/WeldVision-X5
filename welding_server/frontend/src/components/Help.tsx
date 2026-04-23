@@ -1,4 +1,5 @@
 import React, { useState, FC, ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import {
   BookOpen,
   AlertCircle,
@@ -35,7 +36,7 @@ const Help: FC = () => {
   })
 
   const toggleSection = (section: keyof ExpandedSections) => {
-    setExpandedSections(prev => ({
+    setExpandedSections((prev: ExpandedSections) => ({
       ...prev,
       [section]: !prev[section]
     }))
@@ -56,13 +57,13 @@ const Help: FC = () => {
                 <p className="text-slate-400">Essential tips and shortcuts</p>
               </div>
             </div>
-            <a
-              href="/"
+            <Link
+              to="/"
               className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-300 hover:text-white transition-colors"
             >
               <Home className="w-4 h-4" />
               Full Documentation
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -77,13 +78,13 @@ const Help: FC = () => {
               <p className="text-slate-300 text-sm mb-3">
                 Visit the landing page for comprehensive setup guides, prerequisites, and documentation.
               </p>
-              <a
-                href="/"
+              <Link
+                to="/"
                 className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 text-sm font-medium"
               >
                 Go to Welcome Page
                 <ChevronRight className="w-4 h-4" />
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -125,7 +126,7 @@ const Help: FC = () => {
 
           {/* AI Workspace Workflow */}
           <Section
-            title="AI Workspace Workflow Summary"
+            title="AI Workspace Setup"
             icon={<ChevronRight className="w-5 h-5" />}
             expanded={expandedSections.workflow}
             onToggle={() => toggleSection('workflow')}
@@ -133,27 +134,17 @@ const Help: FC = () => {
             <div className="space-y-4">
               <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
                 <div className="flex items-center justify-between text-sm">
-                  <WorkflowStep number={1} title="Upload Data" />
+                  <WorkflowStep number={1} title="Upload ONNX" />
                   <ChevronRight className="w-4 h-4 text-slate-500" />
-                  <WorkflowStep number={2} title="Annotate" />
+                  <WorkflowStep number={2} title="Convert to BPU" />
                   <ChevronRight className="w-4 h-4 text-slate-500" />
-                  <WorkflowStep number={3} title="Train" />
-                  <ChevronRight className="w-4 h-4 text-slate-500" />
-                  <WorkflowStep number={4} title="Convert" />
-                  <ChevronRight className="w-4 h-4 text-slate-500" />
-                  <WorkflowStep number={5} title="Deploy" />
+                  <WorkflowStep number={3} title="Deploy to X5" />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
-                  <p className="text-white font-medium text-sm mb-1">Local Training</p>
-                  <p className="text-xs text-slate-400">Requires NVIDIA GPU with 6GB+ VRAM</p>
-                </div>
-                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
-                  <p className="text-white font-medium text-sm mb-1">Cloud Training</p>
-                  <p className="text-xs text-slate-400">Use Colab, Roboflow, or Ultralytics HUB</p>
-                </div>
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+                <p className="text-white font-medium text-sm mb-1">Model Requirements</p>
+                <p className="text-xs text-slate-400">Models must be in ONNX format for BPU conversion. Use third-party tools (e.g. Ultralytics HUB, Roboflow) for labeling and training.</p>
               </div>
             </div>
           </Section>
@@ -347,12 +338,12 @@ interface SectionProps {
   children: ReactNode;
 }
 
-const Section: FC<SectionProps> = ({ title, icon, expanded, onToggle, children }) => {
+const Section: FC<SectionProps> = ({ title, icon, expanded, onToggle, children }: SectionProps) => {
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden">
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between p-4 hover:bg-slate-750 transition-colors"
+        className="w-full flex items-center justify-between p-4 hover:bg-slate-700 transition-colors"
       >
         <div className="flex items-center gap-3">
           <div className="text-blue-400">{icon}</div>
@@ -379,7 +370,7 @@ interface ShortcutCardProps {
   location: string;
 }
 
-const ShortcutCard: FC<ShortcutCardProps> = ({ title, description, location }) => {
+const ShortcutCard: FC<ShortcutCardProps> = ({ title, description, location }: ShortcutCardProps) => {
   return (
     <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
       <h4 className="text-white font-semibold text-sm mb-1">{title}</h4>
@@ -397,7 +388,7 @@ interface WorkflowStepProps {
   title: string;
 }
 
-const WorkflowStep: FC<WorkflowStepProps> = ({ number, title }) => {
+const WorkflowStep: FC<WorkflowStepProps> = ({ number, title }: WorkflowStepProps) => {
   return (
     <div className="flex items-center gap-2">
       <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
@@ -413,7 +404,7 @@ interface TroubleshootItemProps {
   solution: string;
 }
 
-const TroubleshootItem: FC<TroubleshootItemProps> = ({ issue, solution }) => {
+const TroubleshootItem: FC<TroubleshootItemProps> = ({ issue, solution }: TroubleshootItemProps) => {
   return (
     <div className="flex items-start gap-3 bg-slate-800/50 border border-slate-700 rounded-lg p-3">
       <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
@@ -430,7 +421,7 @@ interface ResourceLinkProps {
   href: string;
 }
 
-const ResourceLink: FC<ResourceLinkProps> = ({ title, href }) => {
+const ResourceLink: FC<ResourceLinkProps> = ({ title, href }: ResourceLinkProps) => {
   return (
     <a
       href={href}

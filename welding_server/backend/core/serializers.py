@@ -2,7 +2,7 @@
 Core Serializers
 """
 from rest_framework import serializers
-from .models import Student, ClassGroup, StereoCalibration, DefectClass, Dataset, LabeledImage, Annotation, Session, Course
+from .models import Student, ClassGroup, StereoCalibration, DefectClass, Session, Course
 
 
 class StereoCalibrationSerializer(serializers.ModelSerializer):
@@ -121,81 +121,4 @@ class DefectClassSerializer(serializers.ModelSerializer):
     class Meta:
         model = DefectClass
         fields = ['id', 'name', 'display_name', 'color', 'description', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
-
-
-class AnnotationSerializer(serializers.ModelSerializer):
-    """Serializer for Annotation model"""
-    
-    class Meta:
-        model = Annotation
-        fields = ['id', 'image', 'defect_class', 'x_center', 'y_center', 'width', 'height', 'created_at']
-        read_only_fields = ['created_at']
-
-
-class LabeledImageSerializer(serializers.ModelSerializer):
-    """Serializer for LabeledImage with annotations"""
-    annotations = AnnotationSerializer(many=True, read_only=True)
-    image_url = serializers.SerializerMethodField()
-    annotation_count = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = LabeledImage
-        fields = ['id', 'dataset', 'image', 'image_url', 'filename', 'width', 'height', 'split',
-                  'is_labeled', 'labeled_by', 'uploaded_at', 'annotations', 'annotation_count']
-        read_only_fields = ['uploaded_at', 'width', 'height']
-    
-    def get_image_url(self, obj):
-        request = self.context.get('request')
-        if obj.image and hasattr(obj.image, 'url'):
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
-        return None
-    
-    def get_annotation_count(self, obj):
-        return obj.annotations.count()
-
-
-class DatasetSerializer(serializers.ModelSerializer):
-    """Serializer for Dataset model"""
-    image_count = serializers.IntegerField(read_only=True)
-    annotated_count = serializers.IntegerField(read_only=True)
-    train_count = serializers.IntegerField(read_only=True)
-    valid_count = serializers.IntegerField(read_only=True)
-    test_count = serializers.IntegerField(read_only=True)
-    images = LabeledImageSerializer(many=True, read_only=True)
-    classes = DefectClassSerializer(many=True, read_only=True)
-    class_ids = serializers.PrimaryKeyRelatedField(
-        many=True,
-        queryset=DefectClass.objects.all(),
-        source='classes',
-        write_only=True
-    )
-    
-    class Meta:
-        model = Dataset
-        fields = ['id', 'name', 'description', 'classes', 'class_ids', 'created_by', 
-                  'train_split', 'valid_split', 'test_split',
-                  'created_at', 'updated_at', 'image_count', 'annotated_count',
-                  'train_count', 'valid_count', 'test_count', 'images']
-        read_only_fields = ['created_at', 'updated_at', 'image_count', 'annotated_count',
-                           'train_count', 'valid_count', 'test_count']
-
-
-class DatasetListSerializer(serializers.ModelSerializer):
-    """Simplified serializer for dataset list"""
-    image_count = serializers.IntegerField(read_only=True)
-    annotated_count = serializers.IntegerField(read_only=True)
-    train_count = serializers.IntegerField(read_only=True)
-    valid_count = serializers.IntegerField(read_only=True)
-    test_count = serializers.IntegerField(read_only=True)
-    classes = DefectClassSerializer(many=True, read_only=True)
-    
-    class Meta:
-        model = Dataset
-        fields = ['id', 'name', 'description', 'classes', 'created_by', 
-                  'train_split', 'valid_split', 'test_split',
-                  'created_at', 'updated_at', 'image_count', 'annotated_count',
-                  'train_count', 'valid_count', 'test_count']
         read_only_fields = ['created_at', 'updated_at']

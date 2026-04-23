@@ -31,7 +31,7 @@ interface LandingPageProps {
   onEnterApp: () => void;
 }
 
-const LandingPage: FC<LandingPageProps> = ({ onEnterApp }) => {
+const LandingPage = ({ onEnterApp }: LandingPageProps) => {
   const [systemStatus, setSystemStatus] = useState<SystemStatus>({
     backend: { status: 'checking', message: 'Checking...' },
     edgeDevice: { status: 'checking', message: 'Checking...' }
@@ -53,18 +53,18 @@ const LandingPage: FC<LandingPageProps> = ({ onEnterApp }) => {
         credentials: 'include'
       })
       if (response.ok) {
-        setSystemStatus(prev => ({
+        setSystemStatus((prev: SystemStatus) => ({
           ...prev,
           backend: { status: 'online', message: 'Connected' }
         }))
       } else {
-        setSystemStatus(prev => ({
+        setSystemStatus((prev: SystemStatus) => ({
           ...prev,
           backend: { status: 'error', message: 'API Error' }
         }))
       }
     } catch {
-      setSystemStatus(prev => ({
+      setSystemStatus((prev: SystemStatus) => ({
         ...prev,
         backend: { status: 'offline', message: 'Not reachable' }
       }))
@@ -80,7 +80,7 @@ const LandingPage: FC<LandingPageProps> = ({ onEnterApp }) => {
       if (edgeResponse.ok) {
         const data = await edgeResponse.json()
         const isOnline = data.status === 'online'
-        setSystemStatus(prev => ({
+        setSystemStatus((prev: SystemStatus) => ({
           ...prev,
           edgeDevice: {
             status: isOnline ? 'online' : 'warning',
@@ -90,13 +90,13 @@ const LandingPage: FC<LandingPageProps> = ({ onEnterApp }) => {
           }
         }))
       } else {
-        setSystemStatus(prev => ({
+        setSystemStatus((prev: SystemStatus) => ({
           ...prev,
           edgeDevice: { status: 'warning', message: 'RDK X5 status unavailable' }
         }))
       }
     } catch {
-      setSystemStatus(prev => ({
+      setSystemStatus((prev: SystemStatus) => ({
         ...prev,
         edgeDevice: { status: 'warning', message: 'Edge device unreachable' }
       }))
@@ -105,7 +105,7 @@ const LandingPage: FC<LandingPageProps> = ({ onEnterApp }) => {
     setIsChecking(false)
   }
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: StatusInfo['status']) => {
     switch (status) {
       case 'online':
         return <CheckCircle className="w-5 h-5 text-emerald-400" />
@@ -118,7 +118,7 @@ const LandingPage: FC<LandingPageProps> = ({ onEnterApp }) => {
     }
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: StatusInfo['status']) => {
     switch (status) {
       case 'online':
         return 'border-emerald-500/50 bg-emerald-500/10'
@@ -306,7 +306,7 @@ interface QuickStartCardProps {
   color: 'emerald' | 'blue' | 'purple';
 }
 
-const QuickStartCard: FC<QuickStartCardProps> = ({ icon, title, description, href, color }) => {
+const QuickStartCard = ({ icon, title, description, href, color }: QuickStartCardProps) => {
   const colorClasses = {
     emerald: 'from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 shadow-emerald-500/20',
     blue: 'from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 shadow-blue-500/20',
@@ -336,7 +336,7 @@ interface FeatureCardProps {
   description: string;
 }
 
-const FeatureCard: FC<FeatureCardProps> = ({ icon, title, description }) => {
+const FeatureCard = ({ icon, title, description }: FeatureCardProps) => {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center hover:border-slate-700 transition-colors">
       <div className="text-emerald-400 flex justify-center mb-3">{icon}</div>
@@ -351,7 +351,7 @@ interface FooterLinkProps {
   children: ReactNode;
 }
 
-const FooterLink: FC<FooterLinkProps> = ({ href, children }) => {
+const FooterLink = ({ href, children }: FooterLinkProps) => {
   return (
     <li>
       <a

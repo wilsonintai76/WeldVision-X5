@@ -242,7 +242,11 @@ class UserListView(generics.ListCreateAPIView):
         # Students don't log in — exclude them unless explicitly requested
         role = self.request.query_params.get('role')
         if role:
-            queryset = queryset.filter(role=role)
+            if role == 'instructor':
+                # Include both instructors and admins as valid instructors for courses
+                queryset = queryset.filter(role__in=[User.Role.INSTRUCTOR, User.Role.ADMIN])
+            else:
+                queryset = queryset.filter(role=role)
         else:
             queryset = queryset.exclude(role=User.Role.STUDENT)
         
