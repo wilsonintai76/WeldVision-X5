@@ -14,6 +14,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.permissions import AllowAny
 from accounts.models import User
 from .models import Student, ClassGroup, StereoCalibration, DefectClass, Session, Course
 from .serializers import (
@@ -26,6 +27,11 @@ class StereoCalibrationViewSet(viewsets.ModelViewSet):
     """ViewSet for StereoCalibration CRUD operations"""
     queryset = StereoCalibration.objects.all()
     serializer_class = StereoCalibrationSerializer
+
+    def get_permissions(self):
+        if self.action == 'active':
+            return [AllowAny()]
+        return super().get_permissions()
 
     @action(detail=True, methods=['post'])
     def set_active(self, request, pk=None):

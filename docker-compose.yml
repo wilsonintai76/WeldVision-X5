@@ -76,12 +76,15 @@ services:
     container_name: weldvision-mock-rdk
     ports:
       - "8554:8554"
+    volumes:
+      - ./edge_device:/app
     environment:
       - WELDVISION_SIMULATION=1
       - BACKEND_URL=http://backend:8000
       - WELDVISION_STREAM_HOST=0.0.0.0
       - WELDVISION_STREAM_PORT=8554
-      - STUDENT_ID=DEMO_STUDENT
+      - WELDVISION_MODEL_DIR=/app/runtime
+      - STUDENT_ID=S001
     depends_on:
       - backend
     restart: unless-stopped

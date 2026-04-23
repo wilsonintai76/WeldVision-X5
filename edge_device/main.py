@@ -50,6 +50,7 @@ MODEL_UPDATE_PATH = os.getenv('MODEL_UPDATE_PATH', os.path.join(MODEL_DIR, 'mode
 
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://127.0.0.1:8000').rstrip('/')
 UPLOAD_ENDPOINT = os.getenv('UPLOAD_ENDPOINT', f"{BACKEND_URL}/api/upload-assessment/")
+CALIBRATION_ENDPOINT = os.getenv('CALIBRATION_ENDPOINT', f"{BACKEND_URL}/api/stereo-calibrations/active/")
 
 # Camera config
 CAMERA_WIDTH = int(os.getenv('WELDVISION_CAMERA_WIDTH', '1280'))
@@ -295,6 +296,68 @@ def draw_overlay(image_bgr, detections, depth_heatmap_bgr=None):
         cv2.LINE_AA,
     )
     return overlay
+
+
+class CalibrationWatchdog:
+    """Monitors backend for calibration updates"""
+    
+    def __init__(self, calib_path):
+        self.calib_path = calib_path
+        self.last_calib_id = None
+        
+    def check_for_update(self):
+        """
+        Check backend for active calibration.
+        If different from current, download and save.
+        """
+        try:
+            response = requests.get(CALIBRATION_ENDPOINT, timeout=5)
+            if response.status_code != 200:
+                return False
+                
+            data = response.json()
+            calib_id = data.get('id')
+
+            if calib_id == self.last_calib_id:
+                return False
+                
+            logger.info(f"✨ New calibration profile detected: {data.get('name')} (ID: {calib_id})")
+            
+            # Format for local consumption (matches expected JSON structure)
+            local_data = {
+                'id': calib_id,
+                'name': data.get('name'),
+                'baseline': data.get('baseline'),
+                'focal_length': data.get('focal_length'),
+                'image_width': data.get('image_width'),
+                'image_height': data.get('image_height'),
+                'Q': (data.get('calibration_data') or {}).get('Q', [])
+            }
+            
+            with open(self.calib_path, 'w') as f:
+                json.dump(local_data, f, indent=2)
+                
+            self.last_calib_id = calib_id
+            logger.info(f"✅ Calibration saved to {self.calib_path}")
+            return True
+            
+        except Exception as e:
+            logger.debug(f"Calibration check failed: {e}")
+            return False
+
+class SharedCalibration:
+    """Thread-safe container for the depth estimator"""
+    def __init__(self, estimator):
+        self._lock = threading.Lock()
+        self._estimator = estimator
+
+    def get(self):
+        with self._lock:
+            return self._estimator
+
+    def set(self, new_estimator):
+        with self._lock:
+            self._estimator = new_estimator
 
 
 # ============================================================================
@@ -704,7 +767,7 @@ class ProcessWorker(threading.Thread):
         in_q: queue.Queue,
         out_q: queue.Queue,
         live_state,
-        depth_estimator=None,
+        shared_calib: SharedCalibration = None,
         stereonet_bpu=None,
         feature_extractor=None,
         fusion_engine=None,
@@ -715,7 +778,7 @@ class ProcessWorker(threading.Thread):
         self.in_q = in_q
         self.out_q = out_q
         self.live_state = live_state
-        self.depth_estimator = depth_estimator
+        self.shared_calib = shared_calib
         self.stereonet_bpu = stereonet_bpu
         self.feature_extractor = feature_extractor
         self.fusion_engine = fusion_engine
@@ -736,12 +799,16 @@ class ProcessWorker(threading.Thread):
 
             depth_heat = None
             geometric_metrics = None
-            if self.depth_estimator is not None and right is not None:
+            
+            # Get current estimator from thread-safe container
+            current_depth_estimator = self.shared_calib.get() if self.shared_calib else None
+            
+            if current_depth_estimator is not None and right is not None:
                 try:
-                    left_rect, right_rect = self.depth_estimator.rectify(left, right)
+                    left_rect, right_rect = current_depth_estimator.rectify(left, right)
                     
                     # 1. StereoSGBM (OpenCV) - Explainable baseline
-                    disp_sgbm = self.depth_estimator.disparity(left_rect, right_rect)
+                    disp_sgbm = current_depth_estimator.disparity(left_rect, right_rect)
                     
                     # 2. Hobot StereoNet (BPU) - Robust on reflective surfaces
                     disp_sn = np.zeros_like(disp_sgbm)
@@ -754,7 +821,7 @@ class ProcessWorker(threading.Thread):
                     else:
                         disp = disp_sgbm
                     
-                    Z = self.depth_estimator.depth_map(disp)
+                    Z = current_depth_estimator.depth_map(disp)
                     
                     # 4. Feature Extraction (width, height, undercut)
                     if self.feature_extractor:
@@ -785,7 +852,7 @@ class ProcessWorker(threading.Thread):
             # PLY Point Cloud Generation (on scan/trigger)
             ply_path = None
             mesh_preview_json = None
-            if ENABLE_PLY_EXPORT and self.depth_estimator is not None and right is not None:
+            if ENABLE_PLY_EXPORT and current_depth_estimator is not None and right is not None:
                 try:
                     # Generate timestamp-based filename
                     ts_str = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
@@ -794,7 +861,7 @@ class ProcessWorker(threading.Thread):
                     os.makedirs(PLY_OUTPUT_DIR, exist_ok=True)
                     
                     # Get Q matrix from calibration
-                    Q = self.depth_estimator.calib.Q if self.depth_estimator else None
+                    Q = current_depth_estimator.calib.Q if current_depth_estimator else None
                     
                     if Q is not None and generate_ply_from_depth is not None:
                         # Save full-resolution PLY locally
@@ -926,13 +993,19 @@ def main():
     
     logger.info("Initializing components...")
 
-    # Model Watchdog + shared model reference
+    # Watchdogs
     watchdog = ModelWatchdog(MODEL_PATH, MODEL_UPDATE_PATH)
+    calib_watchdog = CalibrationWatchdog(STEREO_CALIB_PATH)
+    
+    # Initial loads
     model = watchdog.load_model()
     if model is None and dnn is not None:
         logger.error("❌ Failed to load model - exiting")
         return 1
     shared_model = SharedModel(model)
+
+    # Initial calibration pull
+    calib_watchdog.check_for_update()
 
     # Camera
     camera = CameraManager()
@@ -990,6 +1063,8 @@ def main():
         except Exception as e:
             logger.warning(f"Stereo depth disabled or partially failed: {e}")
 
+    shared_calib = SharedCalibration(depth_estimator)
+
     # Start threaded pipeline
     stop_event = threading.Event()
     q_cap = queue.Queue(maxsize=FRAME_QUEUE_MAX)
@@ -1002,7 +1077,7 @@ def main():
         in_q=q_cap,
         out_q=q_out,
         live_state=live_state,
-        depth_estimator=depth_estimator,
+        shared_calib=shared_calib,
         stereonet_bpu=stereonet_bpu,
         feature_extractor=feature_extractor,
         fusion_engine=fusion_engine,
@@ -1019,12 +1094,22 @@ def main():
     logger.info("-" * 60)
 
     try:
-        while True:
+        while not stop_event.is_set():
             # Model Watchdog - Check for updates
             if watchdog.check_for_update():
                 logger.info("🔄 Reloading model...")
                 model = watchdog.load_model()
                 shared_model.set(model)
+
+            # Calibration Watchdog - Check for updates from backend
+            if calib_watchdog.check_for_update():
+                logger.info("🔄 Reloading calibration...")
+                try:
+                    new_estimator = StereoDepthEstimator.from_json_path(STEREO_CALIB_PATH)
+                    shared_calib.set(new_estimator)
+                    logger.info("✅ Calibration hot-swapped successfully")
+                except Exception as e:
+                    logger.error(f"❌ Failed to reload calibration: {e}")
 
             if buffer_obj is not None and live_state is not None:
                 try:
@@ -1033,7 +1118,7 @@ def main():
                 except Exception:
                     pass
 
-            time.sleep(0.5)
+            time.sleep(5.0)  # Check every 5 seconds
 
     except KeyboardInterrupt:
         logger.info("\n🛑 Interrupted by user")

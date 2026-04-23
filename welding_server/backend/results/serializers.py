@@ -12,6 +12,7 @@ class AssessmentSerializer(serializers.ModelSerializer):
     image_heatmap_url = serializers.SerializerMethodField()
     pointcloud_ply_url = serializers.SerializerMethodField()
     has_3d_data = serializers.SerializerMethodField()
+    evaluation_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Assessment
@@ -72,6 +73,7 @@ class AssessmentListSerializer(serializers.ModelSerializer):
     student_id = serializers.CharField(source='student.student_id', read_only=True)
     has_3d_data = serializers.SerializerMethodField()
     image_heatmap_url = serializers.SerializerMethodField()
+    evaluation_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Assessment

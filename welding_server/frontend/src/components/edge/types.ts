@@ -18,6 +18,7 @@ export interface CheckerboardConfig {
   cols: number;
   square_size: number;
   name: string;
+  pattern_type?: 'checkerboard' | 'charuco' | 'circles';
 }
 
 export interface CapturedImage {

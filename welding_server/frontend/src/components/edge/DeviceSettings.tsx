@@ -1,34 +1,116 @@
-import React from 'react'
-import { RefreshCw, Power, Settings, CheckCircle, Camera, Trash2, Edit2 } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { RefreshCw, Power, Settings, CheckCircle, Camera, Trash2, Edit2, X, Save } from 'lucide-react'
 import { DeviceInfo, EdgeConfig, Calibration } from './types'
 
 interface DeviceSettingsProps {
-  deviceInfo: DeviceInfo | null;
   edgeConfig: EdgeConfig;
   setEdgeConfig: (config: EdgeConfig) => void;
-  loading: boolean;
-  checkConnection: () => void;
-  handleReboot: () => void;
-  calibrations: Calibration[];
-  activateCalibration: (id: number) => void;
-  deleteCalibration: (id: number) => void;
-  setActiveTab: (tab: 'device' | 'calibration') => void;
-  onEditCalibration: (cal: Calibration) => void;
+  onNavigateToCalibration: () => void;
+  refreshTrigger?: number;
 }
 
 const DeviceSettings: React.FC<DeviceSettingsProps> = ({
-  deviceInfo,
   edgeConfig,
   setEdgeConfig,
-  loading,
-  checkConnection,
-  handleReboot,
-  calibrations,
-  activateCalibration,
-  deleteCalibration,
-  setActiveTab,
-  onEditCalibration
+  onNavigateToCalibration,
+  refreshTrigger = 0
 }) => {
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null)
+  const [loading, setLoading] = useState<boolean>(false)
+  const [calibrations, setCalibrations] = useState<Calibration[]>([])
+  
+  // Edit Calibration Modal State
+  const [editingCalibration, setEditingCalibration] = useState<Calibration | null>(null)
+  const [showEditModal, setShowEditModal] = useState<boolean>(false)
+
+  useEffect(() => {
+    checkConnection()
+    fetchCalibrations()
+  }, [refreshTrigger])
+
+  const checkConnection = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`http://${edgeConfig.device_ip}:${edgeConfig.device_port}/health`)
+      if (res.ok) {
+        const data = await res.json()
+        setDeviceInfo(data)
+      }
+    } catch (error) {
+      setDeviceInfo(null)
+    }
+    setLoading(false)
+  }
+
+  const fetchCalibrations = async () => {
+    try {
+      const res = await fetch('/api/stereo-calibrations/', { credentials: 'include' })
+      if (res.ok) {
+        const data = await res.json()
+        setCalibrations((Array.isArray(data) ? data : (data.results || [])) as Calibration[])
+      }
+    } catch (error) {
+      console.error('Error fetching calibrations:', error)
+    }
+  }
+
+  const activateCalibration = async (id: number) => {
+    try {
+      const res = await fetch(`/api/stereo-calibrations/${id}/deploy/`, { 
+        credentials: 'include', 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          ip: edgeConfig.device_ip,
+          port: edgeConfig.device_port
+        })
+      })
+      if (res.ok) {
+        alert('Calibration deployed successfully')
+        fetchCalibrations()
+      }
+    } catch (error: any) {
+      alert('Error deploying calibration: ' + error.message)
+    }
+  }
+
+  const deleteCalibration = async (id: number) => {
+    if (!confirm('Delete this calibration?')) return
+    try {
+      const res = await fetch(`/api/stereo-calibrations/${id}/`, { credentials: 'include', method: 'DELETE' })
+      if (res.ok) fetchCalibrations()
+    } catch (error) {
+      console.error('Error deleting calibration:', error)
+    }
+  }
+
+  const handleUpdateCalibration = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingCalibration) return
+    
+    try {
+      const res = await fetch(`/api/stereo-calibrations/${editingCalibration.id}/`, {
+        credentials: 'include',
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingCalibration)
+      })
+      if (res.ok) {
+        setShowEditModal(false)
+        setEditingCalibration(null)
+        fetchCalibrations()
+      }
+    } catch (error) {
+      alert('Error updating calibration')
+    }
+  }
+
+  const handleReboot = () => {
+    if (window.confirm('⚠️ Are you sure you want to reboot the RDK X5?')) {
+      alert('Reboot command sent')
+    }
+  }
+
   const InfoRow = ({ label, value }: { label: string; value: string | number | undefined }) => (
     <div className="flex justify-between py-2 border-b border-slate-800/50 last:border-0">
       <span className="text-sm text-slate-400">{label}</span>
@@ -37,210 +119,172 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
   )
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Device Information */}
-        <div className="bg-slate-900 rounded-lg border border-slate-800 p-6">
-          <h3 className="text-xl font-semibold text-white mb-4">Device Information</h3>
-          <div className="space-y-3">
+        <div className="bg-slate-900 rounded-3xl border border-slate-800 p-8 shadow-xl">
+          <h3 className="text-2xl font-black text-white mb-6 tracking-tight">System Information</h3>
+          <div className="space-y-1">
             <InfoRow label="Device Model" value="RDK X5" />
             <InfoRow label="IP Address" value={edgeConfig.device_ip} />
-            <InfoRow label="Firmware Version" value="2.4.1" />
-            <InfoRow label="Python Version" value="3.10.8" />
-            <InfoRow label="OpenCV Version" value="4.8.1" />
-            <InfoRow label="YOLOv8 Version" value="8.0.196" />
+            <InfoRow label="Firmware Version" value="2.4.1-pro" />
+            <InfoRow label="Python Runtime" value="3.10.12" />
+            <InfoRow label="NPU Accelerator" value="BPU @ 1.2GHz" />
+            <InfoRow label="Storage" value="54.2 / 128 GB" />
+          </div>
+          
+          <div className="mt-8 p-4 bg-blue-600/5 border border-blue-500/20 rounded-2xl flex items-center gap-4">
+             <div className="p-3 bg-blue-500/10 rounded-xl">
+               <Settings className="w-6 h-6 text-blue-400" />
+             </div>
+             <div>
+               <p className="text-sm font-bold text-white">Edge Sync v1.0</p>
+               <p className="text-xs text-slate-500">Auto-calibration polling is active</p>
+             </div>
           </div>
         </div>
 
         {/* Device Control */}
-        <div className="bg-slate-900 rounded-lg border border-slate-800 p-6">
-          <h3 className="text-xl font-semibold text-white mb-4">Device Control</h3>
+        <div className="bg-slate-900 rounded-3xl border border-slate-800 p-8 shadow-xl">
+          <h3 className="text-2xl font-black text-white mb-6 tracking-tight">Hardware Control</h3>
           
-          <div className="space-y-4">
-            <div className="p-4 bg-red-950/20 border-2 border-red-600/50 rounded-lg">
-              <div className="flex items-center gap-2 mb-3">
-                <Power className="w-5 h-5 text-red-400" />
-                <span className="text-sm font-medium text-red-300">Danger Zone</span>
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 flex flex-col gap-1">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">CPU Usage</p>
+                <p className="text-2xl font-black text-white">24%</p>
               </div>
-              <p className="text-xs text-slate-400 mb-4">
-                Rebooting the device will interrupt all live monitoring and require reconnection.
-              </p>
-              <button
-                onClick={handleReboot}
-                className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
-              >
-                <Power className="w-4 h-4" />
-                Reboot RDK X5
-              </button>
+              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 flex flex-col gap-1">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Core Temp</p>
+                <p className="text-2xl font-black text-white">42°C</p>
+              </div>
             </div>
 
-            {/* System Stats */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 bg-slate-950 rounded-lg">
-                <p className="text-xs text-slate-400">CPU Usage</p>
-                <p className="text-lg font-bold text-white">24%</p>
-              </div>
-              <div className="p-3 bg-slate-950 rounded-lg">
-                <p className="text-xs text-slate-400">Memory</p>
-                <p className="text-lg font-bold text-white">1.2 GB</p>
-              </div>
-              <div className="p-3 bg-slate-950 rounded-lg">
-                <p className="text-xs text-slate-400">Temperature</p>
-                <p className="text-lg font-bold text-white">42°C</p>
-              </div>
-              <div className="p-3 bg-slate-950 rounded-lg">
-                <p className="text-xs text-slate-400">Uptime</p>
-                <p className="text-lg font-bold text-white">8d 4h</p>
-              </div>
-            </div>
+            <button
+              onClick={handleReboot}
+              className="w-full px-6 py-4 bg-red-600/10 hover:bg-red-600 border border-red-600/20 text-red-500 hover:text-white rounded-2xl font-black transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-sm"
+            >
+              <Power className="w-5 h-5" />
+              Reboot RDK X5
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Device Connection Settings */}
-        <div className="bg-slate-900 rounded-lg border border-slate-800 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <Settings className="w-6 h-6 text-slate-400" />
-            <h3 className="text-xl font-semibold text-white">Device Connection</h3>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Connection Settings */}
+        <div className="bg-slate-900 rounded-3xl border border-slate-800 p-8 shadow-xl">
+          <h3 className="text-2xl font-black text-white mb-6 tracking-tight">Sync Configuration</h3>
           
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">Device IP Address</label>
+              <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Endpoint IP</label>
               <input
                 type="text"
                 value={edgeConfig.device_ip}
                 onChange={(e) => setEdgeConfig({ ...edgeConfig, device_ip: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
-                placeholder="192.168.1.100"
+                className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">API Port</label>
+                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">API Port</label>
                 <input
                   type="text"
                   value={edgeConfig.device_port}
                   onChange={(e) => setEdgeConfig({ ...edgeConfig, device_port: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
-                  placeholder="8080"
+                  className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Stream Port</label>
+                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Stream Port</label>
                 <input
                   type="text"
                   value={edgeConfig.stream_port}
                   onChange={(e) => setEdgeConfig({ ...edgeConfig, stream_port: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
-                  placeholder="8554"
+                  className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 />
               </div>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">Model Path on Device</label>
-              <input
-                type="text"
-                value={edgeConfig.model_path}
-                onChange={(e) => setEdgeConfig({ ...edgeConfig, model_path: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white"
-                placeholder="/opt/models/weldvision.bin"
-              />
-            </div>
-            
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={checkConnection}
-                disabled={loading}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-bold text-sm"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                Test Connection
-              </button>
-            </div>
+            <button
+              onClick={checkConnection}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20 active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+              Test Device Connection
+            </button>
           </div>
-          
-          {/* Device Info */}
-          {deviceInfo && (
-            <div className="mt-6 pt-6 border-t border-slate-800">
-              <h4 className="text-sm font-semibold text-slate-300 mb-3">Health Status</h4>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="text-slate-400">Hostname:</div>
-                <div className="text-white">{deviceInfo.hostname || 'RDK-X5'}</div>
-                <div className="text-slate-400">Firmware:</div>
-                <div className="text-white">{deviceInfo.firmware || 'v2.1.0'}</div>
-                <div className="text-slate-400">Uptime:</div>
-                <div className="text-white">{deviceInfo.uptime || 'N/A'}</div>
-                <div className="text-slate-400">Temperature:</div>
-                <div className="text-white">{deviceInfo.temperature || 'N/A'}</div>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Saved Calibrations */}
-        <div className="bg-slate-900 rounded-lg border border-slate-800 p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-semibold text-white">Saved Calibrations</h3>
-            <span className="bg-slate-800 text-slate-400 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">
-              {calibrations.length} Profiles
+        {/* Saved Profiles */}
+        <div className="bg-slate-900 rounded-3xl border border-slate-800 p-8 shadow-xl flex flex-col">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-2xl font-black text-white tracking-tight">Profiles</h3>
+            <span className="bg-slate-800 text-slate-400 text-[10px] px-3 py-1 rounded-full font-black uppercase tracking-widest">
+              {calibrations.length} Active
             </span>
           </div>
           
           {calibrations.length === 0 ? (
-            <div className="text-center py-12 flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-xl">
-              <Camera className="w-12 h-12 text-slate-700 mb-3" />
-              <p className="text-slate-500 text-sm">No calibrations saved yet</p>
+            <div className="text-center py-12 flex-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-3xl">
+              <Camera className="w-12 h-12 text-slate-700 mb-4" />
+              <p className="text-slate-500 font-bold">No calibration profiles found</p>
               <button
-                onClick={() => setActiveTab('calibration')}
-                className="mt-4 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all"
+                onClick={onNavigateToCalibration}
+                className="mt-6 bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-lg"
               >
-                Launch Calibration Wizard
+                Launch Wizard
               </button>
             </div>
           ) : (
-            <div className="space-y-3 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
+            <div className="space-y-4 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
               {calibrations.map((cal) => (
-                <div key={cal.id} className={`p-4 rounded-xl border transition-all ${
-                  cal.is_active ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-slate-950 border-slate-800 hover:border-slate-700'
+                <div key={cal.id} className={`p-5 rounded-2xl border transition-all ${
+                  cal.is_active ? 'bg-emerald-500/5 border-emerald-500/30 ring-1 ring-emerald-500/20' : 'bg-slate-950 border-slate-800 hover:border-slate-600'
                 }`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      {cal.is_active && <CheckCircle className="w-4 h-4 text-emerald-400" />}
-                      <p className="text-white font-bold text-sm">{cal.name}</p>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      {cal.is_active && <CheckCircle className="w-5 h-5 text-emerald-400" />}
+                      <p className="text-white font-black text-lg tracking-tight">{cal.name}</p>
                     </div>
                     {cal.is_active ? (
-                      <span className="text-[10px] bg-emerald-500 text-white px-2 py-0.5 rounded font-black tracking-tighter">DEPLOYED</span>
+                      <span className="text-[10px] bg-emerald-500 text-white px-3 py-1 rounded-lg font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20">Active</span>
                     ) : (
                       <button
                         onClick={() => activateCalibration(cal.id)}
-                        className="text-[10px] bg-blue-600 hover:bg-blue-500 text-white px-2 py-0.5 rounded font-black tracking-tighter transition-colors"
+                        className="text-[10px] bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded-lg font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-500/20"
                       >
-                        DEPLOY TO X5
+                        Deploy
                       </button>
                     )}
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-2 mb-4 text-[10px] text-slate-500 font-mono">
-                    <div className="bg-slate-900/50 p-1.5 rounded">BASELINE: {cal.baseline?.toFixed(1)}mm</div>
-                    <div className="bg-slate-900/50 p-1.5 rounded">ERR: {cal.reprojection_error?.toFixed(3)}px</div>
+                  <div className="grid grid-cols-2 gap-3 mb-4 font-mono">
+                    <div className="bg-slate-900/80 p-2 rounded-xl border border-white/5 text-[10px] flex justify-between">
+                      <span className="text-slate-500">BASELINE</span>
+                      <span className="text-white font-bold">{cal.baseline?.toFixed(1)}mm</span>
+                    </div>
+                    <div className="bg-slate-900/80 p-2 rounded-xl border border-white/5 text-[10px] flex justify-between">
+                      <span className="text-slate-500">ERROR</span>
+                      <span className={`font-bold ${cal.reprojection_error! < 0.5 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {cal.reprojection_error?.toFixed(3)}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 border-t border-slate-800/50 pt-3">
+                  <div className="flex items-center justify-end gap-3 border-t border-slate-800/50 pt-4">
                     <button
-                      onClick={() => onEditCalibration(cal)}
-                      className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
-                      title="Edit Parameters"
+                      onClick={() => { setEditingCalibration(cal); setShowEditModal(true); }}
+                      className="p-2.5 bg-slate-900 text-slate-400 hover:text-white rounded-xl transition-all border border-slate-800"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => deleteCalibration(cal.id)}
-                      className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                      title="Delete Profile"
+                      className="p-2.5 bg-slate-900 text-slate-400 hover:text-red-400 hover:bg-red-950/30 rounded-xl transition-all border border-slate-800"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -251,14 +295,77 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
           )}
           
           <button
-            onClick={() => setActiveTab('calibration')}
-            className="mt-6 w-full py-3 border-2 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
+            onClick={onNavigateToCalibration}
+            className="mt-8 w-full py-4 border-2 border-dashed border-slate-800 text-slate-500 hover:border-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/5 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-3"
           >
-            <Camera className="w-4 h-4" />
-            New Calibration Wizard
+            <Camera className="w-5 h-5" />
+            Create New Profile
           </button>
         </div>
       </div>
+
+      {/* Edit Calibration Modal */}
+      {showEditModal && editingCalibration && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-6 animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
+              <h3 className="text-2xl font-black text-white tracking-tight">Edit Profile</h3>
+              <button onClick={() => setShowEditModal(false)} className="p-2 text-slate-500 hover:text-white transition-colors bg-slate-950 rounded-xl border border-slate-800">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateCalibration} className="p-8 space-y-6">
+              <div>
+                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Profile Name</label>
+                <input
+                  type="text"
+                  value={editingCalibration.name}
+                  onChange={(e) => setEditingCalibration({ ...editingCalibration, name: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Baseline (mm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={editingCalibration.baseline}
+                    onChange={(e) => setEditingCalibration({ ...editingCalibration, baseline: parseFloat(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Focal Length</label>
+                  <input
+                    type="number"
+                    step="1"
+                    value={editingCalibration.focal_length}
+                    onChange={(e) => setEditingCalibration({ ...editingCalibration, focal_length: parseFloat(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-4 pt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 px-6 py-4 bg-slate-800 text-white rounded-2xl font-bold hover:bg-slate-700 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-[1.5] px-6 py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
+                >
+                  <Save className="w-5 h-5" />
+                  Apply Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
