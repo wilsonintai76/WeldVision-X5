@@ -49,8 +49,12 @@ MODEL_PATH = os.getenv('MODEL_PATH', os.path.join(MODEL_DIR, 'model.bin'))
 MODEL_UPDATE_PATH = os.getenv('MODEL_UPDATE_PATH', os.path.join(MODEL_DIR, 'model_update.bin'))
 
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://127.0.0.1:8000').rstrip('/')
-UPLOAD_ENDPOINT = os.getenv('UPLOAD_ENDPOINT', f"{BACKEND_URL}/api/upload-assessment/")
-CALIBRATION_ENDPOINT = os.getenv('CALIBRATION_ENDPOINT', f"{BACKEND_URL}/api/stereo-calibrations/active/")
+# Cloud migration: BACKEND_URL should point to the Cloudflare Worker URL in production
+# e.g. BACKEND_URL=https://weldvision-api.<your-subdomain>.workers.dev
+UPLOAD_ENDPOINT = os.getenv('UPLOAD_ENDPOINT', f"{BACKEND_URL}/api/upload-assessment")
+CALIBRATION_ENDPOINT = os.getenv('CALIBRATION_ENDPOINT', f"{BACKEND_URL}/api/stereo-calibrations/active")
+# JWT token for cloud API auth (set via env var or weldvision.service)
+CLOUD_API_TOKEN = os.getenv('CLOUD_API_TOKEN', '')
 
 # Camera config
 CAMERA_WIDTH = int(os.getenv('WELDVISION_CAMERA_WIDTH', '1280'))
@@ -311,7 +315,10 @@ class CalibrationWatchdog:
         If different from current, download and save.
         """
         try:
-            response = requests.get(CALIBRATION_ENDPOINT, timeout=5)
+            headers = {}
+            if CLOUD_API_TOKEN:
+                headers['Authorization'] = f'Bearer {CLOUD_API_TOKEN}'
+            response = requests.get(CALIBRATION_ENDPOINT, headers=headers, timeout=5)
             if response.status_code != 200:
                 return False
                 
@@ -688,12 +695,18 @@ def upload_assessment(image, geometric_metrics, visual_defects, student_id=STUDE
         }
         
         logger.info(f"📤 Uploading assessment for {student_id}...")
-        
+
+        # Build headers — include Bearer token when talking to Cloudflare Worker
+        headers = {}
+        if CLOUD_API_TOKEN:
+            headers['Authorization'] = f'Bearer {CLOUD_API_TOKEN}'
+
         # Send POST request
         response = requests.post(
             UPLOAD_ENDPOINT,
             data=data,
             files=files,
+            headers=headers,
             timeout=10
         )
         

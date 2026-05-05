@@ -1,6 +1,6 @@
 import React from 'react'
 import { Calendar, ChevronUp, ChevronDown, Plus, Edit, Trash2 } from 'lucide-react'
-import { Session } from './types'
+import { Session, Course } from './types'
 
 interface SessionListProps {
   sessions: Session[];

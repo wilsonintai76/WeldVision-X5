@@ -14,8 +14,12 @@ StandardError=journal
 
 # ── Required ────────────────────────────────────────────────
 Environment="PYTHONUNBUFFERED=1"
-Environment="BACKEND_URL=http://192.168.1.10:8000"
+# Cloud migration: set BACKEND_URL to your Cloudflare Worker URL
+# e.g. https://weldvision-api.<your-subdomain>.workers.dev
+Environment="BACKEND_URL=https://weldvision-api.YOUR_SUBDOMAIN.workers.dev"
 Environment="WELDVISION_DEVICE_ID=RDK-X5-WORKSHOP-01"
+# JWT token for cloud API authentication (get from admin panel or wrangler)
+Environment="CLOUD_API_TOKEN=YOUR_DEVICE_JWT_TOKEN_HERE"
 
 # ── Optional features ───────────────────────────────────────
 Environment="WELDVISION_ENABLE_STREAM=1"

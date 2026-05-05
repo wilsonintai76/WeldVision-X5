@@ -1,0 +1,45 @@
+name = "weldvision-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "REDACTED_ACCOUNT_ID"
+
+# ─────────────────────────────────────────────────
+# SETUP STEPS (first-time only):
+# 1. npm run db:create          → creates D1, paste database_id below
+# 2. npm run r2:create          → creates weldvision-media bucket
+# 3. npm run db:migrate:prod    → applies schema.sql to production D1
+# 4. wrangler secret put JWT_SECRET
+# 5. npm run deploy
+# ─────────────────────────────────────────────────
+
+# Worker routes on your custom domain
+# API lives at: https://api.weldvision-x5.com/*
+[[routes]]
+pattern = "api.weldvision-x5.com/*"
+zone_id = "b965fa089b05e76251dd7b43ddd9b8c5"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "weldvision"
+database_id = "606c65e3-8a36-46e4-a7ca-c7b113e1a275"
+# preview_database_id is optional — used by wrangler dev --remote
+# preview_database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "weldvision-media"
+
+[ai]
+binding = "AI"
+
+[vars]
+ENVIRONMENT = "production"
+# Allowed CORS origins — add your Pages domain once deployed
+ALLOWED_ORIGINS = "https://weldvision-x5.com,https://www.weldvision-x5.com,https://app.weldvision-x5.com,http://localhost:3000,http://localhost:5173"
+# JWT_SECRET must be set as a secret, not here:
+# wrangler secret put JWT_SECRET
+
+[dev]
+port = 8787
+local_protocol = "http"

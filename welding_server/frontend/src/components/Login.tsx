@@ -6,8 +6,8 @@ import { Eye, EyeOff, LogIn, KeyRound, X } from 'lucide-react';
 
 const Login: FC = () => {
   const [formData, setFormData] = useState({
-    username: '',
-    password: '',
+    identifier: '',
+    pin: '',
   });
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -69,16 +69,16 @@ const Login: FC = () => {
     setForgotMessage({ type: '', text: '' });
 
     try {
-      await authAPI.forgotPassword(forgotUsername);
+      await authAPI.forgotPin(forgotUsername);
       setForgotMessage({
         type: 'success',
-        text: 'PIN has been reset to your Staff ID. Please login with your Staff ID as your PIN.',
+        text: 'If your ID is registered, your PIN has been reset to your registration number.',
       });
       setForgotUsername('');
     } catch (err: any) {
       setForgotMessage({
         type: 'error',
-        text: err.message || 'Password reset failed.',
+        text: err.message || 'PIN reset failed.',
       });
     } finally {
       setForgotLoading(false);
@@ -156,17 +156,17 @@ const Login: FC = () => {
             )}
 
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-slate-300 mb-2">
+              <label htmlFor="identifier" className="block text-sm font-medium text-slate-300 mb-2">
                 ID / Registration Number
               </label>
               <input
-                id="username"
-                name="username"
+                id="identifier"
+                name="identifier"
                 type="text"
                 required
                 className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
                 placeholder="Enter your ID or registration number"
-                value={formData.username}
+                value={formData.identifier}
                 onChange={handleChange}
               />
             </div>
@@ -178,7 +178,7 @@ const Login: FC = () => {
               <div className="relative">
                 <input
                   id="password"
-                  name="password"
+                  name="pin"
                   type={showPassword ? 'text' : 'password'}
                   inputMode="numeric"
                   maxLength={4}
@@ -186,7 +186,7 @@ const Login: FC = () => {
                   required
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all pr-12"
                   placeholder="Enter 4-digit PIN"
-                  value={formData.password}
+                  value={formData.pin}
                   onChange={handleChange}
                 />
                 <button

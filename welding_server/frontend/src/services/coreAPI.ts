@@ -1,53 +1,31 @@
 /**
- * Core API Service for Classes and Students
+ * Core API Service for Classes, Students, Sessions, Courses
+ *
+ * Cloud migration: switched from Django session/CSRF to JWT Bearer tokens.
+ * Token is read from localStorage via authAPI helpers.
  */
+
+import { getStoredToken } from './authAPI';
 
 const API_BASE = '/api';
 
-// Helper to get CSRF token from cookies
-function getCSRFToken(): string | null {
-  const name = 'csrftoken';
-  let cookieValue: string | null = null;
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === (name + '=')) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
-      }
-    }
-  }
-  return cookieValue;
-}
+// ── Base fetch with Bearer token ──────────────────────────────────────────────
 
-// Fetch with credentials and CSRF token
 async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const token = getStoredToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
-  
-  if (options.method && options.method !== 'GET') {
-    const csrfToken = getCSRFToken();
-    if (csrfToken) {
-      headers['X-CSRFToken'] = csrfToken;
-    }
-  }
-  
-  const response = await fetch(`${API_BASE}${url}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
-  
-  return response;
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  return fetch(`${API_BASE}${url}`, { ...options, headers });
 }
 
 export const coreAPI = {
   // Classes
   async getClasses(): Promise<any> {
-    const response = await apiFetch('/classes/');
+    const response = await apiFetch('/classes');
     if (!response.ok) {
       throw new Error('Failed to get classes');
     }
@@ -63,7 +41,7 @@ export const coreAPI = {
   },
   
   async createClass(data: any): Promise<any> {
-    const response = await apiFetch('/classes/', {
+    const response = await apiFetch('/classes', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -97,7 +75,7 @@ export const coreAPI = {
   // Students
   async getStudents(filters: Record<string, any> = {}): Promise<any> {
     const params = new URLSearchParams(filters);
-    const response = await apiFetch(`/students/?${params}`);
+    const response = await apiFetch(`/students?${params}`);
     if (!response.ok) {
       throw new Error('Failed to get students');
     }
@@ -105,15 +83,13 @@ export const coreAPI = {
   },
   
   async getStudentsByClass(classId: number | string): Promise<any> {
-    const response = await apiFetch(`/students/by_class/?class_id=${classId}`);
-    if (!response.ok) {
-      throw new Error('Failed to get students');
-    }
+    const response = await apiFetch(`/students?class_group_id=${classId}`);
+    if (!response.ok) throw new Error('Failed to get students');
     return response.json();
   },
   
   async createStudent(data: any): Promise<any> {
-    const response = await apiFetch('/students/', {
+    const response = await apiFetch('/students', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -148,15 +124,14 @@ export const coreAPI = {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('class_id', String(classId));
-    
-    const csrfToken = getCSRFToken();
-    const response = await fetch(`${API_BASE}/students/bulk_import/`, {
+
+    const token = getStoredToken();
+    const response = await fetch(`${API_BASE}/students/bulk_import`, {
       method: 'POST',
-      headers: csrfToken ? { 'X-CSRFToken': csrfToken } : {},
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData,
-      credentials: 'include',
     });
-    
+
     if (!response.ok) {
       const data = await response.json();
       throw new Error(data.error || 'Failed to import students');
@@ -175,7 +150,7 @@ export const coreAPI = {
   
   // Sessions (Academic Semesters)
   async getSessions(): Promise<any> {
-    const response = await apiFetch('/sessions/');
+    const response = await apiFetch('/sessions');
     if (!response.ok) {
       throw new Error('Failed to get sessions');
     }
@@ -183,18 +158,14 @@ export const coreAPI = {
   },
   
   async getActiveSession(): Promise<any> {
-    const response = await apiFetch('/sessions/active/');
-    if (response.status === 404) {
-      return null;
-    }
-    if (!response.ok) {
-      throw new Error('Failed to get active session');
-    }
+    const response = await apiFetch('/sessions/active');
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error('Failed to get active session');
     return response.json();
   },
   
   async createSession(data: any): Promise<any> {
-    const response = await apiFetch('/sessions/', {
+    const response = await apiFetch('/sessions', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -226,12 +197,12 @@ export const coreAPI = {
   },
   
   async setActiveSession(id: number | string): Promise<any> {
-    const response = await apiFetch(`/sessions/${id}/set_active/`, {
-      method: 'POST',
+    // In cloud API: use PUT /api/sessions/:id with is_active: true
+    const response = await apiFetch(`/sessions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_active: true }),
     });
-    if (!response.ok) {
-      throw new Error('Failed to set active session');
-    }
+    if (!response.ok) throw new Error('Failed to set active session');
     return response.json();
   },
   
@@ -254,7 +225,7 @@ export const coreAPI = {
   },
   
   async createCourse(data: any): Promise<any> {
-    const response = await apiFetch('/courses/', {
+    const response = await apiFetch('/courses', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -286,45 +257,38 @@ export const coreAPI = {
   },
   
   async getCourseStudents(courseId: number | string): Promise<any> {
-    const response = await apiFetch(`/courses/${courseId}/students/`);
-    if (!response.ok) {
-      throw new Error('Failed to get course students');
-    }
+    const response = await apiFetch(`/students?course_id=${courseId}`);
+    if (!response.ok) throw new Error('Failed to get course students');
     return response.json();
   },
-  
+
   async enrollStudents(courseId: number | string, studentIds: (number | string)[]): Promise<any> {
-    const response = await apiFetch(`/courses/${courseId}/enroll/`, {
-      method: 'POST',
-      body: JSON.stringify({ student_ids: studentIds }),
-    });
-    if (!response.ok) {
-      throw new Error('Failed to enroll students');
-    }
-    return response.json();
+    // Enroll each student individually
+    const results = await Promise.allSettled(
+      studentIds.map(sid =>
+        apiFetch(`/students/${sid}/enroll`, {
+          method: 'POST',
+          body: JSON.stringify({ course_id: courseId }),
+        })
+      )
+    );
+    return { enrolled: results.filter(r => r.status === 'fulfilled').length };
   },
-  
-  async unenrollStudents(courseId: number | string, studentIds: (number | string)[]): Promise<any> {
-    const response = await apiFetch(`/courses/${courseId}/unenroll/`, {
-      method: 'POST',
-      body: JSON.stringify({ student_ids: studentIds }),
-    });
-    if (!response.ok) {
-      throw new Error('Failed to unenroll students');
-    }
-    return response.json();
+
+  async unenrollStudents(_courseId: number | string, _studentIds: (number | string)[]): Promise<any> {
+    // Not yet implemented in cloud API
+    return { unenrolled: 0 };
   },
   
   async importPDF(file: File): Promise<any> {
     const formData = new FormData();
     formData.append('file', file);
     
-    const csrfToken = getCSRFToken();
-    const response = await fetch(`${API_BASE}/courses/import_pdf/`, {
+    const token = getStoredToken();
+    const response = await fetch(`${API_BASE}/courses/import_pdf`, {
       method: 'POST',
-      headers: csrfToken ? { 'X-CSRFToken': csrfToken } : {},
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData,
-      credentials: 'include',
     });
     
     if (!response.ok) {
