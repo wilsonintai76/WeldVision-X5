@@ -1,0 +1,24 @@
+{
+  "name": "weldvision-cloud-worker",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "type-check": "tsc --noEmit",
+    "db:create": "wrangler d1 create weldvision",
+    "db:migrate:local": "wrangler d1 execute weldvision --local --file=src/db/schema.sql",
+    "db:migrate:prod": "wrangler d1 execute weldvision --file=src/db/schema.sql",
+    "r2:create": "wrangler r2 bucket create weldvision-media"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.7.6",
+    "hono": "^4.7.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250505.0",
+    "typescript": "^5.7.0",
+    "wrangler": "^4.87.0"
+  }
+}

@@ -17,7 +17,10 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://backend:8000',
+        // Cloud migration: point proxy to Cloudflare Worker in dev
+        // Set VITE_API_URL=https://weldvision-api.<subdomain>.workers.dev in .env.local
+        // or keep the local Django backend URL for legacy dev mode
+        target: process.env.VITE_API_URL || 'http://backend:8000',
         changeOrigin: true,
       },
     },
