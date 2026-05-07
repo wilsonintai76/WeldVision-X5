@@ -7,8 +7,7 @@ import logging
 # Add parent directory to path to import modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from modules.stereo_depth import StereoDepthEstimator, StereoCalibration, WeldFeatureExtractor, DepthFusionEngine
-from modules.stereonet_bpu import StereoNetBPU
+from modules.stereo_depth import StereoDepthEstimator, StereoCalibration, WeldFeatureExtractor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -42,10 +41,8 @@ def test_pipeline():
     # 1. Setup
     calib = create_dummy_calibration()
     depth_estimator = StereoDepthEstimator(calib)
-    stereonet = StereoNetBPU("dummy.bin") # Will run in simulation mode
     extractor = WeldFeatureExtractor(focal_length_px=800.0, baseline_mm=65.0)
-    fusion = DepthFusionEngine()
-    
+
     # 2. Test Feature Extractor with synthetic depth map
     logger.info("Testing WeldFeatureExtractor with synthetic depth...")
     # Create a 100x100 depth patch (Z in mm)
@@ -66,21 +63,12 @@ def test_pipeline():
     assert metrics['reinforcement_height_mm'] >= 2.5
     assert metrics['bead_width_mm'] >= 4.0
     assert metrics['undercut_depth_mm'] >= 0.8
-    
-    # 3. Test Fusion
-    disp_sgbm = np.ones((100, 100), dtype=np.float32) * 10.0
-    disp_sn = np.ones((100, 100), dtype=np.float32) * 12.0
-    disp_fused = fusion.fuse_disparity(disp_sgbm, disp_sn)
-    logger.info(f"Fused disparity (mean): {np.mean(disp_fused)}")
-    
-    # 4. Scoring
-    scoring = fusion.score_weld(metrics)
+
+    # 3. Scoring (ISO 5817 / AWS D1.1)
+    scoring = extractor.score_weld(metrics)
     logger.info(f"Scoring Results: {scoring}")
     
     logger.info("✅ Pipeline Test PASSED (Verification complete)")
-
-if __name__ == "__main__":
-    test_pipeline()
 
 if __name__ == "__main__":
     test_pipeline()

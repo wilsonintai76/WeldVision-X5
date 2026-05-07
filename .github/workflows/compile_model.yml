@@ -1,0 +1,151 @@
+name: Compile YOLOv8 → Horizon BPU (.bin)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TRIGGER
+# Roboflow sends a repository_dispatch event when training finishes.
+# Configure the Roboflow webhook to POST to:
+#   https://api.github.com/repos/wilsonintai76/WeldVision-X5/dispatches
+# with header:  Authorization: Bearer <ROBOFLOW_GITHUB_TOKEN>
+# and body:     { "event_type": "roboflow_training_complete",
+#                 "client_payload": {
+#                   "workspace": "<roboflow-workspace>",
+#                   "project":   "<roboflow-project>",
+#                   "version":   "<version-number>"
+#                 }}
+# ─────────────────────────────────────────────────────────────────────────────
+on:
+  repository_dispatch:
+    types: [roboflow_training_complete]
+
+  # Allow manual re-runs from the GitHub Actions UI (useful for debugging)
+  workflow_dispatch:
+    inputs:
+      roboflow_workspace:
+        description: 'Roboflow workspace slug'
+        required: true
+      roboflow_project:
+        description: 'Roboflow project slug'
+        required: true
+      roboflow_version:
+        description: 'Model version number'
+        required: true
+
+jobs:
+  build_and_deploy:
+    name: Download → ONNX → BPU .bin → R2
+    runs-on: ubuntu-latest
+
+    # Resolve workspace/project/version from either the webhook payload
+    # or the manual workflow_dispatch inputs.
+    env:
+      RF_WORKSPACE: ${{ github.event.client_payload.workspace || inputs.roboflow_workspace }}
+      RF_PROJECT:   ${{ github.event.client_payload.project   || inputs.roboflow_project }}
+      RF_VERSION:   ${{ github.event.client_payload.version   || inputs.roboflow_version }}
+
+    steps:
+      # ── 1. Checkout repo ────────────────────────────────────────────────
+      # We need horizon_config.yaml and calibration_data/ from the repo.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Python + Ultralytics ─────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ultralytics (ONNX export)
+        run: pip install --quiet ultralytics onnx onnxsim roboflow
+
+      # ── 3. Download trained model from Roboflow ─────────────────────────
+      # Roboflow API: GET /{workspace}/{project}/{version}/yolov8pytorch
+      # Returns a signed URL; we follow the redirect with -L.
+      - name: Download best.pt from Roboflow
+        run: |
+          echo "Downloading version $RF_VERSION of $RF_WORKSPACE/$RF_PROJECT ..."
+          curl -L \
+            "https://api.roboflow.com/$RF_WORKSPACE/$RF_PROJECT/$RF_VERSION/yolov8pytorch/model.pt?api_key=${{ secrets.ROBOFLOW_KEY }}" \
+            -o best.pt
+          ls -lh best.pt
+
+      # ── 4. Export PyTorch → ONNX ─────────────────────────────────────────
+      # opset=11 is required by Horizon's hb_mapper.
+      # simplify=True folds constants and removes dead nodes before BPU compile.
+      - name: Export to ONNX (opset 11, simplified)
+        run: |
+          yolo export model=best.pt format=onnx opset=11 simplify=True imgsz=640
+          mv best.onnx yolov8_weld.onnx
+          ls -lh yolov8_weld.onnx
+
+      # ── 5. Compile ONNX → Horizon BPU .bin ──────────────────────────────
+      # openexplorer/horizon_oe_toolchain is Horizon's official Docker image.
+      # It contains hb_mapper, which quantises the 32-bit float weights to
+      # Int8 using the 50 weld calibration images in calibration_data/.
+      # The output is written to model_output/yolov8_weld.bin.
+      - name: Pull Horizon Open Explorer toolchain image
+        run: docker pull openexplorer/horizon_oe_toolchain:latest
+
+      - name: Compile to Horizon .bin (Int8 quantisation for BPU)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            openexplorer/horizon_oe_toolchain:latest \
+            hb_mapper makertbin \
+              --config /workspace/horizon_config.yaml \
+              --model-type onnx
+          ls -lh "${{ github.workspace }}/model_output/"
+
+      # ── 6. Rename output for the RDK X5 ModelWatchdog ───────────────────
+      # ModelWatchdog.download_from_r2() saves the file as model_update.bin.
+      # Storing it under that name in R2 keeps the edge-device code simple.
+      - name: Prepare model_update.bin
+        run: |
+          cp model_output/yolov8_weld.bin model_update.bin
+          echo "BPU model size: $(du -sh model_update.bin | cut -f1)"
+
+      # ── 7. Upload model_update.bin → Cloudflare R2 ──────────────────────
+      # The RDK X5 polls models/model_update.bin in the weldvision-media
+      # bucket on every boot via ModelWatchdog.download_from_r2().
+      - name: Upload to Cloudflare R2 (weldvision-media/models/)
+        uses: ryand56/r2-upload-action@latest
+        with:
+          r2-account-id:        ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          r2-access-key-id:     ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_KEY }}
+          r2-bucket:            weldvision-media
+          source-dir:           model_update.bin
+          destination-dir:      models/
+
+      # ── 8. Tag the release in Git ────────────────────────────────────────
+      # Creates a lightweight tag so we know exactly which Roboflow version
+      # corresponds to which compiled .bin in the git history.
+      - name: Tag release
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG="model-v${{ env.RF_VERSION }}-$(date +'%Y%m%d%H%M%S')"
+          git tag "$TAG"
+          git push origin "$TAG"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 9. Summary ───────────────────────────────────────────────────────
+      - name: Print pipeline summary
+        run: |
+          echo "## MLOps Pipeline Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Roboflow source | \`$RF_WORKSPACE/$RF_PROJECT @ v$RF_VERSION\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| ONNX export | ✅ yolov8_weld.onnx |" >> $GITHUB_STEP_SUMMARY
+          echo "| BPU compilation | ✅ yolov8_weld.bin (Int8, Bayes-e) |" >> $GITHUB_STEP_SUMMARY
+          echo "| R2 upload path | \`weldvision-media/models/model_update.bin\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| RDK X5 pickup | Next boot → ModelWatchdog hot-swap |" >> $GITHUB_STEP_SUMMARY
+
+# ─────────────────────────────────────────────────────────────────────────────
+# REQUIRED GITHUB SECRETS (Settings → Secrets → Actions):
+#   ROBOFLOW_KEY          — Roboflow API key (Private key tab in RF settings)
+#   CLOUDFLARE_ACCOUNT_ID — REDACTED_ACCOUNT_ID
+#   R2_ACCESS_KEY_ID      — R2 API token Access Key ID
+#   R2_SECRET_KEY         — R2 API token Secret Access Key
+# ─────────────────────────────────────────────────────────────────────────────

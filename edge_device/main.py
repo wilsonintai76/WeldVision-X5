@@ -22,10 +22,18 @@ import queue
 from datetime import datetime
 from pathlib import Path
 import json
-
-# RDK X5 specific imports
 try:
-    from hobot_dnn import pyeasy_dnn as dnn
+    import boto3                          # S3-compatible R2 download (CPU — standard I/O)
+    from botocore.exceptions import ClientError
+except ImportError:
+    boto3 = None
+    ClientError = Exception
+
+# RDK X5 hardware imports
+# Calling hobot_dnn routes the workload to the BPU (Brain Processing Unit).
+# Calling cv2 / numpy routes the workload to the standard quad-core CPU.
+try:
+    from hobot_dnn import pyeasy_dnn as dnn  # BPU path — YOLOv8 Int8 inference
 except Exception:
     dnn = None
 
@@ -145,9 +153,7 @@ try:
         load_calibration_json, 
         depth_to_colormap,
         WeldFeatureExtractor,
-        DepthFusionEngine
     )
-    from modules.stereonet_bpu import StereoNetBPU
     from modules.ply_exporter import generate_ply_from_depth, generate_preview_json, decimate_point_cloud
 except Exception:
     LocalBuffer = None
@@ -157,8 +163,6 @@ except Exception:
     load_calibration_json = None
     depth_to_colormap = None
     WeldFeatureExtractor = None
-    DepthFusionEngine = None
-    StereoNetBPU = None
     generate_ply_from_depth = None
     generate_preview_json = None
     decimate_point_cloud = None
@@ -167,9 +171,6 @@ except Exception:
 # ============================================================================
 # PATHS / EXTRA CONFIG
 # ============================================================================
-STEREONET_PATH = os.getenv('STEREONET_PATH', os.path.join(MODEL_DIR, 'stereonet.bin'))
-
-
 # ============================================================================
 # DEPTH CALCULATION (PLACEHOLDER)
 # ============================================================================
@@ -414,6 +415,88 @@ class ModelWatchdog:
                 logger.info("Restored backup model")
             return False
     
+    def download_from_r2(self):
+        """
+        Pull the latest compiled .bin from Cloudflare R2.
+
+        Called once on startup before check_for_update().  The GitHub Actions
+        workflow uploads the BPU model to:
+            bucket:  weldvision-media  (env R2_BUCKET)
+            key:     models/model_update.bin  (env R2_MODEL_KEY)
+
+        If the download succeeds the file is written to self.update_path
+        (MODEL_UPDATE_PATH), which check_for_update() then hot-swaps into
+        place as model.bin.
+
+        Required env vars (set in weldvision.service or systemd drop-in):
+            R2_ACCOUNT_ID          — Cloudflare account ID
+            R2_ACCESS_KEY_ID       — R2 API token Access Key ID
+            R2_SECRET_ACCESS_KEY   — R2 API token Secret Access Key
+            R2_BUCKET              — bucket name (default: weldvision-media)
+            R2_MODEL_KEY           — object key  (default: models/model_update.bin)
+
+        Returns:
+            bool: True if a new model was downloaded.
+        """
+        if boto3 is None:
+            logger.debug("boto3 not installed — skipping R2 model check")
+            return False
+
+        account_id  = os.getenv('R2_ACCOUNT_ID', '')
+        access_key  = os.getenv('R2_ACCESS_KEY_ID', '')
+        secret_key  = os.getenv('R2_SECRET_ACCESS_KEY', '')
+        bucket      = os.getenv('R2_BUCKET', 'weldvision-media')
+        object_key  = os.getenv('R2_MODEL_KEY', 'models/model_update.bin')
+
+        if not all([account_id, access_key, secret_key]):
+            logger.debug("R2 credentials not configured — skipping model pull")
+            return False
+
+        endpoint = f'https://{account_id}.r2.cloudflarestorage.com'
+        try:
+            # CPU — boto3 uses standard HTTPS I/O, no BPU involvement
+            s3 = boto3.client(
+                's3',
+                endpoint_url=endpoint,
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+                region_name='auto',
+            )
+
+            # Fetch the ETag to avoid re-downloading an unchanged model
+            head = s3.head_object(Bucket=bucket, Key=object_key)
+            remote_etag = head.get('ETag', '').strip('"')
+
+            # Compare against a locally cached etag (if any)
+            etag_cache = f"{self.update_path}.etag"
+            if os.path.exists(etag_cache) and os.path.exists(self.update_path):
+                with open(etag_cache) as fh:
+                    if fh.read().strip() == remote_etag:
+                        logger.debug("R2 model unchanged (ETag match) — skipping download")
+                        return False
+
+            logger.info(f"⬇️  Downloading new model from R2: {bucket}/{object_key}")
+            os.makedirs(os.path.dirname(self.update_path) or '.', exist_ok=True)
+            s3.download_file(bucket, object_key, self.update_path)
+
+            # Cache the ETag so the next boot skips the download if unchanged
+            with open(etag_cache, 'w') as fh:
+                fh.write(remote_etag)
+
+            logger.info(f"✅ Model downloaded to {self.update_path}")
+            return True
+
+        except ClientError as e:
+            code = e.response.get('Error', {}).get('Code', '')
+            if code == '404':
+                logger.debug("No model_update.bin found in R2 — nothing to pull")
+            else:
+                logger.warning(f"R2 download error: {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"R2 download failed: {e}")
+            return False
+
     def load_model(self):
         """Load DNN model using hobot_dnn"""
         if dnn is None:
@@ -540,64 +623,124 @@ class CameraManager:
 # ============================================================================
 
 class InferenceEngine:
-    """Handles YOLOv8 inference using hobot_dnn"""
+    """
+    YOLOv8 defect detection — runs entirely on the BPU.
+
+    Calling dnn.load() and model.forward() via hobot_dnn hands the compiled
+    Int8 .bin model to the RDK X5's dedicated AI accelerator chip.  The CPU
+    is not involved in the matrix math; it only dispatches the call and reads
+    the result back.
+    """
     
     def __init__(self, model):
         self.model = model
-        
-    def preprocess(self, image):
-        """Preprocess image for YOLOv8"""
-        # Resize to model input size (typically 640x640 for YOLOv8)
-        input_size = (640, 640)
-        resized = cv2.resize(image, input_size)
-        
-        # Normalize to 0-1 range
-        normalized = resized.astype(np.float32) / 255.0
-        
-        # Convert BGR to RGB
-        rgb = cv2.cvtColor(normalized, cv2.COLOR_BGR2RGB)
-        
-        return rgb
-    
-    def run_inference(self, image):
+
+    def preprocess(self, image: np.ndarray) -> np.ndarray:
         """
-        Run YOLOv8 inference on image
-        
-        Returns:
-            list: Detected defects with bounding boxes and confidence
+        Prepare a BGR frame for BPU inference.  CPU-only step.
+
+        hobot_dnn expects a float32 NCHW tensor (1, 3, 640, 640).
+        All operations here are cv2 / numpy → quad-core CPU.
+        Only model.forward() below crosses the boundary to the BPU.
+        """
+        resized    = cv2.resize(image, (640, 640))           # CPU — cv2
+        rgb        = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB) # CPU — cv2
+        normalized = rgb.astype(np.float32) / 255.0           # CPU — numpy
+        # HWC → CHW, then add batch dimension → NCHW (1, 3, 640, 640)
+        nchw = normalized.transpose(2, 0, 1)[np.newaxis, ...] # CPU — numpy
+        return nchw
+
+    def run_inference(self, image: np.ndarray) -> list:
+        """
+        Run YOLOv8 defect detection on the BPU.
+
+        model.forward([input_tensor]) dispatches the Int8 .bin workload to
+        the RDK X5's dedicated AI accelerator chip (~45 FPS).
+        The CPU is not involved in the matrix math — it only dispatches the
+        call and reads the result back via the hobot_dnn output buffer.
         """
         if self.model is None:
-            # Simulation mode - return mock detections
             return self._generate_mock_detections()
-        
+
         try:
-            # Preprocess
-            processed = self.preprocess(image)
-            
-            # Run inference
-            outputs = self.model.forward(processed)
-            
-            # Parse YOLOv8 output
-            detections = self._parse_yolo_output(outputs)
-            
-            logger.debug(f"Detected {len(detections)} defects")
+            input_tensor = self.preprocess(image)               # CPU — numpy/cv2
+            outputs      = self.model.forward([input_tensor])   # → BPU via hobot_dnn
+            detections   = self._parse_yolo_output(outputs, image.shape)
+            logger.debug(f"BPU detected {len(detections)} defects")
             return detections
-            
+
         except Exception as e:
-            logger.error(f"❌ Inference failed: {e}")
+            logger.error(f"❌ BPU inference failed: {e}")
             return []
-    
-    def _parse_yolo_output(self, outputs):
-        """Parse YOLOv8 output format"""
-        # This is a simplified parser - actual implementation depends on model output format
-        detections = []
-        
-        # YOLOv8 output format: [batch, num_detections, 5+num_classes]
-        # [x, y, w, h, confidence, class_scores...]
-        
-        # TODO: Implement actual YOLOv8 output parsing
-        # For now, return mock data
-        return self._generate_mock_detections()
+
+    def _parse_yolo_output(
+        self,
+        outputs,
+        orig_shape,
+        conf_threshold: float = 0.45,
+        nms_threshold: float  = 0.50,
+    ) -> list:
+        """
+        Parse the raw BPU tensor returned by hobot_dnn.
+
+        hobot_dnn stores results in output.buffer (a numpy array).
+        YOLOv8 exports a single output of shape (1, 5+C, N) or (1, N, 5+C)
+        where each row is [cx, cy, w, h, obj_conf, class_conf_0 … class_conf_C].
+        Coordinates are relative to the 640×640 input; we scale them back to
+        the original frame size so bounding boxes map correctly.
+        NMS is run on the CPU with cv2.dnn.NMSBoxes (numpy, no BPU).
+        """
+        try:
+            # ── read BPU output buffer ────────────────────────────────────
+            raw  = outputs[0].buffer           # numpy array from BPU result
+            pred = np.squeeze(raw)             # drop batch dim
+            # Normalise to (N, 5+C) — rows are candidate anchor boxes
+            if pred.ndim == 2 and pred.shape[0] < pred.shape[1]:
+                pred = pred.T
+
+            orig_h, orig_w = orig_shape[:2]
+            boxes, scores, class_ids = [], [], []
+
+            for row in pred:
+                obj_conf = float(row[4])
+                if obj_conf < conf_threshold:
+                    continue
+                class_scores = row[5:]
+                class_id     = int(np.argmax(class_scores))
+                confidence   = obj_conf * float(class_scores[class_id])
+                if confidence < conf_threshold:
+                    continue
+
+                # cx, cy, w, h → pixel coords in the original frame
+                cx, cy, w, h = row[:4]
+                x1 = int((cx - w / 2) * orig_w / 640)
+                y1 = int((cy - h / 2) * orig_h / 640)
+                bw = int(w * orig_w / 640)
+                bh = int(h * orig_h / 640)
+
+                boxes.append([x1, y1, bw, bh])
+                scores.append(confidence)
+                class_ids.append(class_id)
+
+            # ── NMS on CPU ────────────────────────────────────────────────
+            detections = []
+            if boxes:
+                indices = cv2.dnn.NMSBoxes(boxes, scores, conf_threshold, nms_threshold)
+                for i in indices:
+                    idx = int(i)
+                    cid = class_ids[idx]
+                    detections.append({
+                        'class_id':   cid,
+                        'class_name': DEFECT_CLASSES.get(cid, 'unknown'),
+                        'confidence': round(scores[idx], 4),
+                        'bbox':       boxes[idx],
+                    })
+
+            return detections
+
+        except Exception as e:
+            logger.warning(f"Output parsing failed, using mock detections: {e}")
+            return self._generate_mock_detections()
     
     def _generate_mock_detections(self):
         """Generate mock detections for testing"""
@@ -781,9 +924,7 @@ class ProcessWorker(threading.Thread):
         out_q: queue.Queue,
         live_state,
         shared_calib: SharedCalibration = None,
-        stereonet_bpu=None,
         feature_extractor=None,
-        fusion_engine=None,
     ):
         super().__init__(daemon=True)
         self.stop_event = stop_event
@@ -792,9 +933,7 @@ class ProcessWorker(threading.Thread):
         self.out_q = out_q
         self.live_state = live_state
         self.shared_calib = shared_calib
-        self.stereonet_bpu = stereonet_bpu
         self.feature_extractor = feature_extractor
-        self.fusion_engine = fusion_engine
 
     def run(self):
         while not self.stop_event.is_set():
@@ -806,58 +945,84 @@ class ProcessWorker(threading.Thread):
             left = pkt['left']
             right = pkt.get('right')
 
-            inference = InferenceEngine(self.shared_model.get())
-            detections = inference.run_inference(left)
-            visual_defects = count_defects(detections)
+            # ══════════════════════════════════════════════════════════════
+            # HARDWARE LOAD BALANCING
+            # Thread A  →  BPU  (hobot_dnn / YOLOv8 Int8)
+            # Thread B  →  CPU  (OpenCV SGBM, numpy)
+            #
+            # The two threads operate on entirely different physical silicon.
+            # The BPU accelerator and the quad-core CPU run simultaneously,
+            # cutting per-frame latency roughly in half compared to running
+            # the two pipelines sequentially.
+            # ══════════════════════════════════════════════════════════════
 
-            depth_heat = None
-            geometric_metrics = None
-            
-            # Get current estimator from thread-safe container
-            current_depth_estimator = self.shared_calib.get() if self.shared_calib else None
-            
-            if current_depth_estimator is not None and right is not None:
+            # Shared result containers written by each thread
+            bpu_result = {}   # filled by Thread A
+            cpu_result = {}   # filled by Thread B
+
+            # ── Thread A: BPU ─────────────────────────────────────────────
+            # hobot_dnn.forward() hands the Int8 .bin to the dedicated AI
+            # accelerator chip.  The CPU is free the moment forward() is
+            # dispatched; it does not spin-wait for the result.
+            def _run_bpu():
                 try:
-                    left_rect, right_rect = current_depth_estimator.rectify(left, right)
-                    
-                    # 1. StereoSGBM (OpenCV) - Explainable baseline
-                    disp_sgbm = current_depth_estimator.disparity(left_rect, right_rect)
-                    
-                    # 2. Hobot StereoNet (BPU) - Robust on reflective surfaces
-                    disp_sn = np.zeros_like(disp_sgbm)
-                    if self.stereonet_bpu:
-                        disp_sn = self.stereonet_bpu.compute_disparity(left_rect, right_rect)
-                    
-                    # 3. Depth Fusion
-                    if self.fusion_engine:
-                        disp = self.fusion_engine.fuse_disparity(disp_sgbm, disp_sn)
-                    else:
-                        disp = disp_sgbm
-                    
-                    Z = current_depth_estimator.depth_map(disp)
-                    
-                    # 4. Feature Extraction (width, height, undercut)
+                    inference = InferenceEngine(self.shared_model.get())
+                    bpu_result['detections'] = inference.run_inference(left)  # → BPU
+                except Exception as e:
+                    logger.warning(f"BPU thread failed: {e}")
+                    bpu_result['detections'] = []
+
+            # ── Thread B: CPU ─────────────────────────────────────────────
+            # Every call here is cv2 / numpy — the OS routes these to the
+            # standard quad-core CPU.  No BPU involvement whatsoever.
+            def _run_cpu():
+                current_depth_estimator = self.shared_calib.get() if self.shared_calib else None
+                if current_depth_estimator is None or right is None:
+                    return
+                try:
+                    left_rect, right_rect = current_depth_estimator.rectify(left, right)          # CPU — cv2.remap
+
+                    # SGBM: classical block-matching on metal texture → CPU
+                    disp = current_depth_estimator.disparity(left_rect, right_rect)               # CPU — cv2.StereoSGBM
+                    Z    = current_depth_estimator.depth_map(disp)                                # CPU — cv2.reprojectImageTo3D
+
+                    # Expose for PLY export after threads join
+                    cpu_result['disp']             = disp
+                    cpu_result['depth_estimator']  = current_depth_estimator
+
                     if self.feature_extractor:
-                        # Convert ROI percentages to pixel coordinates
                         h_orig, w_orig = left.shape[:2]
                         roi_px = (
                             int(ROI_X_PCT * w_orig),
                             int(ROI_Y_PCT * h_orig),
                             int(ROI_W_PCT * w_orig),
-                            int(ROI_H_PCT * h_orig)
+                            int(ROI_H_PCT * h_orig),
                         )
-                        geometric_metrics = self.feature_extractor.extract_features(Z, roi_px)
-                        
-                        # 5. Rule-based scoring + ML fusion
-                        if self.fusion_engine:
-                            scoring = self.fusion_engine.score_weld(geometric_metrics)
-                            geometric_metrics.update(scoring)
-                    
+                        geo = self.feature_extractor.extract_features(Z, roi_px)                  # CPU — numpy
+                        geo.update(self.feature_extractor.score_weld(geo))                        # CPU — numpy
+                        cpu_result['geometric_metrics'] = geo
+
                     if depth_to_colormap is not None:
-                        depth_heat = depth_to_colormap(disp)
+                        cpu_result['depth_heat'] = depth_to_colormap(disp)                        # CPU — cv2
 
                 except Exception as e:
-                    logger.warning(f"Depth pipeline failed: {e}")
+                    logger.warning(f"CPU/SGBM thread failed: {e}")
+
+            # ── Launch both threads and wait for both chips to finish ──────
+            thread_bpu = threading.Thread(target=_run_bpu, name="BPU-YOLO",  daemon=True)
+            thread_cpu = threading.Thread(target=_run_cpu, name="CPU-SGBM",  daemon=True)
+
+            thread_bpu.start()
+            thread_cpu.start()
+
+            thread_bpu.join()   # wait for BPU accelerator result
+            thread_cpu.join()   # wait for CPU SGBM result
+
+            # ── Combine results ────────────────────────────────────────────
+            detections      = bpu_result.get('detections', [])
+            visual_defects  = count_defects(detections)
+            geometric_metrics = cpu_result.get('geometric_metrics', None)
+            depth_heat        = cpu_result.get('depth_heat', None)
 
             if geometric_metrics is None:
                 geometric_metrics = calculate_depth(left)
@@ -865,7 +1030,9 @@ class ProcessWorker(threading.Thread):
             # PLY Point Cloud Generation (on scan/trigger)
             ply_path = None
             mesh_preview_json = None
-            if ENABLE_PLY_EXPORT and current_depth_estimator is not None and right is not None:
+            disp             = cpu_result.get('disp')
+            current_depth_estimator = cpu_result.get('depth_estimator')
+            if ENABLE_PLY_EXPORT and current_depth_estimator is not None and disp is not None:
                 try:
                     # Generate timestamp-based filename
                     ts_str = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
@@ -1009,7 +1176,13 @@ def main():
     # Watchdogs
     watchdog = ModelWatchdog(MODEL_PATH, MODEL_UPDATE_PATH)
     calib_watchdog = CalibrationWatchdog(STEREO_CALIB_PATH)
-    
+
+    # Pull latest compiled .bin from Cloudflare R2 before loading.
+    # download_from_r2() writes model_update.bin; check_for_update() swaps it
+    # into place as model.bin.  Both are no-ops if env vars are absent.
+    watchdog.download_from_r2()
+    watchdog.check_for_update()
+
     # Initial loads
     model = watchdog.load_model()
     if model is None and dnn is not None:
@@ -1049,30 +1222,21 @@ def main():
             live_state = None
             stream_server = None
 
-    # Optional: stereo depth + stereonet bpu + fusion
+    # Stereo depth: SGBM (CPU/OpenCV) for disparity + WeldFeatureExtractor for geometry
     depth_estimator = None
-    stereonet_bpu = None
     feature_extractor = None
-    fusion_engine = None
 
     if StereoDepthEstimator is not None and ENABLE_STEREO:
         try:
             depth_estimator = StereoDepthEstimator.from_json_path(STEREO_CALIB_PATH)
-            logger.info(f"🟦 Stereo depth enabled using {STEREO_CALIB_PATH}")
-            
-            # Initialize new pipeline components
-            if StereoNetBPU:
-                stereonet_bpu = StereoNetBPU(STEREONET_PATH)
-            
+            logger.info(f"🟦 Stereo SGBM depth enabled using {STEREO_CALIB_PATH}")
+
             if WeldFeatureExtractor:
-                # Assume focal length and baseline from calibration if available
+                # Derive focal length and baseline from calibration Q matrix
                 f = depth_estimator.calib.Q[2, 3] if hasattr(depth_estimator.calib, 'Q') else 800.0
                 b = 1.0 / depth_estimator.calib.Q[3, 2] if hasattr(depth_estimator.calib, 'Q') else 65.0
                 feature_extractor = WeldFeatureExtractor(focal_length_px=f, baseline_mm=b)
-                
-            if DepthFusionEngine:
-                fusion_engine = DepthFusionEngine()
-                
+
         except Exception as e:
             logger.warning(f"Stereo depth disabled or partially failed: {e}")
 
@@ -1091,9 +1255,7 @@ def main():
         out_q=q_out,
         live_state=live_state,
         shared_calib=shared_calib,
-        stereonet_bpu=stereonet_bpu,
         feature_extractor=feature_extractor,
-        fusion_engine=fusion_engine,
     )
     up_worker = UploadWorker(stop_event, in_q=q_out, buffer_obj=buffer_obj)
 

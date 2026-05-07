@@ -41,11 +41,18 @@ def load_calibration_json(calib_path: str) -> StereoCalibration:
 
 
 class StereoDepthEstimator:
-    """Rectify + SGBM disparity + depth map via Q.
+    """
+    Stereo depth pipeline — runs entirely on the CPU.
 
-    This is designed to be robust:
-    - If calibration is missing, caller can skip and fallback to mock.
-    - If cv2.ximgproc is present, it will apply WLS filtering.
+    SGBM (Semi-Global Block Matching) is a classical mathematical algorithm.
+    It is not a neural network and has no BPU representation.  Every call
+    here uses cv2 (OpenCV) or numpy, which the OS dispatches naturally to
+    the standard quad-core CPU.
+
+    Pipeline:
+        rectify()   — cv2.remap, CPU
+        disparity() — cv2.StereoSGBM, CPU
+        depth_map() — cv2.reprojectImageTo3D, CPU
     """
 
     def __init__(
@@ -99,10 +106,12 @@ class StereoDepthEstimator:
         return left_rect, right_rect
 
     def disparity(self, left_rect_bgr, right_rect_bgr) -> np.ndarray:
+        # CPU — cv2.cvtColor and StereoSGBM.compute run on the quad-core CPU.
+        # The metal texture provides enough natural contrast for block matching.
         left_gray = cv2.cvtColor(left_rect_bgr, cv2.COLOR_BGR2GRAY)
         right_gray = cv2.cvtColor(right_rect_bgr, cv2.COLOR_BGR2GRAY)
 
-        disp_left = self.left_matcher.compute(left_gray, right_gray)
+        disp_left = self.left_matcher.compute(left_gray, right_gray)  # CPU — StereoSGBM
 
         if self.use_wls and self.right_matcher is not None and self.wls is not None:
             disp_right = self.right_matcher.compute(right_gray, left_gray)
@@ -228,58 +237,19 @@ class WeldFeatureExtractor:
             "baseline_depth_mm": round(float(baseline), 2)
         }
 
-
-class DepthFusionEngine:
-    """
-    Fuses depth data from Multiple sources (OpenCV SGBM + BPU StereoNet).
-    Implements rule-based scoring and confidence-based weighting.
-    """
-
-    def __init__(self, sgbm_weight: float = 0.4, stereonet_weight: float = 0.6):
-        self.sgbm_weight = sgbm_weight
-        self.stereonet_weight = stereonet_weight
-
-    def fuse_disparity(self, disp_sgbm: np.ndarray, disp_stereonet: np.ndarray) -> np.ndarray:
-        """
-        Weighted fusion of disparity maps.
-        StereoNet is usually more robust on reflections, SGBM is better at sharp edges.
-        """
-        # Ensure shapes match
-        if disp_sgbm.shape != disp_stereonet.shape:
-            disp_stereonet = cv2.resize(disp_stereonet, (disp_sgbm.shape[1], disp_sgbm.shape[0]))
-
-        # Handle invalid values (often 0 or negative in SGBM)
-        mask_sgbm = disp_sgbm > 0
-        mask_sn = disp_stereonet > 0
-
-        fused = np.zeros_like(disp_sgbm)
-        
-        # Where both are valid, use weighted average
-        both = mask_sgbm & mask_sn
-        fused[both] = (disp_sgbm[both] * self.sgbm_weight) + (disp_stereonet[both] * self.stereonet_weight)
-        
-        # Where only one is valid, use that one
-        only_sgbm = mask_sgbm & ~mask_sn
-        fused[only_sgbm] = disp_sgbm[only_sgbm]
-        
-        only_sn = mask_sn & ~mask_sgbm
-        fused[only_sn] = disp_stereonet[only_sn]
-        
-        return fused
-
     def score_weld(self, metrics: dict) -> dict:
         """
-        Rule-based scoring based on ISO 5817 / AWS D1.1
+        Rule-based scoring based on ISO 5817 / AWS D1.1.
         Returns a score (0-100) and list of violations.
         """
         score = 100
         violations = []
-        
+
         h = metrics.get("reinforcement_height_mm", 0)
         w = metrics.get("bead_width_mm", 0)
         u = metrics.get("undercut_depth_mm", 0)
 
-        # Rule 1: Excessive Reinforcement (H > 3mm or H > 0.2*W)
+        # Rule 1: Excessive Reinforcement (H > 3mm or H > 0.3*W)
         if h > 3.0:
             score -= 20
             violations.append("Excessive reinforcement (>3mm)")
@@ -287,7 +257,7 @@ class DepthFusionEngine:
             score -= 15
             violations.append("Poor profile (Height/Width ratio too high)")
 
-        # Rule 2: Undercut (U > 0.5mm or U > 0.1*Thickness)
+        # Rule 2: Undercut
         if u > 0.8:
             score -= 30
             violations.append("Severe undercut detected")
