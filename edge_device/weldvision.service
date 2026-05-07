@@ -21,6 +21,17 @@ Environment="WELDVISION_DEVICE_ID=RDK-X5-WORKSHOP-01"
 # JWT token for cloud API authentication (get from admin panel or wrangler)
 Environment="CLOUD_API_TOKEN=YOUR_DEVICE_JWT_TOKEN_HERE"
 
+# ── Cloudflare R2 — model auto-update ───────────────────────
+# ModelWatchdog.download_from_r2() pulls models/model_update.bin on every
+# boot and hot-swaps it into model.bin if a new compiled .bin is present.
+# Obtain these from: Cloudflare Dashboard → R2 → Manage R2 API tokens
+Environment="R2_ACCOUNT_ID=b6f9b4c33511b3e607595a0993dfdcd4"
+Environment="R2_ACCESS_KEY_ID=YOUR_R2_ACCESS_KEY_ID_HERE"
+Environment="R2_SECRET_ACCESS_KEY=YOUR_R2_SECRET_ACCESS_KEY_HERE"
+# Override defaults only if you renamed the bucket or object path:
+#Environment="R2_BUCKET=weldvision-media"
+#Environment="R2_MODEL_KEY=models/model_update.bin"
+
 # ── Optional features ───────────────────────────────────────
 Environment="WELDVISION_ENABLE_STREAM=1"
 Environment="WELDVISION_STREAM_PORT=8080"

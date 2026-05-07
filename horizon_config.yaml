@@ -1,0 +1,105 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# horizon_config.yaml
+# Horizon hb_mapper compiler configuration for WeldVision YOLOv8
+#
+# Used by: .github/workflows/compile_model.yml
+# Command: hb_mapper makertbin --config /workspace/horizon_config.yaml --model-type onnx
+#
+# Target hardware: Horizon RDK X5 (Bayes-e BPU architecture)
+# Input model:     yolov8_weld.onnx  (opset 11, 640×640 RGB)
+# Output model:    model_output/yolov8_weld.bin  (Int8 quantised, BPU executable)
+# ──────────────────────────────────────────────────────────────────────────────
+
+model_parameters:
+  # Path to the ONNX model inside the Docker workspace mount
+  onnx_model: '/workspace/yolov8_weld.onnx'
+
+  # Horizon BPU architecture — Bayes-e is the chip in the RDK X5.
+  # Other Horizon chips use 'bernoulli2' or 'nash-e'; do NOT change this.
+  march: 'bayes-e'
+
+  # Where compiled artefacts are written (relative to config file location).
+  # The workflow copies model_output/yolov8_weld.bin → model_update.bin → R2.
+  working_dir: '/workspace/model_output'
+
+  # Prefix used to name the output .bin file.
+  # Final file: {working_dir}/{output_model_file_prefix}.bin
+  output_model_file_prefix: 'yolov8_weld'
+
+  # Emit per-layer output tensors for debugging (set true only during tuning).
+  layer_out_dump: false
+
+  # Print per-layer quantisation stats to stdout during compilation.
+  log_level: 'DEBUG'
+
+
+input_parameters:
+  # Must match the ONNX graph input node name.
+  # Inspect with: python -c "import onnx; m=onnx.load('yolov8_weld.onnx'); print(m.graph.input[0].name)"
+  input_name: 'images'
+
+  # NCHW layout — batch=1, 3-channel RGB, 640×640 px.
+  # hb_mapper notation uses 'x' as separator (not commas).
+  input_shape: '1x3x640x640'
+
+  # Runtime pixel format delivered from the camera capture pipeline.
+  # 'nv12' is the native format from the RDK X5 MIPI CSI camera driver.
+  # hb_mapper inserts a hardware colour-space-conversion (CSC) node so
+  # InferenceEngine.preprocess() can skip manual BGR→RGB conversion.
+  input_type_rt: 'nv12'
+  input_layout_rt: 'NHWC'
+
+  # Training-time pixel format used in the Roboflow dataset export.
+  input_type_train: 'rgb'
+  input_layout_train: 'NCHW'
+
+  # Normalisation to match YOLOv8's preprocessing: pixel / 255.0
+  # norm_type: data_scale  →  output = input * scale_value
+  norm_type: 'data_scale'
+  scale_value: 0.00392156862745  # 1 / 255
+
+
+calibration_parameters:
+  # Path to the calibration image dataset inside the Docker workspace mount.
+  # Populate calibration_data/ with ~50 representative weld JPEG/PNG images
+  # before running the workflow (committed to the repo or downloaded in CI).
+  # hb_mapper reads these to determine the Int8 quantisation thresholds.
+  cal_data_dir: '/workspace/calibration_data'
+
+  # 'default' applies KL-divergence calibration (best accuracy for YOLOv8).
+  # Other options: 'max', 'mix' — only change if you see accuracy regression.
+  calibration_type: 'default'
+
+  # Maximum seconds spent computing calibration statistics per batch.
+  max_time_per_batch: 5
+
+  # Number of calibration images per batch passed to the model.
+  cal_data_batch: 10
+
+
+compiler_parameters:
+  # 'latency' optimises for inference speed (target: < 15 ms on BPU).
+  # Use 'balance' if the model is too large to fit in BPU SRAM at 'latency'.
+  compile_mode: 'latency'
+
+  # O3 enables full BPU subgraph fusion and operator tiling.
+  optimize_level: 'O3'
+
+  # Number of parallel compiler threads inside the Docker container.
+  jobs: 4
+
+  # Set true only when diagnosing compiler issues — produces large log files.
+  debug: false
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# DEFECT CLASS MAPPING (informational — matches main.py DEFECT_CLASSES)
+# YOLOv8 output index → class name
+#   0: porosity
+#   1: spatter
+#   2: slag_inclusion
+#   3: burn_through
+#
+# The compiled .bin preserves the same output ordering.
+# No changes needed in InferenceEngine._parse_yolo_output().
+# ──────────────────────────────────────────────────────────────────────────────
