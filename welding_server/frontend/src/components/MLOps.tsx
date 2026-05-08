@@ -233,20 +233,20 @@ const MLOps = () => {
     const model = models.find((m: Model) => m.id === modelId)
     if (!model) return
 
-    if (!window.confirm(`Deploy "${model.name}" (v${model.version}) to RDK X5?`)) return
+    if (!window.confirm(`Mark "${model.name}" (v${model.version}) as deployed?\n\nThe RDK X5 will automatically fetch the compiled .bin from R2 within 5 minutes.`)) return
 
     try {
-      const res = await fetch(`${apiBase}/models/${modelId}/deploy/`, {
-        credentials: 'include', method: 'POST',
+      const res = await fetch(`${apiBase}/models/${modelId}/deploy`, {
+        credentials: 'include', method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device_ip: 'auto' }),
+        body: JSON.stringify({ device_id: 'rdk-x5' }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         alert(`Deploy failed: ${err.error || res.statusText}`)
         return
       }
-      alert(`Model "${model.name}" deployed to RDK X5 successfully!`)
+      alert(`"${model.name}" marked as deployed.\n\nThe RDK X5 will fetch and hot-swap the model within 5 minutes (no reboot needed).`)
       await fetchModels()
     } catch (error) {
       alert(`Deploy error: ${(error as Error).message}`)

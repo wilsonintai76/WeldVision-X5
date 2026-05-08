@@ -497,6 +497,52 @@ class ModelWatchdog:
             logger.warning(f"R2 download failed: {e}")
             return False
 
+    def poll_deploy_loop(self, interval_seconds: int = 300):
+        """
+        Background thread: polls GET /api/models/deployed every `interval_seconds`.
+        When the backend marks a new model as deployed (different deployed_at timestamp),
+        downloads it from R2 and hot-swaps via check_for_update().
+
+        Required env vars (same as download_from_r2):
+            BACKEND_URL, CLOUD_API_TOKEN, R2_* credentials
+        """
+        backend = os.getenv('BACKEND_URL', 'http://127.0.0.1:8000').rstrip('/')
+        token   = os.getenv('CLOUD_API_TOKEN', '')
+        headers = {'Authorization': f'Bearer {token}'} if token else {}
+        last_deployed_at = None
+
+        while True:
+            try:
+                resp = requests.get(
+                    f'{backend}/api/models/deployed',
+                    headers=headers,
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    deployed_at = data.get('deployed_at')
+                    if deployed_at and deployed_at != last_deployed_at:
+                        if last_deployed_at is not None:
+                            logger.info(f"🔔 New model deployed via frontend — pulling from R2 ...")
+                            pulled = self.download_from_r2()
+                            if pulled:
+                                self.check_for_update()
+                        last_deployed_at = deployed_at
+            except Exception as e:
+                logger.debug(f"Deploy poll error: {e}")
+            time.sleep(interval_seconds)
+
+    def start_deploy_poll(self, interval_seconds: int = 300):
+        """Start the deploy-poll loop in a daemon thread."""
+        t = threading.Thread(
+            target=self.poll_deploy_loop,
+            args=(interval_seconds,),
+            daemon=True,
+            name='deploy-poll',
+        )
+        t.start()
+        logger.info(f"🔍 Deploy-poll thread started (interval={interval_seconds}s)")
+
     def load_model(self):
         """Load DNN model using hobot_dnn"""
         if dnn is None:
@@ -1218,6 +1264,11 @@ def main():
     # into place as model.bin.  Both are no-ops if env vars are absent.
     watchdog.download_from_r2()
     watchdog.check_for_update()
+
+    # Start background thread: polls /api/models/deployed every 5 min.
+    # When user clicks "Deploy Now" in the webapp, this thread detects the
+    # new deployed_at timestamp, downloads the .bin from R2, and hot-swaps it.
+    watchdog.start_deploy_poll(interval_seconds=300)
 
     # Initial loads
     model = watchdog.load_model()
