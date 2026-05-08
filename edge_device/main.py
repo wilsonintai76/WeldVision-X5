@@ -792,6 +792,41 @@ def count_defects(detections):
     return counts
 
 
+def upload_training_image(image, label: str = '', folder: str = 'images/training') -> bool:
+    """
+    Upload a raw frame to R2 via the Worker for use as training data.
+    Saves to weldvision-media/<folder>/<timestamp>_<label>.jpg
+
+    Set WELDVISION_UPLOAD_TRAINING=1 env var to enable at runtime.
+    """
+    if os.getenv('WELDVISION_UPLOAD_TRAINING', '0').lower() not in ('1', 'true', 'yes', 'y'):
+        return False
+    try:
+        success, buf = cv2.imencode('.jpg', image)
+        if not success:
+            return False
+        fname = f"{datetime.now().strftime('%Y%m%dT%H%M%S%f')}_{label or 'frame'}.jpg"
+        headers = {}
+        if CLOUD_API_TOKEN:
+            headers['Authorization'] = f'Bearer {CLOUD_API_TOKEN}'
+        resp = requests.post(
+            f"{BACKEND_URL}/api/storage/upload",
+            files={'file': (fname, buf.tobytes(), 'image/jpeg')},
+            data={'folder': folder},
+            headers=headers,
+            timeout=15,
+        )
+        if resp.status_code == 201:
+            key = resp.json().get('key', fname)
+            logger.info(f"📸 Training image uploaded: {key}")
+            return True
+        logger.warning(f"Training image upload failed: {resp.status_code} {resp.text}")
+        return False
+    except Exception as e:
+        logger.warning(f"Training image upload error: {e}")
+        return False
+
+
 def upload_assessment(image, geometric_metrics, visual_defects, student_id=STUDENT_ID):
     """
     Upload assessment data to Django backend
@@ -1138,6 +1173,7 @@ class UploadWorker(threading.Thread):
             except queue.Empty:
                 continue
 
+            upload_training_image(res['image'], label='weld')
             ok = upload_assessment(res['image'], res['geometric_metrics'], res['visual_defects'])
             if not ok and self.buffer is not None:
                 try:

@@ -4,6 +4,7 @@ import { Wifi, WifiOff, Download, CheckCircle, RefreshCw, FileUp, Database, Hard
 // New Sub-components
 import ModelUpload from './ModelUpload'
 import BPUConverter from './BPUConverter'
+import ImageUpload from './ImageUpload'
 
 interface Model {
   id: string | number;
@@ -319,6 +320,9 @@ const MLOps = () => {
         onUpload={uploadPretrainedModel}
         fileInputRef={fileInputRef}
       />
+
+      {/* Training image upload (webapp method) */}
+      <ImageUpload folder="images/training" />
 
       {/* 2. Available Models Table */}
       <div className="bg-slate-900 rounded-xl border border-slate-800 p-6 shadow-sm">
