@@ -6,6 +6,7 @@ export interface Env {
   AI: Ai;
   JWT_SECRET: string;
   GITHUB_PAT: string;
+  EDGE_IMPULSE_WEBHOOK_SECRET: string;
   ENVIRONMENT: string;
   ALLOWED_ORIGINS: string;
 }
