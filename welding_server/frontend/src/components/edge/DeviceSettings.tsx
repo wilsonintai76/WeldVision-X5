@@ -183,6 +183,7 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
                 type="text"
                 value={edgeConfig.device_ip}
                 onChange={(e) => setEdgeConfig({ ...edgeConfig, device_ip: e.target.value })}
+                placeholder="192.168.1.100"
                 className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               />
             </div>
@@ -194,6 +195,7 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
                   type="text"
                   value={edgeConfig.device_port}
                   onChange={(e) => setEdgeConfig({ ...edgeConfig, device_port: e.target.value })}
+                  placeholder="8080"
                   className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 />
               </div>
@@ -203,6 +205,7 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
                   type="text"
                   value={edgeConfig.stream_port}
                   onChange={(e) => setEdgeConfig({ ...edgeConfig, stream_port: e.target.value })}
+                  placeholder="8554"
                   className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 />
               </div>
@@ -278,12 +281,14 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
                   <div className="flex items-center justify-end gap-3 border-t border-slate-800/50 pt-4">
                     <button
                       onClick={() => { setEditingCalibration(cal); setShowEditModal(true); }}
+                      title="Edit profile"
                       className="p-2.5 bg-slate-900 text-slate-400 hover:text-white rounded-xl transition-all border border-slate-800"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => deleteCalibration(cal.id)}
+                      title="Delete profile"
                       className="p-2.5 bg-slate-900 text-slate-400 hover:text-red-400 hover:bg-red-950/30 rounded-xl transition-all border border-slate-800"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -310,7 +315,7 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
           <div className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
               <h3 className="text-2xl font-black text-white tracking-tight">Edit Profile</h3>
-              <button onClick={() => setShowEditModal(false)} className="p-2 text-slate-500 hover:text-white transition-colors bg-slate-950 rounded-xl border border-slate-800">
+              <button onClick={() => setShowEditModal(false)} title="Close" className="p-2 text-slate-500 hover:text-white transition-colors bg-slate-950 rounded-xl border border-slate-800">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -321,6 +326,7 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
                   type="text"
                   value={editingCalibration.name}
                   onChange={(e) => setEditingCalibration({ ...editingCalibration, name: e.target.value })}
+                  placeholder="Calibration profile name"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 />
               </div>
@@ -332,6 +338,7 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
                     step="0.1"
                     value={editingCalibration.baseline}
                     onChange={(e) => setEditingCalibration({ ...editingCalibration, baseline: parseFloat(e.target.value) })}
+                    placeholder="65.0"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white"
                   />
                 </div>
@@ -342,6 +349,7 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
                     step="1"
                     value={editingCalibration.focal_length}
                     onChange={(e) => setEditingCalibration({ ...editingCalibration, focal_length: parseFloat(e.target.value) })}
+                    placeholder="700"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white"
                   />
                 </div>

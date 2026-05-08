@@ -9,6 +9,7 @@ WeldVision-X5 now includes **automatic hardware capability detection** to help y
 When you open the **MLOps Center**, the system automatically checks your hardware:
 
 ### Minimum Requirements
+
 - **CPU**: 4+ cores
 - **RAM**: 8GB minimum (16GB recommended)
 - **GPU**: NVIDIA GPU with 6GB+ VRAM (highly recommended)
@@ -18,22 +19,26 @@ When you open the **MLOps Center**, the system automatically checks your hardwar
 The system will classify your hardware into one of these categories:
 
 #### ✅ Excellent
+
 - 8+ CPU cores
 - 16GB+ RAM
 - NVIDIA GPU with 6GB+ VRAM
 - **Recommendation**: Train locally with good performance
 
 #### ⚠️ Adequate
+
 - 4+ CPU cores
 - 8-16GB RAM
 - GPU with 4-6GB VRAM
 - **Recommendation**: Can train locally but may be slower; use smaller batch sizes
 
 #### ⚠️ Minimal
+
 - Meets minimum CPU/RAM but **no GPU**
 - **Recommendation**: CPU-only training is VERY slow (10-50x slower); strongly recommend cloud training
 
 #### ❌ Insufficient
+
 - Below minimum requirements
 - **Recommendation**: Use cloud training services or import pre-trained models
 
@@ -54,12 +59,14 @@ If your system has adequate GPU resources:
 ```
 
 **Advantages:**
+
 - Full control over training process
 - No internet required
 - Data privacy
 - No usage limits
 
 **Disadvantages:**
+
 - Requires powerful hardware
 - Consumes local resources
 - May take hours on slower systems
@@ -69,33 +76,41 @@ If your system has adequate GPU resources:
 ### Option 2: Cloud Training (Recommended for Most Users)
 
 #### 🌟 Google Colab (Recommended)
+
 **Best for:** Students, beginners, free GPU access
 
 **Features:**
+
 - Free GPU (T4 or better)
 - No setup required
 - Jupyter notebook interface
 - Can save models to Google Drive
 
 **How to use:**
+
 1. Go to [Google Colab](https://colab.research.google.com/)
 2. Create new notebook
 3. Enable GPU: Runtime → Change runtime type → GPU
 4. Install YOLOv8:
+
    ```python
    !pip install ultralytics
    ```
+
 5. Upload your dataset (or use Roboflow)
 6. Train:
+
    ```python
    from ultralytics import YOLO
    model = YOLO('yolov8n.pt')
    results = model.train(data='path/to/data.yaml', epochs=50)
    ```
+
 7. Download trained model (`best.pt`)
 8. Upload to WeldVision-X5 MLOps → Convert → Deploy
 
 **Limitations:**
+
 - Session timeout after inactivity
 - Limited GPU hours per week (free tier)
 - Need to reconnect if session expires
@@ -103,9 +118,11 @@ If your system has adequate GPU resources:
 ---
 
 #### 🤖 Roboflow Train
+
 **Best for:** Automated workflow, no coding required
 
 **Features:**
+
 - Fully automated training
 - Dataset hosting included
 - Automatic augmentation
@@ -113,6 +130,7 @@ If your system has adequate GPU resources:
 - Free tier available
 
 **How to use:**
+
 1. Create account at [Roboflow](https://roboflow.com/)
 2. Upload your annotated images
 3. Generate dataset with train/val/test splits
@@ -122,15 +140,18 @@ If your system has adequate GPU resources:
 7. Import to WeldVision-X5
 
 **Pricing:**
+
 - Free tier: Limited training hours
 - Paid plans: $49+/month for unlimited training
 
 ---
 
 #### 🚀 Ultralytics HUB
+
 **Best for:** Official YOLOv8 platform, enterprise features
 
 **Features:**
+
 - Official Ultralytics service
 - Cloud training on powerful GPUs
 - Dataset versioning
@@ -138,6 +159,7 @@ If your system has adequate GPU resources:
 - Free tier available
 
 **How to use:**
+
 1. Sign up at [Ultralytics HUB](https://hub.ultralytics.com/)
 2. Create new project
 3. Upload dataset in YOLO format
@@ -147,6 +169,7 @@ If your system has adequate GPU resources:
 7. Import to WeldVision-X5
 
 **Pricing:**
+
 - Free tier: Limited resources
 - Pro: $29/month
 - Enterprise: Custom pricing
@@ -158,11 +181,13 @@ If your system has adequate GPU resources:
 If you already have a trained YOLO model from another source:
 
 **Supported formats:**
+
 - PyTorch `.pt` files (YOLOv8)
 - ONNX `.onnx` files
 - Other YOLO formats (may require conversion)
 
 **Import process:**
+
 ```bash
 1. Go to MLOps Center
 2. Click "Upload Model" or use file manager
@@ -176,7 +201,7 @@ If you already have a trained YOLO model from another source:
 ## Comparison Table
 
 | Method | Cost | Speed | GPU Required | Difficulty | Best For |
-|--------|------|-------|--------------|------------|----------|
+| --- | --- | --- | --- | --- | --- |
 | **Local Training** | Free | Fast | Yes | Medium | Users with gaming PC/workstation |
 | **Google Colab** | Free | Fast | No (provided) | Easy | Students, learning, testing |
 | **Roboflow** | Free/Paid | Fast | No (cloud) | Very Easy | Quick deployment, automation |
@@ -188,31 +213,41 @@ If you already have a trained YOLO model from another source:
 ## Recommendations by Use Case
 
 ### 👨‍🎓 Students / Learning
+
 → **Google Colab**
+
 - Free GPU access
 - Great for experimentation
 - No hardware investment needed
 
 ### 🏭 Small Business / Prototyping
+
 → **Roboflow**
+
 - Easiest workflow
 - Automated everything
 - Free tier to start
 
 ### 🏢 Enterprise / Production
+
 → **Ultralytics HUB** or **Local Training**
+
 - Official support
 - Data privacy (local)
 - Scalable infrastructure
 
 ### 💰 Budget-Conscious
+
 → **Google Colab** → **Import to WeldVision**
+
 - Completely free option
 - Good performance
 - Just takes a few extra steps
 
 ### ⚡ Already Have GPU
+
 → **Local Training**
+
 - Full control
 - No upload/download time
 - Data stays local
@@ -232,6 +267,7 @@ YOLO models perform thousands of matrix operations during training. GPUs are opt
 ### Minimum GPU Specifications
 
 For efficient YOLOv8 training:
+
 - **VRAM**: 6GB minimum (8GB recommended)
 - **Examples of suitable GPUs**:
   - NVIDIA RTX 3060 (12GB)
@@ -242,6 +278,7 @@ For efficient YOLOv8 training:
 ### Batch Size Considerations
 
 If you have limited VRAM:
+
 - Reduce batch size (default: 16 → try 8 or 4)
 - Use smaller model (yolov8n instead of yolov8m)
 - Reduce image size (640 → 416)
@@ -270,17 +307,20 @@ graph TD
 ## Support & Troubleshooting
 
 ### System Check Shows Wrong Information
+
 - Restart Docker containers: `docker-compose restart`
 - Check if NVIDIA drivers are installed: `nvidia-smi`
 - Verify GPU is visible to Docker
 
 ### Training Fails Immediately
+
 - Check dataset format (YOLO format required)
 - Verify data.yaml path is correct
 - Ensure sufficient disk space (5GB+ recommended)
 - Check Docker logs: `docker logs weldvision-backend`
 
 ### Cloud Training Questions
+
 - **Colab**: See [Colab FAQ](https://research.google.com/colaboratory/faq.html)
 - **Roboflow**: See [Roboflow Docs](https://docs.roboflow.com/)
 - **Ultralytics**: See [Ultralytics Docs](https://docs.ultralytics.com/)

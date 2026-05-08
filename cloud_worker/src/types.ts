@@ -5,6 +5,7 @@ export interface Env {
   STORAGE: R2Bucket;
   AI: Ai;
   JWT_SECRET: string;
+  GITHUB_PAT: string;
   ENVIRONMENT: string;
   ALLOWED_ORIGINS: string;
 }

@@ -190,9 +190,9 @@ const History: FC = () => {
 
                     {totalPages > 1 && (
                         <div className="flex items-center justify-center gap-2 mt-8">
-                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2.5 rounded-xl bg-slate-800 text-white disabled:opacity-30"><ChevronLeft className="w-5 h-5" /></button>
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} title="Previous page" className="p-2.5 rounded-xl bg-slate-800 text-white disabled:opacity-30"><ChevronLeft className="w-5 h-5" /></button>
                             <span className="text-slate-400 font-bold px-4">Page {currentPage} of {totalPages}</span>
-                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2.5 rounded-xl bg-slate-800 text-white disabled:opacity-30"><ChevronRight className="w-5 h-5" /></button>
+                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} title="Next page" className="p-2.5 rounded-xl bg-slate-800 text-white disabled:opacity-30"><ChevronRight className="w-5 h-5" /></button>
                         </div>
                     )}
                 </>

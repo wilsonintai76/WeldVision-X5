@@ -17,30 +17,39 @@ on:
   repository_dispatch:
     types: [roboflow_training_complete]
 
-  # Allow manual re-runs from the GitHub Actions UI (useful for debugging)
+  # Allow manual re-runs from the GitHub Actions UI (useful for debugging).
+  # When triggering from the WeldVision frontend, set model_r2_key and leave
+  # the Roboflow fields blank — the workflow will download from R2 instead.
   workflow_dispatch:
     inputs:
+      model_r2_key:
+        description: 'R2 object key of a .pt file (e.g. models/uploads/…_best.pt). When set, skips Roboflow download.'
+        required: false
+        default: ''
       roboflow_workspace:
-        description: 'Roboflow workspace slug'
-        required: true
+        description: 'Roboflow workspace slug (leave blank when using model_r2_key)'
+        required: false
+        default: ''
       roboflow_project:
-        description: 'Roboflow project slug'
-        required: true
+        description: 'Roboflow project slug (leave blank when using model_r2_key)'
+        required: false
+        default: ''
       roboflow_version:
-        description: 'Model version number'
-        required: true
+        description: 'Model version number (leave blank when using model_r2_key)'
+        required: false
+        default: ''
 
 jobs:
   build_and_deploy:
     name: Download → ONNX → BPU .bin → R2
     runs-on: ubuntu-latest
 
-    # Resolve workspace/project/version from either the webhook payload
-    # or the manual workflow_dispatch inputs.
+    # Resolve source from webhook payload, manual dispatch inputs, or R2 key.
     env:
-      RF_WORKSPACE: ${{ github.event.client_payload.workspace || inputs.roboflow_workspace }}
-      RF_PROJECT:   ${{ github.event.client_payload.project   || inputs.roboflow_project }}
-      RF_VERSION:   ${{ github.event.client_payload.version   || inputs.roboflow_version }}
+      MODEL_R2_KEY: ${{ github.event.client_payload.model_r2_key || inputs.model_r2_key || '' }}
+      RF_WORKSPACE: ${{ github.event.client_payload.workspace || inputs.roboflow_workspace || '' }}
+      RF_PROJECT:   ${{ github.event.client_payload.project   || inputs.roboflow_project || '' }}
+      RF_VERSION:   ${{ github.event.client_payload.version   || inputs.roboflow_version || '' }}
 
     steps:
       # ── 1. Checkout repo ────────────────────────────────────────────────
@@ -57,10 +66,24 @@ jobs:
       - name: Install Ultralytics (ONNX export)
         run: pip install --quiet ultralytics onnx onnxsim roboflow
 
-      # ── 3. Download trained model from Roboflow ─────────────────────────
-      # Roboflow API: GET /{workspace}/{project}/{version}/yolov8pytorch
-      # Returns a signed URL; we follow the redirect with -L.
-      - name: Download best.pt from Roboflow
+      # ── 3. Download trained model ────────────────────────────────────────
+      # Two paths: (a) from Cloudflare R2 when triggered from the WeldVision
+      # frontend, or (b) from Roboflow when triggered by the training webhook.
+
+      - name: Download model from Cloudflare R2
+        if: env.MODEL_R2_KEY != ''
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_KEY }}
+        run: |
+          echo "Downloading $MODEL_R2_KEY from R2 ..."
+          aws s3 cp "s3://weldvision-media/$MODEL_R2_KEY" best.pt \
+            --endpoint-url "https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com" \
+            --region auto
+          ls -lh best.pt
+
+      - name: Download model from Roboflow
+        if: env.MODEL_R2_KEY == ''
         run: |
           echo "Downloading version $RF_VERSION of $RF_WORKSPACE/$RF_PROJECT ..."
           curl -L \
@@ -145,7 +168,7 @@ jobs:
 # ─────────────────────────────────────────────────────────────────────────────
 # REQUIRED GITHUB SECRETS (Settings → Secrets → Actions):
 #   ROBOFLOW_KEY          — Roboflow API key (Private key tab in RF settings)
-#   CLOUDFLARE_ACCOUNT_ID — REDACTED_ACCOUNT_ID
+#   CLOUDFLARE_ACCOUNT_ID — b6f9b4c33511b3e607595a0993dfdcd4
 #   R2_ACCESS_KEY_ID      — R2 API token Access Key ID
 #   R2_SECRET_KEY         — R2 API token Secret Access Key
 # ─────────────────────────────────────────────────────────────────────────────

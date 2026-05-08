@@ -508,7 +508,7 @@ const CourseManagement: FC = () => {
         <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg flex items-center gap-2">
           <AlertCircle className="w-5 h-5" />
           {error}
-          <button onClick={() => setError(null)} className="ml-auto"><X className="w-4 h-4" /></button>
+          <button onClick={() => setError(null)} title="Dismiss" className="ml-auto"><X className="w-4 h-4" /></button>
         </div>
       )}
       {success && (

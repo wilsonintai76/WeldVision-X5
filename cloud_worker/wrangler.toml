@@ -2,7 +2,7 @@ name = "weldvision-api"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
-account_id = "REDACTED_ACCOUNT_ID"
+account_id = "b6f9b4c33511b3e607595a0993dfdcd4"
 
 # ─────────────────────────────────────────────────
 # SETUP STEPS (first-time only):

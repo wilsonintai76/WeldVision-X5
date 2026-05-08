@@ -252,6 +252,29 @@ const MLOps = () => {
     }
   }
 
+  const triggerGitHubCompile = async () => {
+    if (!convertForm.model_id) {
+      alert('Please select a .pt model to compile.')
+      return
+    }
+    const model = models.find((m: Model) => String(m.id) === String(convertForm.model_id))
+    if (!model) return
+    if (!window.confirm(`Trigger GitHub Actions to compile "${model.name}" v${model.version} to Horizon .bin?\n\nThe job will appear under the Actions tab of your GitHub repository.`)) return
+
+    const res = await fetch(`${apiBase}/models/github-compile`, {
+      credentials: 'include',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model_id: Number(convertForm.model_id) }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      alert(`Dispatch failed: ${err.error || res.statusText}`)
+      return
+    }
+    alert('GitHub Actions compile job dispatched!\n\nTrack progress at:\nhttps://github.com/wilsonintai76/WeldVision-X5/actions')
+  }
+
   return (
     <div className="p-8 space-y-6">
       {/* Header */}
@@ -393,6 +416,7 @@ const MLOps = () => {
           setConvertForm={setConvertForm}
           convertibleModels={convertibleModels}
           onConvert={startConvert}
+          onGitHubCompile={triggerGitHubCompile}
         />
 
         {/* 4. Jobs Section */}
@@ -409,6 +433,7 @@ const MLOps = () => {
             </div>
             <button
               onClick={refreshJobs}
+              title="Refresh jobs"
               className="p-2 text-slate-500 hover:text-white transition-colors"
             >
               <RefreshCw className={`w-5 h-5 ${jobsLoading ? 'animate-spin' : ''}`} />
