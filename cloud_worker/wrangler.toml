@@ -30,6 +30,14 @@ database_id = "606c65e3-8a36-46e4-a7ca-c7b113e1a275"
 binding = "STORAGE"
 bucket_name = "weldvision-media"
 
+# Queue consumer — receives R2 event notifications when *.pt files are uploaded
+# and auto-triggers the GitHub Actions compile workflow.
+[[queues.consumers]]
+queue = "model-compile-queue"
+max_batch_size = 1
+max_batch_timeout = 5
+max_retries = 3
+
 [ai]
 binding = "AI"
 

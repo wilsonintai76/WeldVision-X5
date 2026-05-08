@@ -128,4 +128,52 @@ app.onError((err, c) => {
 // Import it with: import type { AppType } from '../../../cloud_worker/src'
 export type AppType = typeof app;
 
-export default app;
+// ── R2 event notification queue consumer ─────────────────────────────────────
+// Cloudflare R2 sends a message to `model-compile-queue` whenever an object
+// is created in weldvision-media under models/uploads/*.pt
+// This consumer automatically dispatches the GitHub Actions compile workflow.
+
+interface R2EventBody {
+  object?: { key?: string };
+}
+
+export default {
+  fetch: app.fetch.bind(app),
+
+  async queue(batch: MessageBatch<R2EventBody>, env: Env): Promise<void> {
+    for (const msg of batch.messages) {
+      const key = msg.body?.object?.key ?? '';
+
+      if (!key.endsWith('.pt')) {
+        msg.ack();
+        continue;
+      }
+
+      console.log(`[Queue] Auto-compiling R2 model: ${key}`);
+
+      const resp = await fetch(
+        'https://api.github.com/repos/wilsonintai76/WeldVision-X5/actions/workflows/compile_model.yml/dispatches',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${env.GITHUB_PAT}`,
+            Accept: 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+            'User-Agent': 'WeldVision-Worker/1.0',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ ref: 'main', inputs: { model_r2_key: key } }),
+        }
+      );
+
+      if (resp.ok || resp.status === 204) {
+        console.log(`[Queue] Dispatched compile job for ${key}`);
+        msg.ack();
+      } else {
+        const text = await resp.text();
+        console.error(`[Queue] GitHub dispatch failed (${resp.status}): ${text}`);
+        msg.retry();
+      }
+    }
+  },
+};
