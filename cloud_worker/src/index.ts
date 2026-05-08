@@ -36,6 +36,7 @@ const PUBLIC_PATHS = new Set([
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/forgot-pin',
+  '/api/webhooks/edge-impulse',
 ]);
 
 // ── JWT auth middleware ───────────────────────────────────────────────────────
@@ -109,6 +110,54 @@ app.route('/api/evaluations', rubricsRouter);  // shortcut for /api/evaluations/
 // MLOps / model registry  →  /api/models/*
 app.route('/api/models', mlopsRouter);
 
+// ── Edge Impulse webhook  →  POST /api/webhooks/edge-impulse?token=<secret> ──
+// Edge Impulse POSTs here after pipeline steps complete.
+// If the payload contains a model export (.pt), auto-trigger GitHub compile.
+app.post('/api/webhooks/edge-impulse', async (c) => {
+  // Validate shared secret from query string
+  const token = c.req.query('token');
+  if (!token || token !== c.env.EDGE_IMPULSE_WEBHOOK_SECRET) {
+    return c.json({ error: 'Forbidden' }, 403);
+  }
+
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  console.log('[EdgeImpulse webhook]', JSON.stringify(body));
+
+  // Edge Impulse webhook payload varies by step; look for an exported model key
+  // Expecting: { project: { id }, files: [{ name, download_url }] } or similar
+  // If there's a .pt file key in R2, dispatch compile. Otherwise just ack.
+  const modelKey: string | undefined = (
+    (body as { model_r2_key?: string }).model_r2_key ||
+    undefined
+  );
+
+  if (modelKey && modelKey.endsWith('.pt')) {
+    const resp = await fetch(
+      'https://api.github.com/repos/wilsonintai76/WeldVision-X5/actions/workflows/compile_model.yml/dispatches',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${c.env.GITHUB_PAT}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'Content-Type': 'application/json',
+          'User-Agent': 'WeldVision-Worker/1.0',
+        },
+        body: JSON.stringify({ ref: 'main', inputs: { model_r2_key: modelKey } }),
+      }
+    );
+    if (resp.ok || resp.status === 204) {
+      console.log(`[EdgeImpulse webhook] Dispatched compile for ${modelKey}`);
+      return c.json({ received: true, dispatched: true, model_r2_key: modelKey });
+    }
+    const err = await resp.text();
+    console.error(`[EdgeImpulse webhook] GitHub dispatch failed (${resp.status}): ${err}`);
+    return c.json({ received: true, dispatched: false, error: err }, 502);
+  }
+
+  return c.json({ received: true, dispatched: false, note: 'No .pt model_r2_key in payload' });
+});
+
 // Storage (file uploads)  →  /api/storage/*
 app.route('/api/storage', storageRouter);
 
@@ -128,4 +177,52 @@ app.onError((err, c) => {
 // Import it with: import type { AppType } from '../../../cloud_worker/src'
 export type AppType = typeof app;
 
-export default app;
+// ── R2 event notification queue consumer ─────────────────────────────────────
+// Cloudflare R2 sends a message to `model-compile-queue` whenever an object
+// is created in weldvision-media under models/uploads/*.pt
+// This consumer automatically dispatches the GitHub Actions compile workflow.
+
+interface R2EventBody {
+  object?: { key?: string };
+}
+
+export default {
+  fetch: app.fetch.bind(app),
+
+  async queue(batch: MessageBatch<R2EventBody>, env: Env): Promise<void> {
+    for (const msg of batch.messages) {
+      const key = msg.body?.object?.key ?? '';
+
+      if (!key.endsWith('.pt')) {
+        msg.ack();
+        continue;
+      }
+
+      console.log(`[Queue] Auto-compiling R2 model: ${key}`);
+
+      const resp = await fetch(
+        'https://api.github.com/repos/wilsonintai76/WeldVision-X5/actions/workflows/compile_model.yml/dispatches',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${env.GITHUB_PAT}`,
+            Accept: 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+            'User-Agent': 'WeldVision-Worker/1.0',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ ref: 'main', inputs: { model_r2_key: key } }),
+        }
+      );
+
+      if (resp.ok || resp.status === 204) {
+        console.log(`[Queue] Dispatched compile job for ${key}`);
+        msg.ack();
+      } else {
+        const text = await resp.text();
+        console.error(`[Queue] GitHub dispatch failed (${resp.status}): ${text}`);
+        msg.retry();
+      }
+    }
+  },
+};

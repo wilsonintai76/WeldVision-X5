@@ -153,24 +153,22 @@ const Analytics: FC = () => {
                 <span className="text-sm text-slate-400">Avg Images per Dataset</span>
                 <span className="text-sm font-semibold text-white">{stats.avgImagesPerDataset}</span>
               </div>
-              <div className="w-full bg-slate-800 rounded-full h-2">
-                <div 
-                  className="bg-blue-500 h-2 rounded-full" 
-                  style={{ width: `${Math.min((stats.avgImagesPerDataset / 100) * 100, 100)}%` }}
-                ></div>
-              </div>
+              <progress
+                className="appearance-none block w-full h-2 rounded-full [&::-webkit-progress-bar]:bg-slate-800 [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-value]:bg-blue-500 [&::-webkit-progress-value]:rounded-full [&::-moz-progress-bar]:bg-blue-500"
+                value={Math.min(stats.avgImagesPerDataset, 100)}
+                max={100}
+              />
             </div>
             <div>
               <div className="flex justify-between mb-2">
                 <span className="text-sm text-slate-400">Annotation Coverage</span>
                 <span className="text-sm font-semibold text-white">{stats.annotationCoverage}%</span>
               </div>
-              <div className="w-full bg-slate-800 rounded-full h-2">
-                <div 
-                  className="bg-emerald-500 h-2 rounded-full" 
-                  style={{ width: `${stats.annotationCoverage}%` }}
-                ></div>
-              </div>
+              <progress
+                className="appearance-none block w-full h-2 rounded-full [&::-webkit-progress-bar]:bg-slate-800 [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-value]:bg-emerald-500 [&::-webkit-progress-value]:rounded-full [&::-moz-progress-bar]:bg-emerald-500"
+                value={stats.annotationCoverage}
+                max={100}
+              />
             </div>
           </div>
         </div>

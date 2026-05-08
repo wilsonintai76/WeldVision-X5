@@ -299,4 +299,52 @@ export const coreAPI = {
   },
 };
 
+// ── Storage / R2 upload ───────────────────────────────────────────────────────
+
+export const storageAPI = {
+  async uploadFile(
+    file: File,
+    folder = 'images/training',
+    onProgress?: (pct: number) => void,
+  ): Promise<{ key: string; url: string }> {
+    return new Promise((resolve, reject) => {
+      const token = getStoredToken();
+      const form = new FormData();
+      form.append('file', file);
+      form.append('folder', folder);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API_BASE}/storage/upload`);
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => {
+        if (xhr.status === 201) {
+          resolve(JSON.parse(xhr.responseText));
+        } else {
+          reject(new Error(`Upload failed: ${xhr.status} ${xhr.responseText}`));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Network error during upload'));
+      xhr.send(form);
+    });
+  },
+
+  async uploadMultiple(
+    files: File[],
+    folder = 'images/training',
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<Array<{ key: string; url: string }>> {
+    const results: Array<{ key: string; url: string }> = [];
+    for (let i = 0; i < files.length; i++) {
+      const result = await storageAPI.uploadFile(files[i], folder);
+      results.push(result);
+      onProgress?.(i + 1, files.length);
+    }
+    return results;
+  },
+};
+
 export default coreAPI;

@@ -1,4 +1,4 @@
-import { RefreshCw, AlertTriangle } from 'lucide-react'
+import { RefreshCw, AlertTriangle, Github } from 'lucide-react'
 import React from 'react'
 
 interface Model {
@@ -28,13 +28,15 @@ interface BPUConverterProps {
   setConvertForm: React.Dispatch<React.SetStateAction<ConvertForm>>;
   convertibleModels: Model[];
   onConvert: () => void;
+  onGitHubCompile: () => void;
 }
 
 const BPUConverter = ({
   convertForm,
   setConvertForm,
   convertibleModels,
-  onConvert
+  onConvert,
+  onGitHubCompile,
 }: BPUConverterProps) => {
   return (
     <div className="p-6 bg-slate-900 rounded-xl border border-slate-800 shadow-sm h-full">
@@ -54,6 +56,7 @@ const BPUConverter = ({
           <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Source weights</label>
           <div className="min-h-[60px]">
             <select
+              title="Source model weights"
               value={convertForm.model_id}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setConvertForm({ ...convertForm, model_id: e.target.value })}
               className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
@@ -72,6 +75,7 @@ const BPUConverter = ({
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Target Format</label>
             <select
+              title="Target format"
               value={convertForm.format}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setConvertForm({ ...convertForm, format: e.target.value })}
               className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
@@ -89,6 +93,20 @@ const BPUConverter = ({
           className="w-full px-4 py-4 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold shadow-lg shadow-purple-600/20 transition-all active:scale-[0.98]"
         >
           Initialize Conversion Engine
+        </button>
+
+        <div className="relative flex items-center gap-2">
+          <div className="flex-1 h-px bg-slate-800" />
+          <span className="text-[10px] text-slate-600 uppercase tracking-widest font-bold">or</span>
+          <div className="flex-1 h-px bg-slate-800" />
+        </div>
+
+        <button
+          onClick={onGitHubCompile}
+          className="w-full px-4 py-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-500 text-white rounded-xl font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+        >
+          <Github className="w-4 h-4" />
+          Compile to Horizon .bin via GitHub Actions
         </button>
         <div className="bg-slate-950 rounded-lg p-3 flex items-start gap-3 border border-slate-800">
           <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />

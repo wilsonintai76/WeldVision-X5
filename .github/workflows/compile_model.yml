@@ -2,45 +2,26 @@ name: Compile YOLOv8 → Horizon BPU (.bin)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # TRIGGER
-# Roboflow sends a repository_dispatch event when training finishes.
-# Configure the Roboflow webhook to POST to:
-#   https://api.github.com/repos/wilsonintai76/WeldVision-X5/dispatches
-# with header:  Authorization: Bearer <ROBOFLOW_GITHUB_TOKEN>
-# and body:     { "event_type": "roboflow_training_complete",
-#                 "client_payload": {
-#                   "workspace": "<roboflow-workspace>",
-#                   "project":   "<roboflow-project>",
-#                   "version":   "<version-number>"
-#                 }}
+# Triggered from the WeldVision MLOps frontend via the Worker's
+# POST /api/models/github-compile endpoint, which calls the GitHub
+# workflow_dispatch API with the R2 key of the uploaded .pt file.
+# Can also be run manually from the GitHub Actions UI.
 # ─────────────────────────────────────────────────────────────────────────────
 on:
-  repository_dispatch:
-    types: [roboflow_training_complete]
-
-  # Allow manual re-runs from the GitHub Actions UI (useful for debugging)
   workflow_dispatch:
     inputs:
-      roboflow_workspace:
-        description: 'Roboflow workspace slug'
+      model_r2_key:
+        description: 'R2 object key of the .pt file to compile (e.g. models/uploads/…_best.pt)'
         required: true
-      roboflow_project:
-        description: 'Roboflow project slug'
-        required: true
-      roboflow_version:
-        description: 'Model version number'
-        required: true
+        default: ''
 
 jobs:
   build_and_deploy:
     name: Download → ONNX → BPU .bin → R2
     runs-on: ubuntu-latest
 
-    # Resolve workspace/project/version from either the webhook payload
-    # or the manual workflow_dispatch inputs.
     env:
-      RF_WORKSPACE: ${{ github.event.client_payload.workspace || inputs.roboflow_workspace }}
-      RF_PROJECT:   ${{ github.event.client_payload.project   || inputs.roboflow_project }}
-      RF_VERSION:   ${{ github.event.client_payload.version   || inputs.roboflow_version }}
+      MODEL_R2_KEY: ${{ inputs.model_r2_key }}
 
     steps:
       # ── 1. Checkout repo ────────────────────────────────────────────────
@@ -55,17 +36,18 @@ jobs:
           python-version: '3.11'
 
       - name: Install Ultralytics (ONNX export)
-        run: pip install --quiet ultralytics onnx onnxsim roboflow
+        run: pip install --quiet ultralytics onnx onnxsim
 
-      # ── 3. Download trained model from Roboflow ─────────────────────────
-      # Roboflow API: GET /{workspace}/{project}/{version}/yolov8pytorch
-      # Returns a signed URL; we follow the redirect with -L.
-      - name: Download best.pt from Roboflow
+      # ── 3. Download trained model from Cloudflare R2 ────────────────────
+      - name: Download model from Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_KEY }}
         run: |
-          echo "Downloading version $RF_VERSION of $RF_WORKSPACE/$RF_PROJECT ..."
-          curl -L \
-            "https://api.roboflow.com/$RF_WORKSPACE/$RF_PROJECT/$RF_VERSION/yolov8pytorch/model.pt?api_key=${{ secrets.ROBOFLOW_KEY }}" \
-            -o best.pt
+          echo "Downloading $MODEL_R2_KEY from R2 ..."
+          aws s3 cp "s3://weldvision-media/$MODEL_R2_KEY" best.pt \
+            --endpoint-url "https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com" \
+            --region auto
           ls -lh best.pt
 
       # ── 4. Export PyTorch → ONNX ─────────────────────────────────────────
@@ -117,13 +99,11 @@ jobs:
           destination-dir:      models/
 
       # ── 8. Tag the release in Git ────────────────────────────────────────
-      # Creates a lightweight tag so we know exactly which Roboflow version
-      # corresponds to which compiled .bin in the git history.
       - name: Tag release
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          TAG="model-v${{ env.RF_VERSION }}-$(date +'%Y%m%d%H%M%S')"
+          TAG="model-$(date +'%Y%m%d%H%M%S')"
           git tag "$TAG"
           git push origin "$TAG"
         env:
@@ -136,7 +116,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Stage | Result |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Roboflow source | \`$RF_WORKSPACE/$RF_PROJECT @ v$RF_VERSION\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Source model | \`$MODEL_R2_KEY\` |" >> $GITHUB_STEP_SUMMARY
           echo "| ONNX export | ✅ yolov8_weld.onnx |" >> $GITHUB_STEP_SUMMARY
           echo "| BPU compilation | ✅ yolov8_weld.bin (Int8, Bayes-e) |" >> $GITHUB_STEP_SUMMARY
           echo "| R2 upload path | \`weldvision-media/models/model_update.bin\` |" >> $GITHUB_STEP_SUMMARY
@@ -144,7 +124,6 @@ jobs:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # REQUIRED GITHUB SECRETS (Settings → Secrets → Actions):
-#   ROBOFLOW_KEY          — Roboflow API key (Private key tab in RF settings)
 #   CLOUDFLARE_ACCOUNT_ID — b6f9b4c33511b3e607595a0993dfdcd4
 #   R2_ACCESS_KEY_ID      — R2 API token Access Key ID
 #   R2_SECRET_KEY         — R2 API token Secret Access Key

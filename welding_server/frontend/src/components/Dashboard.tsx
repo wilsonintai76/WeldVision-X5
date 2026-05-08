@@ -468,12 +468,11 @@ const Dashboard: FC = () => {
               </div>
               <div className="text-slate-500 font-bold">/ 100</div>
             </div>
-            <div className="mt-2 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-              <div 
-                className={`h-full transition-all duration-500 ${metrics.score >= 70 ? 'bg-emerald-500' : 'bg-red-500'}`}
-                style={{ width: `${metrics.score}%` }}
-              />
-            </div>
+            <progress
+              className={`appearance-none block mt-2 w-full h-1.5 rounded-full [&::-webkit-progress-bar]:bg-slate-800 [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:transition-all [&::-webkit-progress-value]:duration-500 ${metrics.score >= 70 ? '[&::-webkit-progress-value]:bg-emerald-500 [&::-moz-progress-bar]:bg-emerald-500' : '[&::-webkit-progress-value]:bg-red-500 [&::-moz-progress-bar]:bg-red-500'}`}
+              value={metrics.score}
+              max={100}
+            />
           </div>
 
           <DefectsCard defects={metrics.defects} />
