@@ -30,6 +30,14 @@ database_id = "606c65e3-8a36-46e4-a7ca-c7b113e1a275"
 binding = "STORAGE"
 bucket_name = "weldvision-media"
 
+# KV namespace for edge device state (active calibration, device IP, etc.)
+# Setup: wrangler kv:namespace create EDGE_STATE
+# Then paste the resulting id below.
+[[kv_namespaces]]
+binding = "KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+preview_id = "REPLACE_WITH_KV_PREVIEW_ID"
+
 # Queue consumer — receives R2 event notifications when *.pt files are uploaded
 # and auto-triggers the GitHub Actions compile workflow.
 [[queues.consumers]]

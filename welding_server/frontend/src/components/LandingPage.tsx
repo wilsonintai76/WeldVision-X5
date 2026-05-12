@@ -45,12 +45,12 @@ const LandingPage = ({ onEnterApp }: LandingPageProps) => {
   const checkSystemStatus = async () => {
     setIsChecking(true)
 
-    // Check backend using CSRF endpoint (public, no auth required)
+    // Check backend using Worker health endpoint (public, no auth required)
+    const apiBase = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
     try {
-      const response = await fetch('/api/auth/csrf/', {
+      const response = await fetch(`${apiBase}/health`, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
-        credentials: 'include'
       })
       if (response.ok) {
         setSystemStatus((prev: SystemStatus) => ({
@@ -70,24 +70,18 @@ const LandingPage = ({ onEnterApp }: LandingPageProps) => {
       }))
     }
 
-    // Check RDK X5 edge device via device-status endpoint (SSH over LAN)
+    // Check RDK X5 edge device directly via LAN (reads stored config)
     try {
-      const edgeResponse = await fetch('/api/device-status/', {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        credentials: 'include'
-      })
+      const saved = localStorage.getItem('wv_edge_config')
+      const cfg = saved ? JSON.parse(saved) : { device_ip: '192.168.1.100', device_port: '8080' }
+      const edgeResponse = await fetch(
+        `http://${cfg.device_ip}:${cfg.device_port}/health`,
+        { signal: AbortSignal.timeout(2500) }
+      )
       if (edgeResponse.ok) {
-        const data = await edgeResponse.json()
-        const isOnline = data.status === 'online'
         setSystemStatus((prev: SystemStatus) => ({
           ...prev,
-          edgeDevice: {
-            status: isOnline ? 'online' : 'warning',
-            message: isOnline
-              ? `RDK X5 connected (${data.ip})`
-              : `RDK X5 offline: ${data.error || 'unreachable'}`
-          }
+          edgeDevice: { status: 'online', message: `RDK X5 connected (${cfg.device_ip})` }
         }))
       } else {
         setSystemStatus((prev: SystemStatus) => ({
@@ -206,6 +200,7 @@ const LandingPage = ({ onEnterApp }: LandingPageProps) => {
             <button
               onClick={checkSystemStatus}
               disabled={isChecking}
+              aria-label="Refresh system status"
               className="text-slate-400 hover:text-white transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
@@ -217,7 +212,7 @@ const LandingPage = ({ onEnterApp }: LandingPageProps) => {
                 {getStatusIcon(systemStatus.backend.status)}
                 <div>
                   <p className="text-white font-medium text-sm">Backend Server</p>
-                  <p className="text-xs text-slate-400">Django REST API</p>
+                  <p className="text-xs text-slate-400">Cloudflare Worker</p>
                 </div>
               </div>
               <span className="text-xs text-slate-300">{systemStatus.backend.message}</span>
@@ -252,40 +247,40 @@ const LandingPage = ({ onEnterApp }: LandingPageProps) => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
             <div>
               <h4 className="text-white font-semibold mb-3">Documentation</h4>
-              <ul className="space-y-2">
+              <div className="space-y-2">
                 <FooterLink href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/docs/QUICKSTART.md">Quick Start</FooterLink>
                 <FooterLink href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/docs/PREREQUISITES.md">Prerequisites</FooterLink>
                 <FooterLink href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/docs/DEPLOYMENT.md">Deployment</FooterLink>
                 <FooterLink href="https://github.com/wilsonintai76/WeldVision-X5/blob/main/docs/STEREO_CALIBRATION_SETUP.md">Stereo Calibration</FooterLink>
-              </ul>
+              </div>
             </div>
             <div>
               <h4 className="text-white font-semibold mb-3">Hardware</h4>
-              <ul className="space-y-2">
+              <div className="space-y-2">
                 <FooterLink href="https://d-robotics.github.io/rdk_doc/en/RDK">RDK X5 Docs</FooterLink>
                 <FooterLink href="https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html">OpenCV Calibration</FooterLink>
-              </ul>
+              </div>
             </div>
             <div>
               <h4 className="text-white font-semibold mb-3">AI & ML</h4>
-              <ul className="space-y-2">
+              <div className="space-y-2">
                 <FooterLink href="https://docs.ultralytics.com/">YOLO Docs</FooterLink>
                 <FooterLink href="https://hub.ultralytics.com/">Ultralytics HUB</FooterLink>
                 <FooterLink href="https://roboflow.com/">Roboflow</FooterLink>
                 <FooterLink href="https://colab.research.google.com/">Google Colab</FooterLink>
-              </ul>
+              </div>
             </div>
             <div>
               <h4 className="text-white font-semibold mb-3">Development</h4>
-              <ul className="space-y-2">
+              <div className="space-y-2">
                 <FooterLink href="https://github.com/wilsonintai76/WeldVision-X5">
                   <GitBranch className="w-3 h-3 inline mr-1" />
                   GitHub Repository
                 </FooterLink>
-                <FooterLink href="https://www.django-rest-framework.org/">Django REST</FooterLink>
+                <FooterLink href="https://hono.dev/">Hono (Cloudflare)</FooterLink>
                 <FooterLink href="https://react.dev/">React</FooterLink>
                 <FooterLink href="https://docs.docker.com/">Docker</FooterLink>
-              </ul>
+              </div>
             </div>
           </div>
           <div className="text-center text-slate-500 text-sm pt-6 border-t border-slate-800">
@@ -353,17 +348,15 @@ interface FooterLinkProps {
 
 const FooterLink = ({ href, children }: FooterLinkProps) => {
   return (
-    <li>
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-slate-400 hover:text-white text-sm transition-colors flex items-center gap-1"
-      >
-        {children}
-        <ExternalLink className="w-3 h-3 opacity-50" />
-      </a>
-    </li>
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-slate-400 hover:text-white text-sm transition-colors flex items-center gap-1"
+    >
+      {children}
+      <ExternalLink className="w-3 h-3 opacity-50" />
+    </a>
   )
 }
 

@@ -118,7 +118,7 @@ This saves `best.pt` to your local machine.
 ## Tips
 
 | Tip | Detail |
-|---|---|
+| --- | --- |
 | Use `yolov8n` | Compiles cleanest to Horizon BPU Int8 |
 | `imgsz=640` | Required — matches `horizon_config.yaml` input size |
 | `epochs=100` | Start here; increase if mAP is still improving |

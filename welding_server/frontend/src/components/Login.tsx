@@ -257,6 +257,7 @@ const Login: FC = () => {
               </div>
               <button
                 onClick={closeForgotPasswordModal}
+                aria-label="Close"
                 className="text-slate-400 hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />

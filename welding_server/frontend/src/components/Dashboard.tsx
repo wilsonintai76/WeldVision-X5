@@ -10,22 +10,13 @@ import { RubricPanel } from './dashboard/RubricPanel'
 
 // Types
 import { Course, Student, Rubric, Metrics, EvaluationResult } from './dashboard/types'
+import { getStoredToken } from '../services/authAPI'
 
-// Helper to get CSRF token
-function getCSRFToken(): string | null {
-  const name = 'csrftoken';
-  let cookieValue: string | null = null;
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === (name + '=')) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
-      }
-    }
-  }
-  return cookieValue;
+function authHeaders(): Record<string, string> {
+  const token = getStoredToken();
+  return token
+    ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+    : { 'Content-Type': 'application/json' };
 }
 
 const Dashboard: FC = () => {
@@ -69,7 +60,7 @@ const Dashboard: FC = () => {
 
   const fetchRubrics = async () => {
     try {
-      const res = await fetch('/api/assessment-rubrics/', { credentials: 'include' })
+      const res = await fetch('/api/rubrics', { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
         const rubricList = (Array.isArray(data) ? data : (data.results || [])) as Rubric[]
@@ -172,7 +163,7 @@ const Dashboard: FC = () => {
   const fetchCourses = async () => {
     try {
       // First get active session
-      const sessRes = await fetch('/api/sessions/active/', { credentials: 'include' })
+      const sessRes = await fetch('/api/sessions/active', { headers: authHeaders() })
       let sessionId = null
       if (sessRes.ok) {
         const sessData = await sessRes.json()
@@ -180,8 +171,8 @@ const Dashboard: FC = () => {
       }
 
       // Then get courses for that session
-      const url = sessionId ? `/api/courses/?session=${sessionId}` : '/api/courses/'
-      const res = await fetch(url, { credentials: 'include' })
+      const url = sessionId ? `/api/courses?session_id=${sessionId}` : '/api/courses'
+      const res = await fetch(url, { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
         setCourses((Array.isArray(data) ? data : (data.results || [])) as Course[])
@@ -193,13 +184,9 @@ const Dashboard: FC = () => {
 
   const fetchStudents = async (courseId: number | null = null) => {
     try {
-      let url = '/api/students/'
-      
-      if (courseId) {
-        url = `/api/courses/${courseId}/students/`
-      }
+      const url = courseId ? `/api/students?course_id=${courseId}` : '/api/students'
 
-      const res = await fetch(url, { credentials: 'include' })
+      const res = await fetch(url, { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
         const studentList = (Array.isArray(data) ? data : (data.results || [])) as Student[]
@@ -217,8 +204,8 @@ const Dashboard: FC = () => {
     const pollMetrics = async () => {
       try {
         const res = await fetch(
-          `/api/students/${selectedStudent.student_id}/assessments/?limit=1`,
-          { credentials: 'include' }
+          `/api/students/${selectedStudent.student_id}/assessments?limit=1`,
+          { headers: authHeaders() }
         )
         if (!res.ok) throw new Error('fetch failed')
 
@@ -315,14 +302,9 @@ const Dashboard: FC = () => {
 
       let savedEvaluationId: number | null = null
       try {
-        const csrfToken = getCSRFToken();
-        const res = await fetch('/api/student-evaluations/', {
+        const res = await fetch('/api/rubrics/evaluations', {
           method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(csrfToken ? { 'X-CSRFToken': csrfToken } : {})
-          },
+          headers: authHeaders(),
           body: JSON.stringify({
             student: selectedStudent.id,
             rubric: selectedRubric.id,

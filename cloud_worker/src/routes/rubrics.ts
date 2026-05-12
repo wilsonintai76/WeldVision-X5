@@ -93,6 +93,84 @@ rubrics.delete('/:id', async (c) => {
   return c.json({ message: 'Deleted' });
 });
 
+// ── POST /api/rubrics/create-iso-5817 ────────────────────────────────────────
+// Creates an ISO 5817 standard welding quality rubric with predefined criteria.
+// Must be defined BEFORE /:id routes to avoid the literal path being captured
+// by the :id wildcard.
+
+rubrics.post('/create-iso-5817', async (c) => {
+  const payload = c.get('jwtPayload') as JWTPayload;
+  if (!isAdminOrInstructor(payload.role)) return c.json({ error: 'Forbidden' }, 403);
+
+  // Deactivate all existing rubrics first if requested
+  await c.env.DB.prepare("UPDATE assessment_rubrics SET is_active = 0, updated_at = datetime('now')").run();
+
+  const result = await c.env.DB.prepare(`
+    INSERT INTO assessment_rubrics (name, description, rubric_type, is_active, passing_score)
+    VALUES (?, ?, ?, ?, ?)
+  `).bind(
+    'ISO 5817 Welding Quality',
+    'Standard welding quality rubric based on ISO 5817 — Quality levels for imperfections in fusion welding of metals.',
+    'iso_5817',
+    1,
+    3.0,
+  ).run();
+
+  const rubricId = result.meta.last_row_id;
+
+  const criteria = [
+    { name: 'Cracks', category: 'structural', w: 2.0, order: 1,
+      l1: 'Severe cracks', l2: 'Multiple cracks', l3: 'Minor surface crack', l4: 'Micro crack', l5: 'No cracks' },
+    { name: 'Porosity', category: 'structural', w: 1.5, order: 2,
+      l1: '>5 pores visible', l2: '3-5 pores', l3: '1-2 pores', l4: 'Micro-porosity only', l5: 'No porosity' },
+    { name: 'Incomplete Fusion', category: 'structural', w: 2.0, order: 3,
+      l1: 'No fusion on edges', l2: 'Large unfused area', l3: 'Small unfused zone', l4: 'Marginal fusion', l5: 'Complete fusion' },
+    { name: 'Undercut', category: 'dimensional', w: 1.5, order: 4,
+      l1: '>1mm deep undercut', l2: '0.5-1mm undercut', l3: '0.3-0.5mm undercut', l4: '<0.3mm undercut', l5: 'No undercut' },
+    { name: 'Weld Spatter', category: 'visual', w: 1.0, order: 5,
+      l1: 'Heavy spatter all around', l2: 'Multiple large spatter', l3: 'Some spatter', l4: 'Minimal spatter', l5: 'No spatter' },
+    { name: 'Bead Geometry', category: 'dimensional', w: 1.0, order: 6,
+      l1: 'Grossly irregular bead', l2: 'Significant irregularity', l3: 'Moderate uniformity', l4: 'Near-uniform bead', l5: 'Uniform bead width' },
+    { name: 'Reinforcement Height', category: 'dimensional', w: 1.0, order: 7,
+      l1: '>4mm over-reinforcement', l2: '2-4mm over height', l3: '1-2mm over height', l4: '0-1mm over height', l5: 'Within spec height' },
+    { name: 'Overlap', category: 'visual', w: 1.0, order: 8,
+      l1: 'Severe overlap both sides', l2: 'Overlap on one side', l3: 'Slight overlap', l4: 'Very slight overlap', l5: 'No overlap' },
+  ];
+
+  const stmt = c.env.DB.prepare(`
+    INSERT INTO rubric_criteria
+      (rubric_id, name, category, weight, display_order,
+       score_1_label, score_2_label, score_3_label, score_4_label, score_5_label)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  for (const cr of criteria) {
+    await stmt.bind(rubricId, cr.name, cr.category, cr.w, cr.order,
+      cr.l1, cr.l2, cr.l3, cr.l4, cr.l5).run();
+  }
+
+  return c.json({ id: rubricId, message: 'ISO 5817 rubric created', criteria_count: criteria.length }, 201);
+});
+
+// ── POST /api/rubrics/:id/activate ───────────────────────────────────────────
+
+rubrics.post('/:id/activate', async (c) => {
+  const payload = c.get('jwtPayload') as JWTPayload;
+  if (!isAdminOrInstructor(payload.role)) return c.json({ error: 'Forbidden' }, 403);
+
+  const id = c.req.param('id');
+
+  // Deactivate all, then activate the requested one
+  await c.env.DB.prepare("UPDATE assessment_rubrics SET is_active = 0, updated_at = datetime('now')").run();
+  const result = await c.env.DB
+    .prepare("UPDATE assessment_rubrics SET is_active = 1, updated_at = datetime('now') WHERE id = ?")
+    .bind(id)
+    .run();
+
+  if (result.meta.changes === 0) return c.json({ error: 'Rubric not found' }, 404);
+  return c.json({ message: 'Rubric activated' });
+});
+
 // ── RUBRIC CRITERIA (/api/rubrics/:id/criteria) ───────────────────────────────
 
 rubrics.post('/:id/criteria', async (c) => {

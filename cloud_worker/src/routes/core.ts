@@ -138,13 +138,20 @@ core.delete('/sessions/:id', async (c) => {
 // ── COURSES (/api/courses) ────────────────────────────────────────────────────
 
 core.get('/courses', async (c) => {
-  const rows = await c.env.DB.prepare(`
+  const { session_id } = c.req.query();
+  let sql = `
     SELECT c.*, s.name AS session_name, u.username AS instructor_username
     FROM courses c
     LEFT JOIN sessions s ON c.session_id = s.id
     LEFT JOIN users u ON c.instructor_id = u.id
-    ORDER BY c.code, c.section
-  `).all();
+  `;
+  const bindings: unknown[] = [];
+  if (session_id) {
+    sql += ' WHERE c.session_id = ?';
+    bindings.push(session_id);
+  }
+  sql += ' ORDER BY c.code, c.section';
+  const rows = await c.env.DB.prepare(sql).bind(...bindings).all();
   return c.json(rows.results);
 });
 
@@ -389,6 +396,60 @@ core.delete('/stereo-calibrations/:id', async (c) => {
   if (!isAdminOrInstructor(payload.role)) return c.json({ error: 'Forbidden' }, 403);
   await c.env.DB.prepare('DELETE FROM stereo_calibrations WHERE id = ?').bind(c.req.param('id')).run();
   return c.json({ message: 'Deleted' });
+});
+
+// ── POST /api/stereo-calibrations/:id/deploy ─────────────────────────────────
+// Records the target edge device IP/port in KV, marks calibration as active,
+// and optionally pushes calibration data to the edge device via HTTP.
+// Must be defined BEFORE /:id to avoid the literal "deploy" segment being
+// captured as an id parameter.
+
+core.post('/stereo-calibrations/:id/deploy', async (c) => {
+  const payload = c.get('jwtPayload') as JWTPayload;
+  if (!isAdminOrInstructor(payload.role)) return c.json({ error: 'Forbidden' }, 403);
+
+  const id = c.req.param('id');
+  const { ip, port = 8080 } = await c.req.json<{ ip?: string; port?: number }>().catch(() => ({}));
+
+  const row = await c.env.DB
+    .prepare('SELECT * FROM stereo_calibrations WHERE id = ?')
+    .bind(id)
+    .first<Record<string, unknown>>();
+
+  if (!row) return c.json({ error: 'Calibration not found' }, 404);
+
+  // Deactivate all, activate this one
+  await c.env.DB.prepare("UPDATE stereo_calibrations SET is_active = 0, updated_at = datetime('now')").run();
+  await c.env.DB
+    .prepare("UPDATE stereo_calibrations SET is_active = 1, updated_at = datetime('now') WHERE id = ?")
+    .bind(id)
+    .run();
+
+  // Store target device in KV for edge device polling
+  if (c.env.KV) {
+    await c.env.KV.put('active_calibration_id', String(id));
+    if (ip) await c.env.KV.put('edge_device_ip', String(ip));
+  }
+
+  // If edge device IP provided, push calibration data directly
+  if (ip) {
+    try {
+      const edgeUrl = `http://${ip}:${port}/calibration`;
+      const edgeRes = await fetch(edgeUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(row),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (edgeRes.ok) {
+        return c.json({ message: 'Calibration deployed and pushed to edge device' });
+      }
+    } catch {
+      // Edge device unreachable — still considered success (device will poll KV)
+    }
+  }
+
+  return c.json({ message: 'Calibration activated; edge device will sync via KV polling' });
 });
 
 // ── DEFECT CLASSES (/api/defect-classes) ─────────────────────────────────────

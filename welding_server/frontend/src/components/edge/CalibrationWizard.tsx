@@ -1,6 +1,14 @@
 import React, { useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { CheckerboardConfig, CapturedImage, CalibrationResults } from './types'
+import { getStoredToken } from '../../services/authAPI'
+
+function authHeaders(json = false): Record<string, string> {
+  const token = getStoredToken();
+  const h: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
+  if (json) h['Content-Type'] = 'application/json';
+  return h;
+}
 
 // Sub-components
 import PatternSetup from './calibration/PatternSetup'
@@ -68,8 +76,7 @@ const CalibrationWizard: React.FC<CalibrationWizardProps> = ({ deviceIp, onCompl
     if (capturedImages.length < 5) return
     setIsCalibrating(true)
     try {
-      const res = await fetch('/api/stereo-calibrations/calibrate/', { 
-        credentials: 'include', 
+      const res = await fetch(`http://${deviceIp}:8080/calibrate`, { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -109,10 +116,9 @@ const CalibrationWizard: React.FC<CalibrationWizardProps> = ({ deviceIp, onCompl
   const saveCalibrationResults = async () => {
     if (!calibrationResults) return
     try {
-      const res = await fetch('/api/stereo-calibrations/', { 
-        credentials: 'include', 
+      const res = await fetch('/api/stereo-calibrations', { 
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(true),
         body: JSON.stringify({
           name: calibrationResults.name,
           baseline: calibrationResults.baseline,

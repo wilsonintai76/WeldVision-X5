@@ -16,11 +16,10 @@ export default defineConfig({
       usePolling: true,
     },
     proxy: {
+      // All /api/* → Cloudflare Worker (D1 + R2 + KV + Worker AI + Hono)
+      // Django has been fully removed from the infrastructure.
       '/api': {
-        // Cloud migration: point proxy to Cloudflare Worker in dev
-        // Set VITE_API_URL=https://weldvision-api.<subdomain>.workers.dev in .env.local
-        // or keep the local Django backend URL for legacy dev mode
-        target: process.env.VITE_API_URL || 'http://backend:8000',
+        target: process.env.VITE_WORKER_URL || 'http://localhost:8787',
         changeOrigin: true,
       },
     },
