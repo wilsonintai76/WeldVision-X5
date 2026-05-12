@@ -1,5 +1,6 @@
 import { useState, useEffect, FC } from 'react'
 import { Plus, Star } from 'lucide-react'
+import { authHeaders } from '../services/authAPI'
 
 // Types
 import { Rubric, Criterion, RubricForm as RubricFormType } from './rubrics/types'
@@ -9,23 +10,6 @@ import RubricList from './rubrics/RubricList'
 import RubricCriteriaEditor from './rubrics/RubricCriteriaEditor'
 import RubricModal from './rubrics/RubricModal'
 import CriterionModal from './rubrics/CriterionModal'
-
-// Helper to get CSRF token
-function getCSRFToken(): string | null {
-  const name = 'csrftoken';
-  let cookieValue: string | null = null;
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === (name + '=')) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
-      }
-    }
-  }
-  return cookieValue;
-}
 
 const Rubrics: FC = () => {
   const [rubrics, setRubrics] = useState<Rubric[]>([])

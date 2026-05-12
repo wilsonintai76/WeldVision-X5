@@ -22,6 +22,12 @@ export function clearStoredToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+/** Returns Authorization header object for use with raw fetch() calls. */
+export function authHeaders(): Record<string, string> {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 // ── Base fetch with Bearer token ──────────────────────────────────────────────
 
 async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
