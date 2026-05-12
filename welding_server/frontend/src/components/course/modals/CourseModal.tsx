@@ -39,7 +39,7 @@ const CourseModal: React.FC<CourseModalProps> = ({
           <h3 className="text-lg font-semibold text-white">
             {editingCourse ? 'Edit Course' : 'New Course'}
           </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
+          <button onClick={onClose} aria-label="Close" className="text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -85,6 +85,7 @@ const CourseModal: React.FC<CourseModalProps> = ({
             <label className="block text-sm font-medium text-slate-300 mb-1">Academic Session *</label>
             <select
               required
+              aria-label="Academic Session"
               value={courseForm.session}
               onChange={e => setCourseForm({ ...courseForm, session: e.target.value })}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white focus:outline-none focus:border-emerald-500"
@@ -99,6 +100,7 @@ const CourseModal: React.FC<CourseModalProps> = ({
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">Instructor</label>
             <select
+              aria-label="Instructor"
               value={courseForm.instructor}
               onChange={e => setCourseForm({ ...courseForm, instructor: e.target.value })}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white focus:outline-none focus:border-emerald-500"
@@ -106,9 +108,7 @@ const CourseModal: React.FC<CourseModalProps> = ({
               <option value="">Select Instructor</option>
               {instructors.map(i => (
                 <option key={i.id} value={i.id}>
-                  {i.first_name || i.last_name 
-                    ? `${i.first_name || ''} ${i.last_name || ''}`.trim() 
-                    : i.username} ({i.username})
+                  {i.name || (i.first_name || i.last_name ? `${i.first_name || ''} ${i.last_name || ''}`.trim() : '') || i.username} ({i.username})
                 </option>
               ))}
             </select>
@@ -117,6 +117,8 @@ const CourseModal: React.FC<CourseModalProps> = ({
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">Description</label>
             <textarea
+              aria-label="Description"
+              placeholder="Course description (optional)"
               value={courseForm.description}
               onChange={e => setCourseForm({ ...courseForm, description: e.target.value })}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white focus:outline-none focus:border-emerald-500"

@@ -2,8 +2,10 @@ import React, { useState } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom'
 import packageJson from '../package.json'
 import {
-  Loader2
+  Loader2,
+  RefreshCw,
 } from 'lucide-react'
+import { useAppUpdate } from './hooks/useAppUpdate'
 import AppLayout from './components/layout/AppLayout'
 
 // Components
@@ -98,21 +100,35 @@ const LandingWrapper: React.FC = () => {
 }
 
 const App: React.FC = () => {
+  const { updateAvailable, newVersion, countdown } = useAppUpdate()
+
   return (
-    <AuthProvider>
-      <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
-        <Routes>
-          <Route path="/" element={<LandingWrapper />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/app/*" element={
-            <ProtectedRoute>
-              <MainApp />
-            </ProtectedRoute>
-          } />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <>
+      {/* Auto-update banner — shown when a new version is deployed to Cloudflare Pages */}
+      {updateAvailable && (
+        <div className="fixed top-0 left-0 right-0 z-[9999] bg-emerald-600 text-white text-sm py-2 px-4 flex items-center justify-center gap-3 shadow-lg">
+          <RefreshCw className="w-4 h-4 animate-spin flex-shrink-0" />
+          <span>
+            New version <strong>v{newVersion}</strong> is available — refreshing in{' '}
+            <strong>{countdown}s</strong>
+          </span>
+        </div>
+      )}
+      <AuthProvider>
+        <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+          <Routes>
+            <Route path="/" element={<LandingWrapper />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/app/*" element={
+              <ProtectedRoute>
+                <MainApp />
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </>
   )
 }
 

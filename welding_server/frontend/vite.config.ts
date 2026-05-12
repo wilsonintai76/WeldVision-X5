@@ -1,9 +1,28 @@
 import path from "path"
+import { readFileSync, writeFileSync } from "fs"
 import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
+import { defineConfig, type Plugin } from "vite"
+
+const pkg = JSON.parse(readFileSync('./package.json', 'utf-8')) as { version: string }
+
+/** Writes dist/version.json after every build so the running app can poll it. */
+const versionJsonPlugin = (): Plugin => ({
+  name: 'version-json',
+  writeBundle(options) {
+    const outDir = options.dir ?? 'dist'
+    writeFileSync(
+      path.resolve(outDir, 'version.json'),
+      JSON.stringify({ version: pkg.version, buildTime: new Date().toISOString() })
+    )
+  },
+})
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), versionJsonPlugin()],
+  define: {
+    // Injected at build time — available as __APP_VERSION__ in source code
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

@@ -225,23 +225,30 @@ CREATE TABLE IF NOT EXISTS criterion_scores (
 
 -- AI model registry (MLOps)
 CREATE TABLE IF NOT EXISTS ai_models (
-  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-  name               TEXT    NOT NULL,
-  version            TEXT    NOT NULL UNIQUE,
-  description        TEXT    NOT NULL DEFAULT '',
-  model_file_key     TEXT,   -- R2 object key
-  status             TEXT    NOT NULL DEFAULT 'uploaded',
-  is_deployed        INTEGER NOT NULL DEFAULT 0,
-  accuracy           REAL,
-  precision_score    REAL,
-  recall             REAL,
-  f1_score           REAL,
-  deployed_at        TEXT,
-  deployed_to_device TEXT    NOT NULL DEFAULT '',
-  framework_version  TEXT    NOT NULL DEFAULT '',
-  created_at         TEXT    NOT NULL DEFAULT (datetime('now')),
-  updated_at         TEXT    NOT NULL DEFAULT (datetime('now')),
-  CHECK(status IN ('uploaded', 'deployed', 'inactive', 'testing'))
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  name                TEXT    NOT NULL,
+  version             TEXT    NOT NULL UNIQUE,
+  description         TEXT    NOT NULL DEFAULT '',
+  model_file_key      TEXT,   -- R2 object key (.onnx on upload; .bin after compile)
+  status              TEXT    NOT NULL DEFAULT 'uploaded',
+  is_deployed         INTEGER NOT NULL DEFAULT 0,
+  -- Colab training metrics (set at upload time)
+  accuracy            REAL,   -- mAP50 alias kept for backwards compat
+  precision_score     REAL,
+  recall              REAL,
+  f1_score            REAL,
+  map50               REAL,   -- YOLOv8 mAP@0.5
+  map50_95            REAL,   -- YOLOv8 mAP@0.5:0.95
+  epochs              INTEGER,
+  dataset_version     TEXT    NOT NULL DEFAULT '',  -- e.g. Roboflow v4
+  model_size_bytes    INTEGER,                      -- uploaded file size in bytes
+  -- Deployment
+  deployed_at         TEXT,
+  deployed_to_device  TEXT    NOT NULL DEFAULT '',
+  framework_version   TEXT    NOT NULL DEFAULT '',  -- e.g. ultralytics==8.3.140
+  created_at          TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at          TEXT    NOT NULL DEFAULT (datetime('now')),
+  CHECK(status IN ('uploaded','compiling','compiled','deployed','inactive','testing','failed'))
 );
 
 -- ── Indexes ─────────────────────────────────────

@@ -15,6 +15,7 @@ import {
   LogOut,
   Cpu
 } from 'lucide-react'
+import { useAppUpdate } from '../../hooks/useAppUpdate'
 
 interface SidebarProps {
   activeTab: string;
@@ -38,6 +39,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     mlops: true,
     system: false
   })
+  const { updateAvailable } = useAppUpdate()
 
   const toggleSection = (section: 'mlops' | 'system') => {
     setExpandedSections(prev => ({
@@ -252,7 +254,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <User className="w-4 h-4 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-medium truncate">{user?.username}</p>
+              <p className="text-white text-sm font-medium truncate">{user?.name || user?.username}</p>
               <p className="text-slate-500 text-xs capitalize">{user?.role}</p>
             </div>
           </div>
@@ -268,10 +270,16 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
 
         {/* System Version */}
-        <div className="text-center">
+        <div className="text-center flex items-center justify-center gap-1.5">
           <span className="text-[10px] font-medium text-slate-600 bg-slate-800/30 px-2 py-0.5 rounded-full border border-slate-800/50 uppercase tracking-widest">
             v{version}
           </span>
+          {updateAvailable && (
+            <span className="relative flex h-2 w-2" title="New version available">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+          )}
         </div>
       </div>
     </aside>

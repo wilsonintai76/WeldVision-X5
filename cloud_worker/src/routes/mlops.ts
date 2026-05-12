@@ -22,6 +22,17 @@ mlops.get('/deployed', async (c) => {
   return c.json(row);
 });
 
+// ── GET /api/models/next-version ────────────────────────────────────────────
+// Returns the auto-assigned name and next version number for the next upload.
+
+mlops.get('/next-version', async (c) => {
+  const latest = await c.env.DB
+    .prepare("SELECT version FROM ai_models WHERE name = 'yolov8_weld' ORDER BY id DESC LIMIT 1")
+    .first<{ version: string }>();
+  const nextNum = latest ? (parseInt(latest.version.replace(/\D/g, ''), 10) || 0) + 1 : 1;
+  return c.json({ name: 'yolov8_weld', next_version: `v${nextNum}` });
+});
+
 // ── GET /api/models/:id ───────────────────────────────────────────────────────
 
 mlops.get('/:id', async (c) => {
@@ -34,31 +45,75 @@ mlops.get('/:id', async (c) => {
 });
 
 // ── POST /api/models (register metadata; file uploaded separately via /api/storage) ──
+// Accepts full Colab training metadata alongside the ONNX key.
 
 mlops.post('/', async (c) => {
   const payload = c.get('jwtPayload') as JWTPayload;
   if (payload.role !== 'admin') return c.json({ error: 'Forbidden: admin only' }, 403);
 
   const {
-    name, version, description = '', model_file_key,
-    status = 'uploaded', accuracy, precision_score, recall, f1_score,
+    description = '',
+    model_file_key,
+    status = 'uploaded',
+    // Legacy field aliases (still accepted for backwards compat)
+    accuracy,
+    precision_score,
+    recall,
+    f1_score,
+    // New Colab metadata fields
+    map50,
+    map50_95,
+    epochs,
+    dataset_version = '',
+    model_size_bytes,
     framework_version = '',
   } = await c.req.json<{
-    name?: string; version?: string; description?: string; model_file_key?: string;
-    status?: string; accuracy?: number; precision_score?: number;
-    recall?: number; f1_score?: number; framework_version?: string;
+    description?: string;
+    model_file_key?: string;
+    status?: string;
+    accuracy?: number;
+    precision_score?: number;
+    recall?: number;
+    f1_score?: number;
+    map50?: number;
+    map50_95?: number;
+    epochs?: number;
+    dataset_version?: string;
+    model_size_bytes?: number;
+    framework_version?: string;
   }>();
 
-  if (!name || !version) return c.json({ error: 'name and version are required' }, 400);
+  if (!model_file_key) return c.json({ error: 'model_file_key is required' }, 400);
+  if (!model_file_key.endsWith('.onnx')) {
+    return c.json({
+      error: 'Only .onnx files are accepted. Export from Colab with model.export(format="onnx")',
+    }, 400);
+  }
+
+  // Auto name and version
+  const name = 'yolov8_weld';
+  const latest = await c.env.DB
+    .prepare("SELECT version FROM ai_models WHERE name = 'yolov8_weld' ORDER BY id DESC LIMIT 1")
+    .first<{ version: string }>();
+  const nextNum = latest ? (parseInt(latest.version.replace(/\D/g, ''), 10) || 0) + 1 : 1;
+  const version = `v${nextNum}`;
+
+  // mAP50 is the primary accuracy signal from YOLOv8; mirror it into the
+  // legacy `accuracy` column so older queries continue to work unchanged.
+  const resolvedAccuracy = map50 ?? accuracy ?? null;
 
   const result = await c.env.DB.prepare(`
     INSERT INTO ai_models
       (name, version, description, model_file_key, status,
-       accuracy, precision_score, recall, f1_score, framework_version)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       accuracy, precision_score, recall, f1_score,
+       map50, map50_95, epochs, dataset_version, model_size_bytes,
+       framework_version)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
-    name, version, description, model_file_key ?? null, status,
-    accuracy ?? null, precision_score ?? null, recall ?? null, f1_score ?? null, framework_version,
+    name, version, description, model_file_key, status,
+    resolvedAccuracy, precision_score ?? null, recall ?? null, f1_score ?? null,
+    map50 ?? null, map50_95 ?? null, epochs ?? null, dataset_version, model_size_bytes ?? null,
+    framework_version,
   ).run();
 
   return c.json({ id: result.meta.last_row_id, name, version, status }, 201);
@@ -74,7 +129,12 @@ mlops.patch('/:id', async (c) => {
   const updates: string[] = [];
   const values: unknown[] = [];
 
-  const allowed = ['name', 'description', 'status', 'accuracy', 'precision_score', 'recall', 'f1_score', 'framework_version', 'model_file_key'];
+  const allowed = [
+    'name', 'description', 'status', 'model_file_key',
+    'accuracy', 'precision_score', 'recall', 'f1_score',
+    'map50', 'map50_95', 'epochs', 'dataset_version', 'model_size_bytes',
+    'framework_version',
+  ];
   for (const key of allowed) {
     if (body[key] !== undefined) { updates.push(`${key} = ?`); values.push(body[key]); }
   }
@@ -133,9 +193,9 @@ mlops.delete('/:id', async (c) => {
 });
 
 // ── POST /api/models/github-compile ──────────────────────────────────────────
-// Triggers the compile_model.yml GitHub Actions workflow using a .pt model
-// already stored in R2. The workflow downloads it, converts to ONNX, then
-// compiles to Horizon BPU .bin and uploads the result back to R2.
+// Triggers the compile_model.yml GitHub Actions workflow.
+// The workflow downloads the .onnx from R2, runs hb_mapper makertbin,
+// and uploads the resulting .bin back to R2 as models/model_update.bin.
 //
 // Required GitHub secret in this worker: GITHUB_PAT
 //   wrangler secret put GITHUB_PAT
@@ -155,8 +215,8 @@ mlops.post('/github-compile', async (c) => {
 
   if (!model) return c.json({ error: 'Model not found' }, 404);
   if (!model.model_file_key) return c.json({ error: 'Model has no file attached' }, 400);
-  if (!model.model_file_key.endsWith('.pt')) {
-    return c.json({ error: 'Only .pt (PyTorch) files can be compiled to Horizon .bin' }, 400);
+  if (!model.model_file_key.endsWith('.onnx')) {
+    return c.json({ error: 'Only .onnx files can be compiled to Horizon .bin. Re-upload the model as .onnx.' }, 400);
   }
 
   const resp = await fetch(
@@ -172,7 +232,7 @@ mlops.post('/github-compile', async (c) => {
       },
       body: JSON.stringify({
         ref: 'main',
-        inputs: { model_r2_key: model.model_file_key },
+        inputs: { model_r2_key: model.model_file_key, model_id: String(model_id) },
       }),
     }
   );
@@ -182,11 +242,54 @@ mlops.post('/github-compile', async (c) => {
     return c.json({ error: `GitHub API error (${resp.status}): ${err}` }, 502);
   }
 
+  // Mark model as compiling so the frontend can show progress
+  await c.env.DB
+    .prepare("UPDATE ai_models SET status = 'compiling', updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+    .bind(model_id)
+    .run();
+
   return c.json({
     dispatched: true,
-    model: `${model.name} v${model.version}`,
+    model: `${model.name} ${model.version}`,
     r2_key: model.model_file_key,
   });
+});
+
+// ── POST /api/models/compile-callback ────────────────────────────────────────
+// Called by GitHub Actions on workflow success or failure.
+// Requires X-Compile-Secret header matching COMPILE_CALLBACK_SECRET env var.
+mlops.post('/compile-callback', async (c) => {
+  const secret = c.req.header('X-Compile-Secret');
+  if (!c.env.COMPILE_CALLBACK_SECRET || secret !== c.env.COMPILE_CALLBACK_SECRET) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const body = await c.req.json<{
+    model_id?: number;
+    status?: string;
+    bin_r2_key?: string;
+    error?: string;
+  }>();
+  if (!body.model_id || !['compiled', 'failed'].includes(body.status ?? '')) {
+    return c.json({ error: 'model_id and status (compiled|failed) required' }, 400);
+  }
+
+  const updates: string[] = ["status = ?", "updated_at = CURRENT_TIMESTAMP"];
+  const values: unknown[] = [body.status];
+
+  // If compiled successfully, store the .bin R2 key so the UI can show it
+  if (body.status === 'compiled' && body.bin_r2_key) {
+    updates.push("model_file_key = ?");
+    values.push(body.bin_r2_key);
+  }
+  values.push(body.model_id);
+
+  await c.env.DB
+    .prepare(`UPDATE ai_models SET ${updates.join(', ')} WHERE id = ?`)
+    .bind(...values)
+    .run();
+
+  return c.json({ ok: true, model_id: body.model_id, status: body.status });
 });
 
 export default mlops;

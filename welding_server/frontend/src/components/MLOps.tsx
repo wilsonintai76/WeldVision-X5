@@ -1,5 +1,5 @@
-﻿import { useEffect, useState, useRef, FC } from 'react'
-import { Upload, Github, CheckCircle, RefreshCw, HardDrive, Wifi, ExternalLink, Zap, ChevronRight } from 'lucide-react'
+import { useEffect, useState, useRef, FC } from 'react'
+import { Upload, Github, CheckCircle, RefreshCw, HardDrive, Wifi, ExternalLink, Zap, ChevronRight, Trash2 } from 'lucide-react'
 import { getStoredToken } from '../services/authAPI'
 
 function authHeaders(json = false): Record<string, string> {
@@ -14,6 +14,15 @@ interface Model {
   name: string
   version: string
   accuracy?: number
+  precision_score?: number
+  recall?: number
+  f1_score?: number
+  map50?: number
+  map50_95?: number
+  epochs?: number
+  dataset_version?: string
+  model_size_bytes?: number
+  framework_version?: string
   created_at?: string
   is_deployed?: boolean
   status?: string
@@ -24,15 +33,27 @@ const GITHUB_ACTIONS_URL = 'https://github.com/wilsonintai76/WeldVision-X5/actio
 const COLAB_URL = 'https://colab.research.google.com'
 const ROBOFLOW_URL = 'https://roboflow.com'
 
+type TabId = 'registry' | 'compare'
+
 const MLOps: FC = () => {
   const [models, setModels] = useState<Model[]>([])
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState('')
-  const [modelName, setModelName] = useState('')
-  const [modelVersion, setModelVersion] = useState('')
+  const [nextVersion, setNextVersion] = useState<string | null>(null)
   const [lanIp, setLanIp] = useState('')
   const [activeAction, setActiveAction] = useState<string | number | null>(null)
+  const [compileError, setCompileError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<TabId>('registry')
+  // Colab metadata form fields
+  const [map50, setMap50] = useState('')
+  const [map50_95, setMap5095] = useState('')
+  const [epochs, setEpochs] = useState('')
+  const [datasetVersion, setDatasetVersion] = useState('')
+  const [frameworkVersion, setFrameworkVersion] = useState('')
+  const [onnxWarn, setOnnxWarn] = useState(false)
+  // Comparison sort
+  const [sortKey, setSortKey] = useState<keyof Model>('map50')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchModels = async () => {
@@ -45,16 +66,33 @@ const MLOps: FC = () => {
     } catch { /* silent */ }
   }
 
+  const fetchNextVersion = async () => {
+    try {
+      const res = await fetch('/api/models/next-version', { headers: authHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        setNextVersion(data.next_version)
+      }
+    } catch { /* silent */ }
+  }
+
   useEffect(() => {
     fetchModels()
+    fetchNextVersion()
     const t = setInterval(fetchModels, 10000)
     return () => clearInterval(t)
   }, [])
 
+  // Warn if the selected file is not named 'best.onnx' / ends with .onnx and remind about input node
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] || null
+    setUploadFile(f)
+    setOnnxWarn(!!f && !f.name.toLowerCase().endsWith('.onnx'))
+  }
+
   // Upload ONNX to R2, then register metadata in D1
   const uploadModel = async () => {
     if (!uploadFile) return alert('Select a .onnx file exported from Google Colab')
-    if (!modelName || !modelVersion) return alert('Enter model name and version')
     if (!uploadFile.name.toLowerCase().endsWith('.onnx')) return alert('Only .onnx files supported. Export from Colab with: model.export(format="onnx")')
 
     setUploading(true)
@@ -75,21 +113,33 @@ const MLOps: FC = () => {
       }
       const { key } = await r2Res.json()
 
-      setUploadStatus('Registering metadata in D1...')
+      setUploadStatus('Registering in D1...')
       const regRes = await fetch('/api/models', {
         method: 'POST',
         headers: authHeaders(true),
-        body: JSON.stringify({ name: modelName, version: modelVersion, model_file_key: key, status: 'uploaded' }),
+        body: JSON.stringify({
+          model_file_key: key,
+          status: 'uploaded',
+          map50: map50 ? parseFloat(map50) : undefined,
+          map50_95: map50_95 ? parseFloat(map50_95) : undefined,
+          epochs: epochs ? parseInt(epochs) : undefined,
+          dataset_version: datasetVersion || undefined,
+          framework_version: frameworkVersion || undefined,
+          model_size_bytes: uploadFile.size,
+        }),
       })
       if (!regRes.ok) {
         const err = await regRes.json().catch(() => ({}))
         return alert(`Registration failed: ${err.error || regRes.statusText}`)
       }
+      const { version } = await regRes.json()
 
-      setModelName(''); setModelVersion(''); setUploadFile(null)
+      setUploadFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
+      setMap50(''); setMap5095(''); setEpochs(''); setDatasetVersion(''); setFrameworkVersion('')
       await fetchModels()
-      alert(`✓ "${modelName}" v${modelVersion} uploaded to R2.\n\nNext: click "Compile" in the table to trigger GitHub Actions → Horizon BPU .bin.`)
+      await fetchNextVersion()
+      alert(`✓ yolov8_weld ${version} uploaded to R2.\n\nNext: click "Compile" in the table to trigger GitHub Actions → Horizon BPU .bin.`)
     } catch (err) {
       alert(`Error: ${(err as Error).message}`)
     } finally {
@@ -102,6 +152,7 @@ const MLOps: FC = () => {
   const compileModel = async (modelId: string | number) => {
     const model = models.find(m => m.id === modelId)
     if (!model) return
+    setCompileError(null)
     if (!window.confirm(`Trigger GitHub Actions to compile:\n"${model.name}" v${model.version}\nONNX → Horizon BPU .bin\n\n~10 minutes. Continue?`)) return
 
     setActiveAction(modelId)
@@ -113,11 +164,17 @@ const MLOps: FC = () => {
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        return alert(`Dispatch failed: ${err.error || res.statusText}`)
+        const msg = `Dispatch failed: ${err.error || res.statusText}`
+        setCompileError(msg)
+        return alert(msg)
       }
-      window.open(GITHUB_ACTIONS_URL, '_blank')
+      // Keep user in-app and show compiling state immediately.
+      setModels(prev => prev.map(m => m.id === modelId ? { ...m, status: 'compiling' } : m))
+      await fetchModels()
     } catch (err) {
-      alert(`Error: ${(err as Error).message}`)
+      const msg = `Error: ${(err as Error).message}`
+      setCompileError(msg)
+      alert(msg)
     } finally {
       setActiveAction(null)
     }
@@ -187,8 +244,38 @@ const MLOps: FC = () => {
     }
   }
 
+  // Delete model from D1 + R2
+  const deleteModel = async (modelId: string | number) => {
+    const model = models.find(m => m.id === modelId)
+    if (!model) return
+    if (model.is_deployed) return alert('Cannot delete a deployed model. Undeploy it first by deploying another version.')
+    if (!window.confirm(`Delete "${model.name}" ${model.version}?\n\nThis permanently removes the file from Cloudflare R2 and the registry.`)) return
+
+    setActiveAction(modelId)
+    try {
+      const res = await fetch(`/api/models/${modelId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        return alert(`Delete failed: ${err.error || res.statusText}`)
+      }
+      await fetchModels()
+    } catch (err) {
+      alert(`Error: ${(err as Error).message}`)
+    } finally {
+      setActiveAction(null)
+    }
+  }
+
   const onnxModels = models.filter(m => m.model_file_key?.endsWith('.onnx'))
   const deployedModel = models.find(m => m.is_deployed)
+  const sortedModels = [...models].sort((a, b) => {
+    const av = (a[sortKey] as number | undefined) ?? -1
+    const bv = (b[sortKey] as number | undefined) ?? -1
+    return bv - av
+  })
 
   return (
     <div className="p-8 space-y-6">
@@ -214,6 +301,21 @@ const MLOps: FC = () => {
             <RefreshCw className="w-5 h-5" />
           </button>
         </div>
+      </div>
+
+      {/* Tab Bar */}
+      <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl w-fit">
+        {(['registry', 'compare'] as TabId[]).map(t => (
+          <button
+            key={t}
+            onClick={() => setActiveTab(t)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+              activeTab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            {t === 'registry' ? 'Model Registry' : 'Compare Versions'}
+          </button>
+        ))}
       </div>
 
       {/* Pipeline Steps */}
@@ -243,46 +345,82 @@ const MLOps: FC = () => {
           <div>
             <h3 className="text-lg font-bold text-white">Upload ONNX from Colab</h3>
             <p className="text-xs text-slate-400">
-              Export with: <code className="text-blue-300 font-mono">model.export(format="onnx")</code> — then upload here → saves to R2
+              Export with: <code className="text-blue-300 font-mono">model.export(format="onnx")</code> — Colab saves as <code className="text-blue-300 font-mono">best.onnx</code> → upload here → R2
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Model File (.onnx)</label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".onnx"
-              title="Select a .onnx model file"
-              aria-label="Select model file (.onnx)"
-              onChange={e => {
-                const f = e.target.files?.[0] || null
-                setUploadFile(f)
-                if (f && !modelName) setModelName(f.name.replace(/\.onnx$/i, ''))
-              }}
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:bg-blue-600 file:text-white file:text-xs file:font-semibold cursor-pointer hover:border-slate-600 transition-all"
-            />
+
+        {/* Fix C — ONNX input node reminder */}
+        <div className="mb-4 p-3 bg-amber-900/20 border border-amber-600/40 rounded-lg text-xs text-amber-300 flex gap-2">
+          <span className="text-amber-400 font-bold shrink-0">⚠</span>
+          <span>
+            Verify your ONNX input node is named <code className="font-mono bg-amber-900/40 px-1 rounded">images</code> before compiling.{' '}
+            Run in Colab: <code className="font-mono bg-amber-900/40 px-1 rounded">import onnx; m=onnx.load('best.onnx'); print(m.graph.input[0].name)</code>
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Model File (.onnx)</label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".onnx"
+                title="Select a .onnx model file (e.g. best.onnx from Colab)"
+                aria-label="Select model file (.onnx)"
+                onChange={handleFileChange}
+                className={`w-full px-3 py-2 bg-slate-900 border rounded-lg text-white text-sm file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:bg-blue-600 file:text-white file:text-xs file:font-semibold cursor-pointer transition-all ${
+                  onnxWarn ? 'border-red-500' : 'border-slate-700 hover:border-slate-600'
+                }`}
+              />
+              {onnxWarn && <p className="text-red-400 text-xs mt-1">File must end in .onnx</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Model Name</label>
+                <div className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm font-mono">yolov8_weld</div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Next Version</label>
+                <div className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-blue-300 text-sm font-mono">{nextVersion ?? '...'}</div>
+              </div>
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Model Name</label>
-            <input
-              value={modelName}
-              onChange={e => setModelName(e.target.value)}
-              placeholder="weldvision-yolo"
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-all"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Version</label>
-            <input
-              value={modelVersion}
-              onChange={e => setModelVersion(e.target.value)}
-              placeholder="v1.0.0"
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-600 focus:outline-none focus:border-blue-500 transition-all"
-            />
+
+          {/* Fix A — Colab training metadata */}
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-slate-400 uppercase">Colab Training Metadata (optional)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">mAP@0.5</label>
+                <input value={map50} onChange={e => setMap50(e.target.value)} placeholder="0.923" type="number" min="0" max="1" step="0.001"
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-600 focus:outline-none focus:border-blue-500 font-mono" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">mAP@0.5:0.95</label>
+                <input value={map50_95} onChange={e => setMap5095(e.target.value)} placeholder="0.741" type="number" min="0" max="1" step="0.001"
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-600 focus:outline-none focus:border-blue-500 font-mono" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Epochs</label>
+                <input value={epochs} onChange={e => setEpochs(e.target.value)} placeholder="100" type="number" min="1"
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-600 focus:outline-none focus:border-blue-500 font-mono" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Dataset Version</label>
+                <input value={datasetVersion} onChange={e => setDatasetVersion(e.target.value)} placeholder="Roboflow v4"
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-600 focus:outline-none focus:border-blue-500" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Framework Version</label>
+              <input value={frameworkVersion} onChange={e => setFrameworkVersion(e.target.value)} placeholder="ultralytics==8.3.140"
+                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-600 focus:outline-none focus:border-blue-500 font-mono" />
+            </div>
           </div>
         </div>
+
         <div className="mt-4 flex items-center gap-3">
           <button
             onClick={uploadModel}
@@ -298,6 +436,67 @@ const MLOps: FC = () => {
         </div>
       </div>
 
+      {/* Fix E — Model Comparison Tab */}
+      {activeTab === 'compare' && (
+        <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-white">Version Comparison</h3>
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              Sort by:
+              {(['map50','map50_95','f1_score','recall','epochs'] as (keyof Model)[]).map(k => (
+                <button key={k} onClick={() => setSortKey(k)}
+                  className={`px-2 py-1 rounded font-mono transition-colors ${
+                    sortKey === k ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+                  }`}>{k}</button>
+              ))}
+            </div>
+          </div>
+          {models.length === 0 ? (
+            <p className="text-slate-500 text-center py-8">No models yet — upload a .onnx above</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-800 text-left">
+                    {['Version','mAP@0.5','mAP@0.5:0.95','F1','Recall','Epochs','Dataset','Framework','Size','Status'].map(h => (
+                      <th key={h} className="py-2 px-3 text-xs font-bold text-slate-500 uppercase whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  {sortedModels.map(m => {
+                    const isTop = sortedModels[0]?.id === m.id
+                    const pct = (v?: number) => v != null ? `${(v * 100).toFixed(1)}%` : '—'
+                    const kb = (b?: number) => b ? `${(b/1024/1024).toFixed(1)} MB` : '—'
+                    return (
+                      <tr key={m.id} className={`transition-colors ${
+                        m.is_deployed ? 'bg-emerald-950/20' : isTop ? 'bg-blue-950/20' : 'hover:bg-slate-800/30'
+                      }`}>
+                        <td className="py-3 px-3 font-mono text-white font-bold">
+                          {m.version}
+                          {m.is_deployed && <span className="ml-2 text-xs text-emerald-400">● live</span>}
+                          {isTop && !m.is_deployed && <span className="ml-2 text-xs text-blue-400">★ best</span>}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-emerald-400 font-bold">{pct(m.map50 ?? m.accuracy)}</td>
+                        <td className="py-3 px-3 font-mono text-emerald-300">{pct(m.map50_95)}</td>
+                        <td className="py-3 px-3 font-mono text-slate-300">{pct(m.f1_score)}</td>
+                        <td className="py-3 px-3 font-mono text-slate-300">{pct(m.recall)}</td>
+                        <td className="py-3 px-3 font-mono text-slate-400">{m.epochs ?? '—'}</td>
+                        <td className="py-3 px-3 text-slate-400 text-xs">{m.dataset_version || '—'}</td>
+                        <td className="py-3 px-3 text-slate-500 text-xs font-mono">{m.framework_version || '—'}</td>
+                        <td className="py-3 px-3 text-slate-400 text-xs">{kb(m.model_size_bytes)}</td>
+                        <td className="py-3 px-3"><span className="text-xs text-slate-500">{m.status}</span></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'registry' && <>
       {/* Model Registry Table */}
       <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
         <div className="flex items-center justify-between mb-6">
@@ -316,6 +515,17 @@ const MLOps: FC = () => {
           >
             <RefreshCw className="w-4 h-4" /> Sync
           </button>
+        </div>
+
+        <div className="mb-4 flex flex-wrap items-center gap-3 text-xs">
+          <span className="text-slate-400">Compile runs in background. Status updates here.</span>
+          <button
+            onClick={() => window.open(GITHUB_ACTIONS_URL, '_blank')}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300"
+          >
+            <ExternalLink className="w-3 h-3" /> View GitHub Actions
+          </button>
+          {compileError && <span className="text-red-400">{compileError}</span>}
         </div>
 
         {models.length === 0 ? (
@@ -361,6 +571,20 @@ const MLOps: FC = () => {
                           <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
                             <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> Live on X5
                           </div>
+                        ) : model.status === 'compiling' ? (
+                          <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold">
+                            <RefreshCw className="w-3 h-3 animate-spin" /> Compiling
+                          </div>
+                        ) : model.status === 'failed' ? (
+                          <div className="flex items-center gap-1.5 text-red-400 text-xs font-bold">
+                            Failed
+                            <button
+                              onClick={() => window.open(GITHUB_ACTIONS_URL, '_blank')}
+                              className="text-red-300 underline"
+                            >
+                              logs
+                            </button>
+                          </div>
                         ) : (
                           <span className="text-slate-600 text-xs">{model.status || 'uploaded'}</span>
                         )}
@@ -405,6 +629,15 @@ const MLOps: FC = () => {
                               <CheckCircle className="w-3 h-3" /> Running
                             </span>
                           )}
+                          {/* Delete button — always visible, blocked for deployed model */}
+                          <button
+                            onClick={() => deleteModel(model.id)}
+                            disabled={isActive || !!model.is_deployed}
+                            title={model.is_deployed ? 'Cannot delete a live model' : 'Delete from R2 + registry'}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-900/30 hover:bg-red-700 disabled:opacity-30 text-red-400 hover:text-white text-xs font-bold rounded-lg transition-colors border border-red-900/50 hover:border-red-600"
+                          >
+                            {isActive ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -415,6 +648,8 @@ const MLOps: FC = () => {
           </div>
         )}
       </div>
+
+      </> /* end registry tab */}
 
       {/* Deploy Options */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -455,22 +690,7 @@ const MLOps: FC = () => {
         </div>
       </div>
 
-      {/* GitHub Actions link */}
-      <div className="flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-xl">
-        <div className="flex items-center gap-3">
-          <Github className="w-5 h-5 text-white" />
-          <div>
-            <p className="text-sm font-semibold text-white">GitHub Actions — ONNX → BPU Compiler</p>
-            <p className="text-xs text-slate-500">Monitor compile_model.yml workflow runs</p>
-          </div>
-        </div>
-        <button
-          onClick={() => window.open(GITHUB_ACTIONS_URL, '_blank')}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold rounded-lg transition-colors border border-slate-700"
-        >
-          Open Actions <ExternalLink className="w-3.5 h-3.5" />
-        </button>
-      </div>
+
     </div>
   )
 }

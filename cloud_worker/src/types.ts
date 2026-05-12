@@ -8,6 +8,7 @@ export interface Env {
   JWT_SECRET: string;
   GITHUB_PAT: string;
   EDGE_IMPULSE_WEBHOOK_SECRET: string;
+  COMPILE_CALLBACK_SECRET?: string;
   ENVIRONMENT: string;
   ALLOWED_ORIGINS: string;
 }

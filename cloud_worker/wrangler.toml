@@ -52,7 +52,7 @@ binding = "AI"
 [vars]
 ENVIRONMENT = "production"
 # Allowed CORS origins — add your Pages domain once deployed
-ALLOWED_ORIGINS = "https://weldvision-x5.com,https://www.weldvision-x5.com,https://app.weldvision-x5.com,http://localhost:3000,http://localhost:5173"
+ALLOWED_ORIGINS = "https://weldvision-x5.com,https://www.weldvision-x5.com,http://localhost:3000,http://localhost:5173"
 # JWT_SECRET must be set as a secret, not here:
 # wrangler secret put JWT_SECRET
 

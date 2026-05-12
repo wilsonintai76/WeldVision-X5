@@ -2,6 +2,7 @@ export interface ManagedUser {
   id: number;
   username: string;
   email?: string;
+  name?: string;
   first_name?: string;
   last_name?: string;
   role: 'admin' | 'instructor' | 'student';

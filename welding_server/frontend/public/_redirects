@@ -1,1 +1,3 @@
+# API calls are proxied by functions/api/[[path]].js (supports all HTTP methods)
+# SPA catch-all — serves index.html for all non-asset routes
 /* /index.html 200

@@ -3,7 +3,7 @@ import { Env, JWTPayload } from '../types';
 
 const storage = new Hono<{ Bindings: Env }>();
 
-const ALLOWED_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'bin', 'pt', 'onnx', 'ply']);
+const ALLOWED_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'bin', 'onnx', 'ply']);
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 
 // ── POST /api/storage/upload ─────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import authAPI from '../services/authAPI';
 import { Eye, EyeOff, LogIn, KeyRound, X } from 'lucide-react';
+import packageJson from '../../package.json';
 
 const Login: FC = () => {
   const [formData, setFormData] = useState({
@@ -136,9 +137,9 @@ const Login: FC = () => {
           <h2 className="text-3xl font-bold text-white">
             WeldVision X5
           </h2>
-          <div className="flex justify-center mt-1">
-            <span className="text-[10px] font-bold text-emerald-500/50 uppercase tracking-[0.2em]">
-              System Version 1.2.0-STABLE
+          <div className="flex justify-center mt-2">
+            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-0.5 rounded-full tracking-widest uppercase">
+              v{packageJson.version}
             </span>
           </div>
           <p className="mt-4 text-slate-400">

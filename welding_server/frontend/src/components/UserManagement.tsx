@@ -88,6 +88,7 @@ const UserManagement: FC = () => {
     const matchesSearch = !searchTerm || 
       user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.last_name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = !roleFilter || user.role === roleFilter;
@@ -188,6 +189,7 @@ const UserManagement: FC = () => {
               <div className="relative">
                 <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <select
+                  aria-label="Filter by role"
                   value={roleFilter}
                   onChange={(e) => setRoleFilter(e.target.value)}
                   className="bg-slate-800 border border-slate-700 rounded-lg py-2 pl-10 pr-8 text-white appearance-none focus:outline-none focus:border-emerald-500"

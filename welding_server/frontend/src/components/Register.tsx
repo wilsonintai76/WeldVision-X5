@@ -43,6 +43,7 @@ const Register: FC = () => {
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [localError, setLocalError] = useState<string>('');
   const [success, setSuccess] = useState<boolean>(false);
+  const [registeredRole, setRegisteredRole] = useState<'student' | 'instructor'>('student');
 
   useEffect(() => {
     loadClasses();
@@ -76,7 +77,16 @@ const Register: FC = () => {
       return;
     }
     if (!formData.username.trim()) {
-      setLocalError(formData.role === 'student' ? 'Registration Number is required' : 'Staff ID is required');
+      setLocalError(formData.role === 'student' ? 'Matric number is required' : 'Staff ID is required');
+      return;
+    }
+    // Role-specific ID format validation
+    if (formData.role === 'instructor' && !/^\d{4}$/.test(formData.username.trim())) {
+      setLocalError('Staff ID must be exactly 4 digits (e.g., 1891)');
+      return;
+    }
+    if (formData.role === 'student' && !/^[A-Za-z0-9]{5,}$/.test(formData.username.trim())) {
+      setLocalError('Matric number must be alphanumeric with at least 5 characters (e.g., 05DKM23F2014)');
       return;
     }
     if (formData.role === 'student' && !formData.class_id) {
@@ -103,6 +113,7 @@ const Register: FC = () => {
         class_id: formData.class_id ? parseInt(formData.class_id) : null,
       };
       await register(dataToSubmit);
+      setRegisteredRole(formData.role);
       setSuccess(true);
     } catch (err: any) {
       setLocalError(err.message);
@@ -121,13 +132,16 @@ const Register: FC = () => {
             </div>
             <h2 className="text-2xl font-bold text-white mb-4">Registration Successful!</h2>
             <p className="text-slate-300 mb-6">
-              Your account has been created and is pending approval. 
-              An administrator will review your request shortly.
+              {registeredRole === 'student'
+                ? 'Your student account has been created. You can now log in with your matric number and PIN.'
+                : 'Your account has been created and is pending approval. An administrator will review your request shortly.'}
             </p>
             <div className="bg-blue-900/20 border border-blue-600/30 rounded-lg p-4 mb-6">
               <p className="text-blue-300 text-sm">
                 <strong>What happens next?</strong><br />
-                You&apos;ll be able to log in once an administrator approves your account.
+                {registeredRole === 'student'
+                  ? 'Log in using your matric number and 4-digit PIN.'
+                  : "You'll be able to log in once an administrator approves your account."}
               </p>
             </div>
             <Link
@@ -225,7 +239,7 @@ const Register: FC = () => {
             {/* Registration Number / Staff ID */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                {formData.role === 'student' ? 'Registration Number' : 'Staff ID'} *
+                {formData.role === 'student' ? 'Matric Number' : 'Staff ID'} *
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
@@ -235,15 +249,15 @@ const Register: FC = () => {
                   value={formData.username}
                   onChange={handleChange}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-11 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-                  placeholder={formData.role === 'student' ? 'e.g., 2026001234' : 'e.g., STAFF001'}
+                  placeholder={formData.role === 'student' ? 'e.g., 05DKM23F2014' : 'e.g., 1891'}
                   disabled={loading}
                   autoComplete="username"
                 />
               </div>
               <p className="text-slate-500 text-xs mt-1">
                 {formData.role === 'student' 
-                  ? 'Your registration number will be used to login' 
-                  : 'Your staff ID will be used to login'}
+                  ? 'Your matric number will be used to log in (alphanumeric, e.g., 05DKM23F2014)' 
+                  : 'Your 4-digit staff ID will be used to log in (e.g., 1891)'}
               </p>
             </div>
 
@@ -257,6 +271,7 @@ const Register: FC = () => {
                   <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                   <select
                     name="class_id"
+                    aria-label="Select Your Class"
                     value={formData.class_id}
                     onChange={handleChange}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-11 pr-10 text-white appearance-none focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
