@@ -35,8 +35,8 @@ bucket_name = "weldvision-media"
 # Then paste the resulting id below.
 [[kv_namespaces]]
 binding = "KV"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
-preview_id = "REPLACE_WITH_KV_PREVIEW_ID"
+id = "d81b50d2ad5c44a28bc9a074957f1b96"
+preview_id = "e8207954f1914879832120e409401013"
 
 # Queue consumer — receives R2 event notifications when *.pt files are uploaded
 # and auto-triggers the GitHub Actions compile workflow.
