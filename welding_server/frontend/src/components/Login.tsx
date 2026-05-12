@@ -2,7 +2,7 @@ import React, { useState, FC, ChangeEvent, FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import authAPI from '../services/authAPI';
-import { Eye, EyeOff, LogIn, KeyRound, X } from 'lucide-react';
+import { Eye, EyeOff, LogIn, KeyRound, X, ArrowLeft } from 'lucide-react';
 import packageJson from '../../package.json';
 
 const Login: FC = () => {
@@ -128,6 +128,14 @@ const Login: FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 py-12 px-4 sm:px-6 lg:px-8">
+      {/* Back to Landing Page */}
+      <Link
+        to="/"
+        className="absolute top-6 left-6 flex items-center gap-2 text-slate-500 hover:text-white text-sm transition-colors group"
+      >
+        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+        Back to Home
+      </Link>
       <div className="max-w-md w-full">
         {/* Logo/Brand */}
         <div className="text-center mb-8">

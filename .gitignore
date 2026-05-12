@@ -57,3 +57,10 @@ welding_server/frontend/dist-ssr/
 # Runtime files
 edge_device/runtime/*.log
 edge_device/runtime/*.bin
+
+# YOLOv8 Training
+runs/
+*.pt
+.github/workflows/runs/
+.github/workflows/weldvision-*/
+.github/workflows/*.pt
