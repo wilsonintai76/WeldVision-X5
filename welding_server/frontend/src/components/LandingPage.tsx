@@ -1,4 +1,5 @@
 import React, { useState, useEffect, FC, ReactNode } from 'react'
+import packageJson from '../../package.json'
 import {
   Cpu,
   Rocket,
@@ -139,6 +140,11 @@ const LandingPage = ({ onEnterApp }: LandingPageProps) => {
           <h1 className="text-5xl font-bold text-white mb-3">
             WeldVision <span className="text-emerald-400">X5</span>
           </h1>
+          <div className="flex justify-center mb-3">
+            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-0.5 rounded-full tracking-widest uppercase">
+              v{packageJson.version}
+            </span>
+          </div>
           <p className="text-xl text-slate-400 max-w-lg mx-auto">
             Industrial Edge Computing Platform for Real-Time Weld Quality Inspection
           </p>
@@ -284,7 +290,7 @@ const LandingPage = ({ onEnterApp }: LandingPageProps) => {
             </div>
           </div>
           <div className="text-center text-slate-500 text-sm pt-6 border-t border-slate-800">
-            <p>WeldVision X5 • Industrial Edge Computing Platform</p>
+            <p>WeldVision X5 • Industrial Edge Computing Platform • <span className="font-mono text-slate-600">v{packageJson.version}</span></p>
           </div>
         </div>
       </footer>

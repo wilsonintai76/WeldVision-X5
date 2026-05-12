@@ -20,7 +20,9 @@ jobs:
     name: Download .onnx - BPU .bin - R2
     runs-on: ubuntu-latest
 
+    # Use Node.js 24 for all JavaScript actions (actions/checkout, etc.)
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       MODEL_R2_KEY: ${{ inputs.model_r2_key }}
       MODEL_ID: ${{ inputs.model_id }}
 
