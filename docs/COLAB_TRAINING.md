@@ -71,6 +71,8 @@ model.train(
     epochs=100,
     imgsz=640,
     batch=16,
+    mosaic=1.0,           # keep mosaic augmentation on
+    close_mosaic=10,      # turn it off near the end for cleaner fine-tuning
     name="weld_defect",
     patience=20,          # early stopping
 )

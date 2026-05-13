@@ -15,8 +15,6 @@ import EdgeManagement from './components/EdgeManagement'
 import Rubrics from './components/Rubrics'
 import Help from './components/Help'
 import LandingPage from './components/LandingPage'
-import Login from './components/Login'
-import Register from './components/Register'
 import UserManagement from './components/UserManagement'
 import CourseManagement from './components/CourseManagement'
 import History from './components/History'
@@ -44,7 +42,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/" replace />
   }
 
   return <>{children}</>
@@ -88,15 +86,11 @@ const LandingWrapper: React.FC = () => {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
 
-  const handleEnterApp = () => {
-    if (isAuthenticated) {
-      navigate('/app')
-    } else {
-      navigate('/login')
-    }
+  if (isAuthenticated) {
+    return <Navigate to="/app" replace />
   }
 
-  return <LandingPage onEnterApp={handleEnterApp} />
+  return <LandingPage onLoginSuccess={() => navigate('/app')} />
 }
 
 const App: React.FC = () => {
@@ -118,8 +112,8 @@ const App: React.FC = () => {
         <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
           <Routes>
             <Route path="/" element={<LandingWrapper />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/register" element={<Navigate to="/" replace />} />
             <Route path="/app/*" element={
               <ProtectedRoute>
                 <MainApp />

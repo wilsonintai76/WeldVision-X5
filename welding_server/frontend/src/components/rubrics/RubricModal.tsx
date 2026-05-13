@@ -30,7 +30,7 @@ const RubricModal: React.FC<RubricModalProps> = ({
           <h3 className="text-xl font-semibold text-white">
             {editingRubric ? 'Edit Rubric' : 'New Rubric'}
           </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
+          <button aria-label="Close" onClick={onClose} className="text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -50,6 +50,7 @@ const RubricModal: React.FC<RubricModalProps> = ({
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">Type</label>
             <select
+              aria-label="Rubric type"
               value={rubricForm.rubric_type}
               onChange={(e) => setRubricForm({ ...rubricForm, rubric_type: e.target.value })}
               className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded text-white focus:ring-1 focus:ring-blue-500 outline-none"
@@ -63,6 +64,7 @@ const RubricModal: React.FC<RubricModalProps> = ({
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">Passing Score (1-5)</label>
             <input
+              aria-label="Passing score"
               type="number"
               min="1"
               max="5"

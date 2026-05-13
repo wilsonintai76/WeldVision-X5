@@ -1,19 +1,15 @@
 import React from 'react'
-import { ClipboardCheck, Plus, AlertTriangle, Edit2, Trash2 } from 'lucide-react'
-import { Rubric, Criterion } from './types'
+import { ClipboardCheck, AlertTriangle } from 'lucide-react'
+import { Rubric } from './types'
 
 interface RubricCriteriaEditorProps {
   selectedRubric: Rubric | null;
   activateRubric: (id: number) => void;
-  openCriterionModal: (c: Criterion | null) => void;
-  deleteCriterion: (id: number) => void;
 }
 
 const RubricCriteriaEditor: React.FC<RubricCriteriaEditorProps> = ({
   selectedRubric,
-  activateRubric,
-  openCriterionModal,
-  deleteCriterion
+  activateRubric
 }) => {
   const categoryColors: Record<string, string> = {
     geometric: 'bg-blue-900/50 text-blue-400',
@@ -52,13 +48,6 @@ const RubricCriteriaEditor: React.FC<RubricCriteriaEditorProps> = ({
             {selectedRubric.description || 'No description'}
           </p>
         </div>
-        <button
-          onClick={() => openCriterionModal(null)}
-          className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Criterion
-        </button>
       </div>
 
       {/* Passing Score Info */}
@@ -107,20 +96,6 @@ const RubricCriteriaEditor: React.FC<RubricCriteriaEditorProps> = ({
                       <span className="text-[10px] text-slate-500 font-mono">WEIGHT: {criterion.weight}x</span>
                     </div>
                   </div>
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => openCriterionModal(criterion)}
-                    className="p-1.5 text-slate-500 hover:text-white transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => (criterion.id && deleteCriterion(criterion.id))}
-                    className="p-1.5 text-slate-500 hover:text-red-400 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
 

@@ -3,13 +3,12 @@ import { Plus, Star } from 'lucide-react'
 import { authHeaders } from '../services/authAPI'
 
 // Types
-import { Rubric, Criterion, RubricForm as RubricFormType } from './rubrics/types'
+import { Rubric, RubricForm as RubricFormType } from './rubrics/types'
 
 // Components
 import RubricList from './rubrics/RubricList'
 import RubricCriteriaEditor from './rubrics/RubricCriteriaEditor'
 import RubricModal from './rubrics/RubricModal'
-import CriterionModal from './rubrics/CriterionModal'
 
 const Rubrics: FC = () => {
   const [rubrics, setRubrics] = useState<Rubric[]>([])
@@ -18,9 +17,7 @@ const Rubrics: FC = () => {
 
   // Modal states
   const [showRubricModal, setShowRubricModal] = useState(false)
-  const [showCriterionModal, setShowCriterionModal] = useState(false)
   const [editingRubric, setEditingRubric] = useState<Rubric | null>(null)
-  const [editingCriterion, setEditingCriterion] = useState<Criterion | null>(null)
 
   // Forms
   const [rubricForm, setRubricForm] = useState<RubricFormType>({
@@ -28,23 +25,6 @@ const Rubrics: FC = () => {
     description: '',
     rubric_type: 'custom',
     passing_score: 3.0
-  })
-
-  const [criterionForm, setCriterionForm] = useState<Criterion>({
-    name: '',
-    category: 'visual',
-    weight: 1.0,
-    order: 0,
-    score_1_label: 'Poor',
-    score_1_description: '',
-    score_2_label: 'Below Average',
-    score_2_description: '',
-    score_3_label: 'Acceptable',
-    score_3_description: '',
-    score_4_label: 'Good',
-    score_4_description: '',
-    score_5_label: 'Excellent',
-    score_5_description: ''
   })
 
   useEffect(() => {
@@ -130,49 +110,6 @@ const Rubrics: FC = () => {
     setLoading(false)
   }
 
-  const handleCriterionSubmit = async () => {
-    if (!selectedRubric) return
-    setLoading(true)
-    try {
-      // Edit existing criterion: PUT /api/rubrics/criteria/:id
-      // Add new criterion: POST /api/rubrics/:id/criteria
-      const url = editingCriterion
-        ? `/api/rubrics/criteria/${editingCriterion.id}`
-        : `/api/rubrics/${selectedRubric.id}/criteria`
-      const res = await fetch(url, {
-        method: editingCriterion ? 'PUT' : 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify(criterionForm)
-      })
-      if (res.ok) {
-        fetchRubrics()
-        setShowCriterionModal(false)
-        const updatedRes = await fetch(`/api/rubrics/${selectedRubric.id}`, { headers: authHeaders() })
-        if (updatedRes.ok) setSelectedRubric(await updatedRes.json())
-      }
-    } catch (error) {
-      console.error('Error saving criterion:', error)
-    }
-    setLoading(false)
-  }
-
-  const deleteCriterion = async (id: number) => {
-    if (!confirm('Delete this criterion?')) return
-    try {
-      await fetch(`/api/rubrics/criteria/${id}`, {
-        method: 'DELETE',
-        headers: authHeaders()
-      })
-      if (selectedRubric) {
-        const res = await fetch(`/api/rubrics/${selectedRubric.id}`, { headers: authHeaders() })
-        if (res.ok) setSelectedRubric(await res.json())
-      }
-      fetchRubrics()
-    } catch (error) {
-      console.error('Error deleting criterion:', error)
-    }
-  }
-
   const openRubricModal = (rubric: Rubric | null = null) => {
     if (rubric) {
       setEditingRubric(rubric)
@@ -184,23 +121,6 @@ const Rubrics: FC = () => {
     setShowRubricModal(true)
   }
 
-  const openCriterionModal = (criterion: Criterion | null = null) => {
-    if (criterion) {
-      setEditingCriterion(criterion)
-      setCriterionForm({ ...criterion })
-    } else {
-      setEditingCriterion(null)
-      setCriterionForm({
-        name: '', category: 'visual', weight: 1.0, order: 0,
-        score_1_label: 'Poor', score_1_description: '',
-        score_2_label: 'Below Average', score_2_description: '',
-        score_3_label: 'Acceptable', score_3_description: '',
-        score_4_label: 'Good', score_4_description: '',
-        score_5_label: 'Excellent', score_5_description: ''
-      })
-    }
-    setShowCriterionModal(true)
-  }
 
   return (
     <div className="p-8 space-y-6">
@@ -232,8 +152,6 @@ const Rubrics: FC = () => {
           <RubricCriteriaEditor
             selectedRubric={selectedRubric}
             activateRubric={activateRubric}
-            openCriterionModal={openCriterionModal}
-            deleteCriterion={deleteCriterion}
           />
         </div>
       </div>
@@ -245,16 +163,6 @@ const Rubrics: FC = () => {
         rubricForm={rubricForm}
         setRubricForm={setRubricForm}
         onSubmit={handleRubricSubmit}
-        loading={loading}
-      />
-
-      <CriterionModal
-        show={showCriterionModal}
-        onClose={() => setShowCriterionModal(false)}
-        editingCriterion={editingCriterion}
-        criterionForm={criterionForm}
-        setCriterionForm={setCriterionForm}
-        onSubmit={handleCriterionSubmit}
         loading={loading}
       />
     </div>
