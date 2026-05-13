@@ -238,7 +238,7 @@ export const coreAPI = {
   
   async updateCourse(id: number | string, data: any): Promise<any> {
     const response = await apiFetch(`/courses/${id}`, {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify(data),
     });
     if (!response.ok) {

@@ -154,11 +154,17 @@ core.get('/instructors', async (c) => {
 });
 
 // ── COURSES (/api/courses) ────────────────────────────────────────────────────
+// NOTE: session_id and instructor_id are aliased as session/instructor in all
+// GET responses to match the frontend Course type.
 
 core.get('/courses', async (c) => {
   const { session_id } = c.req.query();
   let sql = `
-    SELECT c.*, s.name AS session_name, u.username AS instructor_username
+    SELECT c.id, c.code, c.name, c.section,
+           c.session_id   AS session,
+           c.instructor_id AS instructor,
+           c.description, c.created_at, c.updated_at,
+           s.name AS session_name, u.username AS instructor_username
     FROM courses c
     LEFT JOIN sessions s ON c.session_id = s.id
     LEFT JOIN users u ON c.instructor_id = u.id
@@ -175,7 +181,11 @@ core.get('/courses', async (c) => {
 
 core.get('/courses/:id', async (c) => {
   const row = await c.env.DB.prepare(`
-    SELECT c.*, s.name AS session_name, u.username AS instructor_username
+    SELECT c.id, c.code, c.name, c.section,
+           c.session_id   AS session,
+           c.instructor_id AS instructor,
+           c.description, c.created_at, c.updated_at,
+           s.name AS session_name, u.username AS instructor_username
     FROM courses c
     LEFT JOIN sessions s ON c.session_id = s.id
     LEFT JOIN users u ON c.instructor_id = u.id
@@ -189,28 +199,40 @@ core.post('/courses', async (c) => {
   const payload = c.get('jwtPayload') as JWTPayload;
   if (!isAdminOrInstructor(payload.role)) return c.json({ error: 'Forbidden' }, 403);
 
-  const { code, name, section = '', session_id, instructor_id, description = '' } = await c.req.json<{
-    code?: string; name?: string; section?: string;
-    session_id?: number; instructor_id?: number; description?: string;
+  // Accept both session/instructor (frontend names) and session_id/instructor_id
+  const body = await c.req.json<{
+    code?: string; name?: string; section?: string; description?: string;
+    session?: number; instructor?: number;
+    session_id?: number; instructor_id?: number;
   }>();
+  const { code, name, section = '', description = '' } = body;
+  const session_id   = body.session_id   ?? body.session;
+  const instructor_id = body.instructor_id ?? body.instructor;
+
   if (!code || !name || !session_id) {
-    return c.json({ error: 'code, name, and session_id are required' }, 400);
+    return c.json({ error: 'code, name, and session are required' }, 400);
   }
   const result = await c.env.DB
     .prepare('INSERT INTO courses (code, name, section, session_id, instructor_id, description) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(code, name, section, session_id, instructor_id ?? null, description)
     .run();
-  return c.json({ id: result.meta.last_row_id, code, name, section, session_id }, 201);
+  return c.json({ id: result.meta.last_row_id, code, name, section, session }, 201);
 });
 
 core.put('/courses/:id', async (c) => {
   const payload = c.get('jwtPayload') as JWTPayload;
   if (!isAdminOrInstructor(payload.role)) return c.json({ error: 'Forbidden' }, 403);
 
-  const { code, name, section = '', session_id, instructor_id, description = '' } = await c.req.json<{
-    code?: string; name?: string; section?: string;
-    session_id?: number; instructor_id?: number; description?: string;
+  // Accept both session/instructor (frontend names) and session_id/instructor_id
+  const body = await c.req.json<{
+    code?: string; name?: string; section?: string; description?: string;
+    session?: number; instructor?: number;
+    session_id?: number; instructor_id?: number;
   }>();
+  const { code, name, section = '', description = '' } = body;
+  const session_id   = body.session_id   ?? body.session;
+  const instructor_id = body.instructor_id ?? body.instructor;
+
   await c.env.DB
     .prepare('UPDATE courses SET code=?, name=?, section=?, session_id=?, instructor_id=?, description=?, updated_at=datetime(\'now\') WHERE id=?')
     .bind(code, name, section, session_id, instructor_id ?? null, description, c.req.param('id'))
