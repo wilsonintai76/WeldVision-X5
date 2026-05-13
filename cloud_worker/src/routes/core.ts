@@ -135,6 +135,22 @@ core.delete('/sessions/:id', async (c) => {
   return c.json({ message: 'Deleted' });
 });
 
+// ── INSTRUCTORS (/api/instructors) ──────────────────────────────────────────
+// Returns approved instructors/admins — used by course management dropdowns.
+// Accessible to any authenticated user (no admin restriction).
+
+core.get('/instructors', async (c) => {
+  const rows = await c.env.DB
+    .prepare(
+      `SELECT id, username, staff_id, first_name, last_name
+       FROM users
+       WHERE role IN ('instructor', 'admin') AND is_approved = 1
+       ORDER BY last_name, first_name`
+    )
+    .all();
+  return c.json(rows.results);
+});
+
 // ── COURSES (/api/courses) ────────────────────────────────────────────────────
 
 core.get('/courses', async (c) => {

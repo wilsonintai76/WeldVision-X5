@@ -141,7 +141,7 @@ export const coreAPI = {
   
   // Instructors
   async getInstructors(): Promise<any> {
-    const response = await apiFetch('/users/?role=instructor');
+    const response = await apiFetch('/instructors');
     if (!response.ok) {
       throw new Error('Failed to get instructors');
     }
