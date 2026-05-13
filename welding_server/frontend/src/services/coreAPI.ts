@@ -33,7 +33,7 @@ export const coreAPI = {
   },
   
   async getClass(id: number | string): Promise<any> {
-    const response = await apiFetch(`/classes/${id}/`);
+    const response = await apiFetch(`/classes/${id}`);
     if (!response.ok) {
       throw new Error('Failed to get class');
     }
@@ -176,7 +176,7 @@ export const coreAPI = {
   },
   
   async updateSession(id: number | string, data: any): Promise<any> {
-    const response = await apiFetch(`/sessions/${id}/`, {
+    const response = await apiFetch(`/sessions/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
@@ -187,7 +187,7 @@ export const coreAPI = {
   },
   
   async deleteSession(id: number | string): Promise<{ success: boolean }> {
-    const response = await apiFetch(`/sessions/${id}/`, {
+    const response = await apiFetch(`/sessions/${id}`, {
       method: 'DELETE',
     });
     if (!response.ok) {
@@ -209,7 +209,8 @@ export const coreAPI = {
   // Courses
   async getCourses(filters: Record<string, any> = {}): Promise<any> {
     const params = new URLSearchParams(filters);
-    const response = await apiFetch(`/courses/?${params}`);
+    const paramStr = params.toString();
+    const response = await apiFetch(`/courses${paramStr ? `?${paramStr}` : ''}`);
     if (!response.ok) {
       throw new Error('Failed to get courses');
     }
@@ -217,7 +218,7 @@ export const coreAPI = {
   },
   
   async getCourse(id: number | string): Promise<any> {
-    const response = await apiFetch(`/courses/${id}/`);
+    const response = await apiFetch(`/courses/${id}`);
     if (!response.ok) {
       throw new Error('Failed to get course');
     }
@@ -236,7 +237,7 @@ export const coreAPI = {
   },
   
   async updateCourse(id: number | string, data: any): Promise<any> {
-    const response = await apiFetch(`/courses/${id}/`, {
+    const response = await apiFetch(`/courses/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
@@ -247,7 +248,7 @@ export const coreAPI = {
   },
   
   async deleteCourse(id: number | string): Promise<{ success: boolean }> {
-    const response = await apiFetch(`/courses/${id}/`, {
+    const response = await apiFetch(`/courses/${id}`, {
       method: 'DELETE',
     });
     if (!response.ok) {

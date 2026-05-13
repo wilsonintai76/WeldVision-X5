@@ -73,30 +73,38 @@ const LandingPage = ({ onLoginSuccess }: LandingPageProps) => {
       }))
     }
 
-    // Check RDK X5 edge device directly via LAN (reads stored config)
-    try {
-      const saved = localStorage.getItem('wv_edge_config')
-      const cfg = saved ? JSON.parse(saved) : { device_ip: '192.168.1.100', device_port: '8080' }
-      const edgeResponse = await fetch(
-        `http://${cfg.device_ip}:${cfg.device_port}/health`,
-        { signal: AbortSignal.timeout(2500) }
-      )
-      if (edgeResponse.ok) {
-        setSystemStatus((prev: SystemStatus) => ({
-          ...prev,
-          edgeDevice: { status: 'online', message: `RDK X5 connected (${cfg.device_ip})` }
-        }))
-      } else {
-        setSystemStatus((prev: SystemStatus) => ({
-          ...prev,
-          edgeDevice: { status: 'warning', message: 'RDK X5 status unavailable' }
-        }))
-      }
-    } catch {
+    // Check RDK X5 edge device directly via LAN (reads stored config).
+    // Skip when served over HTTPS — browsers block HTTP (mixed content).
+    if (window.location.protocol === 'https:') {
       setSystemStatus((prev: SystemStatus) => ({
         ...prev,
-        edgeDevice: { status: 'warning', message: 'Edge device unreachable' }
+        edgeDevice: { status: 'warning', message: 'Connect from LAN to check edge device' }
       }))
+    } else {
+      try {
+        const saved = localStorage.getItem('wv_edge_config')
+        const cfg = saved ? JSON.parse(saved) : { device_ip: '192.168.1.100', device_port: '8080' }
+        const edgeResponse = await fetch(
+          `http://${cfg.device_ip}:${cfg.device_port}/health`,
+          { signal: AbortSignal.timeout(2500) }
+        )
+        if (edgeResponse.ok) {
+          setSystemStatus((prev: SystemStatus) => ({
+            ...prev,
+            edgeDevice: { status: 'online', message: `RDK X5 connected (${cfg.device_ip})` }
+          }))
+        } else {
+          setSystemStatus((prev: SystemStatus) => ({
+            ...prev,
+            edgeDevice: { status: 'warning', message: 'RDK X5 status unavailable' }
+          }))
+        }
+      } catch {
+        setSystemStatus((prev: SystemStatus) => ({
+          ...prev,
+          edgeDevice: { status: 'warning', message: 'Edge device unreachable' }
+        }))
+      }
     }
 
     setIsChecking(false)

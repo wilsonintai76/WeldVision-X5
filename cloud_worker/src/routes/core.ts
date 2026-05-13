@@ -79,7 +79,9 @@ core.get('/sessions/active', async (c) => {
   const row = await c.env.DB
     .prepare('SELECT * FROM sessions WHERE is_active = 1 LIMIT 1')
     .first();
-  if (!row) return c.json({ error: 'No active session' }, 404);
+  // Return null (200) rather than 404 so browsers don't log console errors
+  // when no session is active — callers check for null already.
+  if (!row) return c.json(null);
   return c.json(row);
 });
 
