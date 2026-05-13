@@ -119,22 +119,20 @@ rubrics.post('/create-iso-5817', async (c) => {
   const rubricId = result.meta.last_row_id;
 
   const criteria = [
-    { name: 'Cracks', category: 'structural', w: 2.0, order: 1,
-      l1: 'Severe cracks', l2: 'Multiple cracks', l3: 'Minor surface crack', l4: 'Micro crack', l5: 'No cracks' },
-    { name: 'Porosity', category: 'structural', w: 1.5, order: 2,
-      l1: '>5 pores visible', l2: '3-5 pores', l3: '1-2 pores', l4: 'Micro-porosity only', l5: 'No porosity' },
-    { name: 'Incomplete Fusion', category: 'structural', w: 2.0, order: 3,
-      l1: 'No fusion on edges', l2: 'Large unfused area', l3: 'Small unfused zone', l4: 'Marginal fusion', l5: 'Complete fusion' },
-    { name: 'Undercut', category: 'dimensional', w: 1.5, order: 4,
+    { name: 'Weld Bead', category: 'dimensional', w: 1.0, order: 1,
+      l1: 'Grossly irregular bead', l2: 'Significant irregularity', l3: 'Moderate uniformity', l4: 'Near-uniform bead', l5: 'Uniform and consistent bead' },
+    { name: 'Undercut', category: 'dimensional', w: 1.5, order: 2,
       l1: '>1mm deep undercut', l2: '0.5-1mm undercut', l3: '0.3-0.5mm undercut', l4: '<0.3mm undercut', l5: 'No undercut' },
-    { name: 'Weld Spatter', category: 'visual', w: 1.0, order: 5,
+    { name: 'Severe Craters', category: 'structural', w: 2.0, order: 3,
+      l1: 'Multiple large craters', l2: '3+ craters visible', l3: '1-2 craters present', l4: 'Minor crater marks only', l5: 'No craters' },
+    { name: 'Lack of Fusion', category: 'structural', w: 2.0, order: 4,
+      l1: 'No fusion on edges', l2: 'Large unfused area', l3: 'Small unfused zone', l4: 'Marginal fusion issue', l5: 'Complete fusion' },
+    { name: 'Spatter', category: 'visual', w: 1.0, order: 5,
       l1: 'Heavy spatter all around', l2: 'Multiple large spatter', l3: 'Some spatter', l4: 'Minimal spatter', l5: 'No spatter' },
-    { name: 'Bead Geometry', category: 'dimensional', w: 1.0, order: 6,
-      l1: 'Grossly irregular bead', l2: 'Significant irregularity', l3: 'Moderate uniformity', l4: 'Near-uniform bead', l5: 'Uniform bead width' },
-    { name: 'Reinforcement Height', category: 'dimensional', w: 1.0, order: 7,
+    { name: 'Porosity', category: 'structural', w: 1.5, order: 6,
+      l1: '>5 pores visible', l2: '3-5 pores', l3: '1-2 pores', l4: 'Micro-porosity only', l5: 'No porosity' },
+    { name: 'Excessive Reinforcement', category: 'dimensional', w: 1.0, order: 7,
       l1: '>4mm over-reinforcement', l2: '2-4mm over height', l3: '1-2mm over height', l4: '0-1mm over height', l5: 'Within spec height' },
-    { name: 'Overlap', category: 'visual', w: 1.0, order: 8,
-      l1: 'Severe overlap both sides', l2: 'Overlap on one side', l3: 'Slight overlap', l4: 'Very slight overlap', l5: 'No overlap' },
   ];
 
   const stmt = c.env.DB.prepare(`

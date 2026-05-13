@@ -4,7 +4,6 @@ export interface Env {
   DB: D1Database;
   STORAGE: R2Bucket;
   AI: Ai;
-  KV: KVNamespace;  // wrangler kv:namespace create EDGE_STATE
   JWT_SECRET: string;
   GITHUB_PAT: string;
   EDGE_IMPULSE_WEBHOOK_SECRET: string;

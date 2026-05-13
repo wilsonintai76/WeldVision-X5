@@ -425,12 +425,6 @@ core.post('/stereo-calibrations/:id/deploy', async (c) => {
     .bind(id)
     .run();
 
-  // Store target device in KV for edge device polling
-  if (c.env.KV) {
-    await c.env.KV.put('active_calibration_id', String(id));
-    if (ip) await c.env.KV.put('edge_device_ip', String(ip));
-  }
-
   // If edge device IP provided, push calibration data directly
   if (ip) {
     try {

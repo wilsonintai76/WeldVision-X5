@@ -43,8 +43,9 @@ export interface Metrics {
   defects: {
     porosity: number;
     spatter: number;
-    slagInclusion: number;
-    burnThrough: number;
+    severeCraters: number;
+    lackOfFusion: number;
+    excessiveReinforcement: number;
   };
 }
 
