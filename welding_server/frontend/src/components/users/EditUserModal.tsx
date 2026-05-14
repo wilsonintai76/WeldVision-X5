@@ -11,7 +11,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onSave, onClose }) 
   const [formData, setFormData] = useState({
     role: user.role,
     is_approved: user.is_approved,
-    is_active: user.is_active,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -45,15 +44,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onSave, onClose }) 
                 className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-0"
               />
               <span className="text-slate-300 text-sm">Approved</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={formData.is_active}
-                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                className="w-4 h-4 rounded bg-slate-950 border-slate-800 text-blue-600 focus:ring-0"
-              />
-              <span className="text-slate-300 text-sm">Active</span>
             </label>
           </div>
           <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-800 mt-4">

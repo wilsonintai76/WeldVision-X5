@@ -137,7 +137,23 @@ core.delete('/sessions/:id', async (c) => {
   return c.json({ message: 'Deleted' });
 });
 
-// ── INSTRUCTORS (/api/instructors) ──────────────────────────────────────────
+// POST /api/sessions/:id/activate  — safely set a single session as active
+core.post('/sessions/:id/activate', async (c) => {
+  const payload = c.get('jwtPayload') as JWTPayload;
+  if (payload.role !== 'admin') return c.json({ error: 'Forbidden' }, 403);
+  const id = c.req.param('id');
+  const session = await c.env.DB
+    .prepare('SELECT * FROM sessions WHERE id = ?')
+    .bind(id)
+    .first();
+  if (!session) return c.json({ error: 'Session not found' }, 404);
+  await c.env.DB.prepare('UPDATE sessions SET is_active = 0, updated_at = datetime(\'now\')').run();
+  await c.env.DB
+    .prepare('UPDATE sessions SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?')
+    .bind(id)
+    .run();
+  return c.json({ ...session as object, is_active: true });
+});
 // Returns approved instructors/admins — used by course management dropdowns.
 // Accessible to any authenticated user (no admin restriction).
 
@@ -216,7 +232,7 @@ core.post('/courses', async (c) => {
     .prepare('INSERT INTO courses (code, name, section, session_id, instructor_id, description) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(code, name, section, session_id, instructor_id ?? null, description)
     .run();
-  return c.json({ id: result.meta.last_row_id, code, name, section, session }, 201);
+  return c.json({ id: result.meta.last_row_id, code, name, section, session: session_id }, 201);
 });
 
 core.put('/courses/:id', async (c) => {
@@ -247,7 +263,10 @@ core.delete('/courses/:id', async (c) => {
   return c.json({ message: 'Deleted' });
 });
 
-// ── STUDENTS (/api/students) ──────────────────────────────────────────────────
+// POST /api/courses/import-pdf  — placeholder; PDF timetable import not yet implemented
+core.post('/courses/import-pdf', async (c) => {
+  return c.json({ error: 'PDF import is not yet implemented' }, 501);
+});
 
 core.get('/students', async (c) => {
   const { class_group_id, course_id, search } = c.req.query();
@@ -326,7 +345,10 @@ core.delete('/students/:id', async (c) => {
   return c.json({ message: 'Deleted' });
 });
 
-// POST /api/students/:id/enroll  — enroll student in a course
+// POST /api/students/bulk-import  — placeholder; CSV bulk import not yet implemented
+core.post('/students/bulk-import', async (c) => {
+  return c.json({ error: 'Bulk import is not yet implemented' }, 501);
+});
 core.post('/students/:id/enroll', async (c) => {
   const payload = c.get('jwtPayload') as JWTPayload;
   if (!isAdminOrInstructor(payload.role)) return c.json({ error: 'Forbidden' }, 403);
@@ -449,7 +471,8 @@ core.post('/stereo-calibrations/:id/deploy', async (c) => {
   if (!isAdminOrInstructor(payload.role)) return c.json({ error: 'Forbidden' }, 403);
 
   const id = c.req.param('id');
-  const { ip, port = 8080 } = await c.req.json<{ ip?: string; port?: number }>().catch(() => ({}));
+  const body = await c.req.json<{ ip?: string; port?: number }>().catch(() => ({} as { ip?: string; port?: number }));
+  const { ip, port = 8080 } = body;
 
   const row = await c.env.DB
     .prepare('SELECT * FROM stereo_calibrations WHERE id = ?')

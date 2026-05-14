@@ -7,8 +7,7 @@ export interface ManagedUser {
   last_name?: string;
   role: 'admin' | 'instructor' | 'student';
   is_approved: boolean;
-  is_active: boolean;
-  date_joined: string;
+  created_at: string;
 }
 
 export interface AuditLog {

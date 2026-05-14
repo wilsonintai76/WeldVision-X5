@@ -53,16 +53,15 @@ export interface StudentRow {
 export interface AssessmentRow {
   id: number;
   student_id: number;
+  course_id: number | null;
   timestamp: string;
   final_score: number | null;
   image_original_key: string | null;
   image_heatmap_key: string | null;
-  metrics_json: string;
-  notes: string;
-  device_id: string;
-  model_version: string;
+  notes: string | null;
+  device_id: string | null;
+  model_version: string | null;
   pointcloud_ply_key: string | null;
   mesh_preview_json: string | null;
-  ai_evaluation_json: string | null;
   created_at: string;
 }

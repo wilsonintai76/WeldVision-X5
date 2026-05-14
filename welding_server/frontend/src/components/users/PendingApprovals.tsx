@@ -56,7 +56,7 @@ const PendingApprovals: React.FC<PendingApprovalsProps> = ({
                     Wants: {user.role}
                   </span>
                   <span className="text-slate-500 text-[10px] uppercase font-bold tracking-tighter">
-                    Requested {new Date(user.date_joined).toLocaleDateString()}
+                    Requested {new Date(user.created_at).toLocaleDateString()}
                   </span>
                 </div>
               </div>

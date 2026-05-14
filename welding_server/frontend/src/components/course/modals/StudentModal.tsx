@@ -9,7 +9,7 @@ interface StudentModalProps {
   studentForm: {
     student_id: string;
     name: string;
-    class_group: string | number;
+    class_group_id: string | number;
   };
   setStudentForm: (form: any) => void;
   onSave: () => void;
@@ -67,8 +67,8 @@ const StudentModal: React.FC<StudentModalProps> = ({
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1">Home Class</label>
             <select
-              value={studentForm.class_group}
-              onChange={e => setStudentForm({ ...studentForm, class_group: e.target.value })}
+              value={studentForm.class_group_id}
+              onChange={e => setStudentForm({ ...studentForm, class_group_id: e.target.value })}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-4 text-white focus:outline-none focus:border-emerald-500"
             >
               <option value="">Select Home Class</option>

@@ -83,7 +83,7 @@ const CourseManagement: FC = () => {
   const [sessionForm, setSessionForm] = useState({ name: '', is_active: false, start_date: '', end_date: '' });
   const [courseForm, setCourseForm] = useState({ code: '', name: '', section: '', session: '' as string | number, instructor: '' as string | number, description: '' });
   const [classForm, setClassForm] = useState({ name: '', description: '' });
-  const [studentForm, setStudentForm] = useState({ student_id: '', name: '', class_group: '' as string | number });
+  const [studentForm, setStudentForm] = useState({ student_id: '', name: '', class_group_id: '' as string | number });
   
   // File Import State
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -392,10 +392,10 @@ const CourseManagement: FC = () => {
   const openStudentModal = (student: Student | null = null) => {
     if (student) {
       setEditingStudent(student);
-      setStudentForm({ student_id: student.student_id, name: student.name, class_group: student.class_group || '' });
+      setStudentForm({ student_id: student.student_id, name: student.name, class_group_id: student.class_group_id || '' });
     } else {
       setEditingStudent(null);
-      setStudentForm({ student_id: '', name: '', class_group: filterClassId || '' });
+      setStudentForm({ student_id: '', name: '', class_group_id: filterClassId || '' });
     }
     setShowStudentModalCRUD(true);
   };

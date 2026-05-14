@@ -52,8 +52,8 @@ export const coreAPI = {
   },
   
   async updateClass(id: number | string, data: any): Promise<any> {
-    const response = await apiFetch(`/classes/${id}/`, {
-      method: 'PATCH',
+    const response = await apiFetch(`/classes/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -63,7 +63,7 @@ export const coreAPI = {
   },
   
   async deleteClass(id: number | string): Promise<{ success: boolean }> {
-    const response = await apiFetch(`/classes/${id}/`, {
+    const response = await apiFetch(`/classes/${id}`, {
       method: 'DELETE',
     });
     if (!response.ok) {
@@ -100,8 +100,8 @@ export const coreAPI = {
   },
   
   async updateStudent(id: number | string, data: any): Promise<any> {
-    const response = await apiFetch(`/students/${id}/`, {
-      method: 'PATCH',
+    const response = await apiFetch(`/students/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -111,7 +111,7 @@ export const coreAPI = {
   },
   
   async deleteStudent(id: number | string): Promise<{ success: boolean }> {
-    const response = await apiFetch(`/students/${id}/`, {
+    const response = await apiFetch(`/students/${id}`, {
       method: 'DELETE',
     });
     if (!response.ok) {
@@ -126,7 +126,7 @@ export const coreAPI = {
     formData.append('class_id', String(classId));
 
     const token = getStoredToken();
-    const response = await fetch(`${API_BASE}/students/bulk_import`, {
+    const response = await fetch(`${API_BASE}/students/bulk-import`, {
       method: 'POST',
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData,
@@ -177,7 +177,7 @@ export const coreAPI = {
   
   async updateSession(id: number | string, data: any): Promise<any> {
     const response = await apiFetch(`/sessions/${id}`, {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify(data),
     });
     if (!response.ok) {
@@ -197,10 +197,8 @@ export const coreAPI = {
   },
   
   async setActiveSession(id: number | string): Promise<any> {
-    // In cloud API: use PUT /api/sessions/:id with is_active: true
-    const response = await apiFetch(`/sessions/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ is_active: true }),
+    const response = await apiFetch(`/sessions/${id}/activate`, {
+      method: 'POST',
     });
     if (!response.ok) throw new Error('Failed to set active session');
     return response.json();
@@ -286,7 +284,7 @@ export const coreAPI = {
     formData.append('file', file);
     
     const token = getStoredToken();
-    const response = await fetch(`${API_BASE}/courses/import_pdf`, {
+    const response = await fetch(`${API_BASE}/courses/import-pdf`, {
       method: 'POST',
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData,

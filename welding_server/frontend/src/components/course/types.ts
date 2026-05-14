@@ -13,7 +13,7 @@ export interface Instructor {
   name?: string;
   first_name?: string;
   last_name?: string;
-  email: string;
+  email?: string;
 }
 
 export interface Course {
@@ -39,7 +39,7 @@ export interface Student {
   id: number;
   student_id: string;
   name: string;
-  class_group?: number;
+  class_group_id?: number;
   class_group_name?: string;
   username?: string;
   first_name?: string;

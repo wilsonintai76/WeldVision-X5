@@ -81,7 +81,7 @@ const UserTable: React.FC<UserTableProps> = ({
                 )}
               </td>
               <td className="px-4 py-4 text-slate-400 text-sm">
-                {new Date(user.date_joined).toLocaleDateString()}
+                {new Date(user.created_at).toLocaleDateString()}
               </td>
               <td className="px-4 py-4 text-right">
                 <div className="flex items-center justify-end gap-2">

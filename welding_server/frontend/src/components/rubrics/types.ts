@@ -1,7 +1,7 @@
 export interface Criterion {
   id?: number;
   name: string;
-  category: 'geometric' | 'visual' | 'technique' | 'safety' | 'dimensional' | 'structural';
+  category: 'geometric' | 'visual' | 'technique' | 'safety';
   weight: number;
   display_order: number;
   score_1_label: string;
