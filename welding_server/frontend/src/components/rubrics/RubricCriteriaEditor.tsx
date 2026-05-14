@@ -13,8 +13,10 @@ const RubricCriteriaEditor: React.FC<RubricCriteriaEditorProps> = ({
 }) => {
   const categoryColors: Record<string, string> = {
     geometric: 'bg-blue-900/50 text-blue-400',
+    dimensional: 'bg-blue-900/50 text-blue-400',   // legacy alias for geometric
     visual: 'bg-purple-900/50 text-purple-400',
     technique: 'bg-emerald-900/50 text-emerald-400',
+    structural: 'bg-emerald-900/50 text-emerald-400', // legacy alias for technique
     safety: 'bg-orange-900/50 text-orange-400'
   }
 

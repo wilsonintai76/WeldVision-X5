@@ -55,7 +55,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleLogout = async () => {
     await logout()
-    navigate('/login')
+    navigate('/')
   }
 
   const canAccessMLOps = permissions?.can_access_mlops

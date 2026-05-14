@@ -119,19 +119,19 @@ rubrics.post('/create-iso-5817', async (c) => {
   const rubricId = result.meta.last_row_id;
 
   const criteria = [
-    { name: 'Weld Bead', category: 'dimensional', w: 1.0, order: 1,
+    { name: 'Weld Bead', category: 'geometric', w: 1.0, order: 1,
       l1: 'Grossly irregular bead', l2: 'Significant irregularity', l3: 'Moderate uniformity', l4: 'Near-uniform bead', l5: 'Uniform and consistent bead' },
-    { name: 'Undercut', category: 'dimensional', w: 1.5, order: 2,
+    { name: 'Undercut', category: 'geometric', w: 1.5, order: 2,
       l1: '>1mm deep undercut', l2: '0.5-1mm undercut', l3: '0.3-0.5mm undercut', l4: '<0.3mm undercut', l5: 'No undercut' },
-    { name: 'Cracks', category: 'structural', w: 2.5, order: 3,
+    { name: 'Cracks', category: 'technique', w: 2.5, order: 3,
       l1: 'Multiple cracks visible', l2: '2-3 cracks present', l3: '1 crack detected', l4: 'Micro-crack suspected', l5: 'No cracks' },
-    { name: 'Lack of Fusion', category: 'structural', w: 2.0, order: 4,
+    { name: 'Lack of Fusion', category: 'technique', w: 2.0, order: 4,
       l1: 'No fusion on edges', l2: 'Large unfused area', l3: 'Small unfused zone', l4: 'Marginal fusion issue', l5: 'Complete fusion' },
     { name: 'Spatter', category: 'visual', w: 1.0, order: 5,
       l1: 'Heavy spatter all around', l2: 'Multiple large spatter', l3: 'Some spatter', l4: 'Minimal spatter', l5: 'No spatter' },
-    { name: 'Porosity', category: 'structural', w: 1.5, order: 6,
+    { name: 'Porosity', category: 'technique', w: 1.5, order: 6,
       l1: '>5 pores visible', l2: '3-5 pores', l3: '1-2 pores', l4: 'Micro-porosity only', l5: 'No porosity' },
-    { name: 'Reinforcement Height', category: 'dimensional', w: 1.0, order: 7,
+    { name: 'Reinforcement Height', category: 'geometric', w: 1.0, order: 7,
       l1: '>4mm (excessive)', l2: '3-4mm over spec', l3: '2-3mm (borderline)', l4: '1-2mm (acceptable)', l5: '1-3mm (within AWS D11.2)' },
   ];
 

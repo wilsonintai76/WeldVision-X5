@@ -65,17 +65,11 @@ export const authAPI = {
     return response.json();
   },
 
-  // Login — stores returned JWT token
-  // Accepts { identifier, pin } for students/staff, or legacy { username, password } for admin
+  // Login — stores returned JWT token; expects { identifier, pin }
   async login(credentials: any): Promise<any> {
-    // Normalise: if caller sends { username, password }, map to { identifier, pin }
-    const body = credentials.identifier !== undefined
-      ? credentials
-      : { identifier: credentials.username, pin: credentials.password };
-
     const response = await authFetch('/auth/login', {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify(credentials),
     });
     const data = await response.json() as any;
     if (!response.ok) {
@@ -212,11 +206,6 @@ export const authAPI = {
     const data = await response.json() as any;
     if (!response.ok) throw new Error(data.error || 'PIN reset failed');
     return data;
-  },
-
-  // Forgot password (kept for backward compatibility — delegates to forgotPin)
-  async forgotPassword(identifier: string): Promise<any> {
-    return this.forgotPin(identifier);
   },
 
   // Force change password/PIN (when must_change_password = true)

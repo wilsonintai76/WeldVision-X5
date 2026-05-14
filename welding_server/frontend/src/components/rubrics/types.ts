@@ -1,9 +1,9 @@
 export interface Criterion {
   id?: number;
   name: string;
-  category: 'geometric' | 'visual' | 'technique' | 'safety';
+  category: 'geometric' | 'visual' | 'technique' | 'safety' | 'dimensional' | 'structural';
   weight: number;
-  order: number;
+  display_order: number;
   score_1_label: string;
   score_1_description: string;
   score_2_label: string;
