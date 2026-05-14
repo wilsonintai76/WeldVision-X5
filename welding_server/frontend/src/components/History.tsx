@@ -82,7 +82,10 @@ const History: FC = () => {
                     ...a,
                     type: 'scan' as const,
                     timestamp: a.timestamp,
-                    final_score: (a.final_score / 20),
+                    final_score: a.final_score ?? 0,
+                    grade_band: a.grade_band ?? '',
+                    rejected: !!a.rejected,
+                    rejection_reason: a.rejection_reason ?? '',
                     has_3d_data: a.has_3d_data,
                     evaluation_id: a.evaluation_id
                 }))
@@ -110,10 +113,10 @@ const History: FC = () => {
         }
         if (scoreFilter !== 'all') {
             const score = a.final_score || 0
-            if (scoreFilter === 'excellent' && score < 4.2) return false
-            if (scoreFilter === 'good' && (score < 3.5 || score >= 4.2)) return false
-            if (scoreFilter === 'fair' && (score < 2.5 || score >= 3.5)) return false
-            if (scoreFilter === 'poor' && score >= 2.5) return false
+            if (scoreFilter === 'excellent' && score < 90) return false   // Grade A
+            if (scoreFilter === 'good' && (score < 70 || score >= 90)) return false  // Grade B–C
+            if (scoreFilter === 'fair' && (score < 60 || score >= 70)) return false  // Grade D
+            if (scoreFilter === 'poor' && score >= 60) return false       // Grade F
         }
         return true
     })
@@ -140,10 +143,11 @@ const History: FC = () => {
     }
 
     const getScoreColor = (score: number) => {
-        if (score >= 4.2) return 'text-emerald-400'
-        if (score >= 3.5) return 'text-blue-400'
-        if (score >= 3.0) return 'text-amber-400'
-        return 'text-red-400'
+        if (score >= 90) return 'text-emerald-400'   // A
+        if (score >= 80) return 'text-blue-400'      // B
+        if (score >= 70) return 'text-amber-400'     // C
+        if (score >= 60) return 'text-yellow-500'    // D
+        return 'text-red-400'                        // F
     }
 
     return (

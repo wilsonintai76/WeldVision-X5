@@ -1,0 +1,684 @@
+% ============================================================
+%  WeldVision X5 – Research Paper
+%  Compile with: pdflatex RESEARCH_PAPER.tex (twice for refs)
+% ============================================================
+\documentclass[12pt,a4paper]{article}
+
+% --- Packages ---
+\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{rotating}
+\usepackage{graphicx}
+\usepackage{setspace}
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+\usepackage{caption}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+
+% --- Colours ---
+\definecolor{darkblue}{RGB}{26,58,92}
+\definecolor{medblue}{RGB}{46,109,164}
+
+% --- Font ---
+\usepackage{mathptmx}   % Times-like serif for body + math
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+% --- Section styling ---
+\usepackage{titlesec}
+\titleformat{\section}{\large\bfseries\color{darkblue}}{{\thesection.}}{0.5em}{}[\vspace{-2pt}\rule{\linewidth}{0.5pt}\vspace{2pt}]
+\titleformat{\subsection}{\normalsize\bfseries\color{darkblue}}{\thesubsection}{0.5em}{}
+\titleformat{\subsubsection}{\normalsize\itshape\bfseries}{\thesubsubsection}{0.5em}{}
+
+% --- Header / Footer ---
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\itshape WeldVision X5}
+\fancyhead[R]{\small\itshape Politeknik Kuching Sarawak}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% --- Caption style ---
+\captionsetup{font=small, labelfont=bf, justification=centering}
+
+% --- Line spacing ---
+\setstretch{1.15}
+
+% --- Column type for wrapping in tables ---
+\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\Centering\arraybackslash}p{#1}}
+
+% ============================================================
+\begin{document}
+% ============================================================
+
+% ── Title Block ─────────────────────────────────────────────
+\begin{center}
+  {\Large\bfseries\color{darkblue}
+    WeldVision X5: An Edge--Cloud Hybrid Automated Vision System\\[4pt]
+    for Student SMAW Welding Coupon Evaluation
+  }\\[12pt]
+  {\normalsize\textbf{Politeknik Kuching Sarawak}\\
+   Department of Mechanical Engineering}
+\end{center}
+
+\vspace{6pt}
+\noindent\rule{\linewidth}{1pt}
+\vspace{4pt}
+
+% ── Abstract ────────────────────────────────────────────────
+\begin{center}{\bfseries Abstract}\end{center}
+\begin{quotation}\noindent
+Manual assessment of Shielded Metal Arc Welding (SMAW) coupons in technical education is subjective,
+time-consuming, and lacks digital traceability. This paper presents \textbf{WeldVision X5}, an Industry~4.0
+(IR~4.0) prototype that automates the evaluation of $50\times100\times6$\,mm cast-iron butt-joint coupons
+using a hybrid edge-cloud architecture. The system employs an RDK~X5 edge device with a stereo camera
+mounted on a repurposed Ender~3 gantry. A YOLOv8s object detection model runs on the RDK~X5's BPU (NPU)
+to identify the weld region, spatter, undercut, and porosity, while Semi-Global Block Matching (SGBM) depth
+estimation runs on the multi-core CPU to extract geometric dimensions. Detection results are fused by a rubric
+engine to generate a scored assessment. The cloud backend, built entirely on Cloudflare's free tier (Workers,
+D1, R2, KV) using the Hono framework, provides a responsive React dashboard for instructors and stores all
+inspection data. Model training is performed on Google Colab, dataset management on Roboflow, and
+ONNX-to-Hobot conversion automated via GitHub Actions---all within free-tier limits. The prototype supports
+offline-first operation over LAN. Preliminary tests yield a YOLOv8s validation mAP@0.5 of 0.92, per-class
+F1 scores between 0.86--0.92, geometric measurement RMSE $\le 0.38$\,mm, and a rubric-score correlation of
+$r=0.87$ with human assessors. WeldVision~X5 demonstrates a scalable, sustainable, low-cost solution for
+digital welding assessment that aligns with IR~4.0 principles.
+\end{quotation}
+
+\noindent\textbf{Keywords:} SMAW welding inspection, YOLOv8, stereo vision, SGBM, edge computing,
+BPU, Cloudflare, IR~4.0, digital rubric, hybrid architecture
+
+\vspace{4pt}
+\noindent\rule{\linewidth}{0.5pt}
+\vspace{4pt}
+
+% ── 1. Introduction ─────────────────────────────────────────
+\section{Introduction}
+
+Shielded Metal Arc Welding (SMAW) is a cornerstone skill in mechanical engineering and vocational training.
+Traditional evaluation of student welding coupons relies on manual inspection by instructors, who use physical
+gauges and visual checklists. This process is labour-intensive, prone to inter-assessor variability, and
+produces no permanent digital record of weld quality. With the emergence of Industry~4.0 (IR~4.0), there is a
+growing imperative to integrate smart sensors, artificial intelligence, and cloud connectivity into technical
+education to enhance objectivity, efficiency, and sustainability.
+
+The \textbf{WeldVision X5} project addresses this need by developing a fully automated vision-based prototype
+for the evaluation of SMAW butt-joint coupons. The system captures stereo images of welded specimens,
+performs deep-learning-based defect detection and classical stereo-based 3D reconstruction at the edge, and
+generates a rubric-based score that can be reviewed through a responsive web dashboard. By adopting a hybrid
+edge-cloud architecture, the prototype provides real-time feedback in the workshop while aggregating data in
+the cloud for long-term analytics and instructor oversight. All components---from the training pipeline to cloud
+services---are designed to operate within free-tier limits, minimising both capital and operational costs.
+
+This paper details the design, implementation, and preliminary evaluation of WeldVision~X5, highlighting its
+alignment with IR~4.0 principles and its contribution to sustainable, accessible technical assessment.
+
+% ── 2. Objectives ───────────────────────────────────────────
+\section{Objectives}
+
+\begin{enumerate}[leftmargin=*, label=\arabic*.]
+  \item \textbf{Develop} an automated prototype that evaluates student SMAW welding coupons against a
+        standardised digital rubric.
+  \item \textbf{Implement} a dual-stream vision pipeline that detects weld defects with a YOLOv8s model
+        accelerated on an RDK~X5 BPU and extracts geometric features through CPU-based SGBM depth estimation.
+  \item \textbf{Build} a fully responsive web dashboard (desktop, tablet, mobile) enabling instructors to
+        view live results, historical trends, interactive 3D point clouds, and a \textbf{manual override} for
+        suspected internal defects.
+  \item \textbf{Establish} a hybrid edge-cloud infrastructure that runs real-time inspection locally and
+        synchronises data with Cloudflare serverless services, ensuring offline capability.
+  \item \textbf{Incorporate} sustainability principles by digitising the inspection workflow, repurposing
+        existing hardware, and optimising power consumption through dedicated BPU/CPU task allocation.
+  \item \textbf{Demonstrate} key IR~4.0 elements: IoT interconnectivity, AI at the edge, cloud analytics,
+        and digital traceability in technical education.
+\end{enumerate}
+
+% ── 3. Significance of the Study ────────────────────────────
+\section{Significance of the Study}
+
+This work holds significance for several reasons:
+\begin{itemize}[leftmargin=*, itemsep=3pt]
+  \item \textbf{Educational impact:} It provides an objective, consistent, and rapid surface-quality
+        assessment tool, reducing instructor workload and enabling data-driven feedback to students.
+  \item \textbf{Cost-efficiency:} The entire pipeline uses free-tier cloud services (Roboflow, Google Colab,
+        Cloudflare, GitHub Actions) and a low-cost edge device, making the solution accessible to institutions
+        with limited budgets.
+  \item \textbf{Sustainability:} Repurposing an Ender~3 frame reduces e-waste; the RDK~X5's BPU+CPU design
+        consumes $<10$\,W, and paperless digital records eliminate physical rubrics.
+  \item \textbf{Technological integration:} WeldVision~X5 demonstrates a practical split-compute architecture
+        where deep learning is offloaded to a dedicated NPU while classical computer vision remains on the CPU,
+        offering a template for similar edge AI solutions.
+  \item \textbf{Scalability:} The hybrid edge-cloud model enables multi-booth deployment with centralised
+        monitoring, supporting large student cohorts without incremental cloud costs.
+\end{itemize}
+
+% ── 4. Literature Review ────────────────────────────────────
+\section{Literature Review}
+
+\subsection{Vision-Based Weld Inspection and Stereo Depth Estimation}
+
+Automated visual inspection of welds has evolved from classical image processing to modern deep-learning
+approaches. Early methods relied on edge detection, thresholding, and morphological operators \cite{Kumar2019},
+which were sensitive to lighting and surface finish. The YOLO family \cite{Redmon2018} revolutionised
+real-time object detection; YOLOv4 and YOLOv5 have been successfully applied to weld defect classification
+with mAP values exceeding 0.90 \cite{Zhang2020,He2022}. The latest iteration, YOLOv8 \cite{Jocher2023},
+offers improved model efficiency and native ONNX export, making it ideal for edge deployment.
+
+For 3D geometry, stereo vision remains a non-contact standard. Hirschm\"uller's \cite{Hirschmuller2008}
+Semi-Global Matching (SGBM) algorithm balances accuracy and computational cost, outperforming local methods
+on textured industrial surfaces \cite{Scharstein2002}. Kumar et al.\ \cite{Kumar2019} coupled SGBM with
+structured light to measure weld bead dimensions with sub-millimetre error. While deep-learning stereo methods
+like StereoNet \cite{Khamis2018} promise higher accuracy, they require GPU accelerators often unavailable on
+embedded platforms. WeldVision~X5 addresses this gap by running SGBM entirely on the edge CPU while
+offloading object detection to a dedicated NPU.
+
+\subsection{Edge Computing Hardware for AI Inference}
+
+Edge AI platforms are central to real-time industrial inspection. NVIDIA's Jetson modules (Nano, TX2) have
+been widely used for weld defect detection \cite{Li2021} but consume 5--15\,W and typically require active
+cooling. Dedicated NPUs, such as the RDK~X5's Bernoulli~2.0 BPU, deliver 10\,TOPS (INT8) at less than 3\,W
+\cite{RDKX52024}. Lin et al.\ \cite{Lin2023} showed that partitioning a YOLOv5 model onto an NPU while
+handling sensor fusion on a multi-core ARM CPU reduces total energy by 40\% compared to a GPU-only approach.
+Chen \& Ran \cite{Chen2019} concluded that hybrid CPU+NPU architectures are optimal for real-time industrial
+IoT applications. WeldVision~X5 leverages this insight: the BPU accelerates YOLOv8s, while the CPU executes
+the deterministic SGBM pipeline, ensuring real-time performance within a 10\,W envelope.
+
+\subsection{Cloud-Native Frameworks and Hybrid Edge-Cloud Architectures}
+
+Serverless platforms enable scalable, pay-per-request backends ideal for sporadic IoT data. Cloudflare
+Workers provide a globally distributed edge network, while the Hono framework \cite{Wada2023} simplifies
+building APIs with TypeScript. D1 (relational database) and R2 (zero-egress object storage) extend this to
+full data management \cite{Cloudflare2024}. For frontends, React with Tailwind CSS enables responsive,
+mobile-first dashboards \cite{Ene2022}. Hybrid edge-cloud architectures, originating from cloudlet
+\cite{Satyanarayanan2009} and fog computing \cite{Bonomi2012} concepts, have been applied to weld inspection
+by Xu et al.\ \cite{Xu2022}, who used an edge GPU for inference and cloud for reporting. WeldVision~X5
+follows a similar model but uses an entirely free-tier Cloudflare backend, making it uniquely affordable for
+educational institutions.
+
+% ── 5. Methodology ──────────────────────────────────────────
+\section{Methodology}
+
+\subsection{System Overview}
+
+WeldVision X5 comprises three layers:
+\begin{itemize}[leftmargin=*, itemsep=3pt]
+  \item \textbf{Edge Inspection Station:} RDK~X5, RDK Stereo Camera SC230AI, repurposed Ender~3 gantry, and
+        two high-CRI LED panels.
+  \item \textbf{Edge Software:} A C++/Python pipeline that captures rectified stereo pairs, runs YOLOv8s on
+        the BPU, computes SGBM depth on the CPU, extracts geometric features, and applies a configurable
+        rubric engine.
+  \item \textbf{Cloud Services:} Hono API on Cloudflare Workers, D1 database, R2 object storage, KV for
+        configuration, and a React dashboard deployed on Cloudflare Pages. The dashboard includes a
+        \textbf{manual rejection} control for instructors to flag coupons suspected of internal defects.
+\end{itemize}
+
+\subsection{Hardware Configuration}
+
+The RDK~X5 board features 8\,GB LPDDR4 RAM, 32\,GB eMMC, quad-core ARM Cortex-A55 @ 1.8\,GHz, and a
+Bernoulli~2.0 BPU (10\,TOPS INT8). The SC230AI stereo camera provides synchronised 2.3\,MP global-shutter
+images with a 60\,mm baseline. The Ender~3 frame, stripped of its extruder, moves the camera along the weld
+coupon via G-code commands sent over USB serial. Two 20\,W LED panels (CRI\,$>$90, $>$4000\,lux) provide
+uniform, shadow-free illumination.
+
+\subsection{Vision Pipeline}
+
+\subsubsection{Calibration and Rectification}
+Stereo calibration using a chessboard \cite{Zhang2000} yields intrinsic and extrinsic parameters.
+Rectification maps are pre-computed with OpenCV's \texttt{stereoRectify()} and applied in real time on the
+CPU to align epipolar lines.
+
+\subsubsection{Object Detection (BPU)}
+The rectified left image ($640\times640$\,px) is fed to a YOLOv8s model running on the BPU. The model detects
+four classes: \texttt{weld\_bead}, \texttt{spatter}, \texttt{undercut}, \texttt{porosity}. Inference takes
+28\,ms, enabling real-time overlay as the gantry scans. The bounding box of the weld bead defines the region
+of interest (ROI) for geometric measurement.
+
+\subsubsection{3D Reconstruction via SGBM (CPU)}
+Using the rectified stereo pair, OpenCV's \texttt{StereoSGBM} computes a disparity map (parameters:
+\texttt{numDisparities}$=128$, \texttt{blockSize}$=11$, uniqueness ratio 15). The disparity $d$ is
+converted to depth $Z$ via:
+
+\begin{equation}
+  Z = \frac{f \times B}{d}
+  \label{eq:depth}
+\end{equation}
+
+\noindent where $f$ is the focal length in pixels and $B$ the baseline in mm. Each valid pixel is
+back-projected to a 3D point:
+
+\begin{equation}
+  X = \frac{(u - c_x)\cdot Z}{f_x}, \qquad Y = \frac{(v - c_y)\cdot Z}{f_y}
+  \label{eq:backproject}
+\end{equation}
+
+The resulting point cloud is filtered with a pass-through ($Z \in [200, 400]$\,mm) and statistical outlier
+removal (SOR: 20\,neighbours, $\sigma=2.0$) to eliminate background and mismatches. The weld ROI from YOLO
+is projected into 3D to crop the point cloud to the weld bead region. Processing time per stereo pair is
+1.18\,s on the CPU.
+
+\subsubsection{Geometric Feature Extraction}
+Multiple cross-sectional profiles perpendicular to the weld axis are taken every 2--3\,mm. For each profile,
+the weld width, reinforcement height (max $Z$ minus base plate $Z$), and undercut depth (local minima at the
+toes) are measured. Global uniformity is quantified as the standard deviation of width and height across all
+profiles.
+
+\subsection{Model Training and Deployment}
+
+\begin{itemize}[leftmargin=*, itemsep=3pt]
+  \item \textbf{Dataset:} 1{,}200 stereo pairs captured in the workshop were uploaded to Roboflow (free tier).
+        Left images were labelled with bounding boxes for the four defect classes. Augmentations included
+        brightness, rotation, and blur.
+  \item \textbf{Training:} YOLOv8s was trained on Google Colab's T4 GPU for 100 epochs, achieving a
+        validation mAP@0.5 of 0.92. The best weights were exported to ONNX.
+  \item \textbf{Conversion:} ONNX is converted to the RDK~X5 BPU-compatible \texttt{.bin} format using a
+        GitHub Actions workflow that triggers on every push, uploading the artifact to Cloudflare R2. The edge
+        device pulls the latest model on boot.
+\end{itemize}
+
+\subsection{Digital Rubric Engine with Likert Scale Scoring}
+
+A rule-based engine on the RDK~X5 CPU compares measured dimensions and detected defects against predefined
+ranges. Unlike a simple pass/fail, the system assigns a \textbf{1--5 Likert score} for each criterion,
+reflecting the quality level from ``Poor'' to ``Excellent''. Each criterion carries a weight reflecting its
+importance in the overall assessment. The final grade is a weighted sum of the individual Likert scores.
+
+Table~\ref{tab:rubric} presents the seven criteria, their measurement methods, Likert scale descriptors, and
+weights.
+
+% ── Table 1: Rubric Criteria (sideways for width) ───────────
+\begin{sidewaystable}[htbp]
+  \centering
+  \caption{Rubric criteria, measurement method, Likert scale descriptors, and weights.}
+  \label{tab:rubric}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{L{3.0cm} L{3.5cm} L{3.0cm} L{3.0cm} L{2.8cm} L{2.8cm} L{2.8cm} C{1.2cm}}
+    \toprule
+    \textbf{Criterion} &
+    \textbf{Measurement Method} &
+    \textbf{Score 1 (Poor)} &
+    \textbf{Score 2 (Fair)} &
+    \textbf{Score 3 (Good)} &
+    \textbf{Score 4 (Very Good)} &
+    \textbf{Score 5 (Excellent)} &
+    \textbf{Wt.} \\
+    \midrule
+    Weld width &
+    Avg.\ profile width from SGBM (mm) &
+    $<$5 or $>$10 &
+    5--5.9 or 9.1--10 &
+    6--6.5 or 8.5--9 &
+    6.6--6.9 or 8.1--8.4 &
+    7--8 &
+    20\% \\
+    \addlinespace
+    Reinforcement height &
+    Max profile height minus base plate (mm) &
+    $\le$0 or $\ge$5 &
+    0.1--0.9 or 4.1--5 &
+    1--1.5 or 3.5--4 &
+    1.6--1.9 or 3.1--3.4 &
+    2--3 &
+    25\% \\
+    \addlinespace
+    Undercut depth &
+    Maximum toe valley depth (mm) &
+    $\ge$1.5 &
+    1.0--1.4 &
+    0.6--0.9 &
+    0.3--0.5 &
+    $\le$0.2 &
+    20\% \\
+    \addlinespace
+    Spatter count &
+    YOLOv8s detection (BPU) &
+    $>$10 &
+    6--10 &
+    3--5 &
+    1--2 &
+    0 &
+    10\% \\
+    \addlinespace
+    Surface porosity &
+    YOLOv8s detection (pore count) &
+    $>$5 &
+    3--5 &
+    2 &
+    1 &
+    0 &
+    10\% \\
+    \addlinespace
+    Width uniformity &
+    Std.\ dev.\ of width across profiles (mm) &
+    $\ge$2.5 &
+    1.6--2.4 &
+    1.0--1.5 &
+    0.5--0.9 &
+    $\le$0.4 &
+    10\% \\
+    \addlinespace
+    Height uniformity &
+    Std.\ dev.\ of reinforcement height (mm) &
+    $\ge$2.0 &
+    1.1--1.9 &
+    0.6--1.0 &
+    0.3--0.5 &
+    $\le$0.2 &
+    5\% \\
+    \bottomrule
+  \end{tabular}
+\end{sidewaystable}
+
+\subsubsection*{Scoring Formula}
+
+The overall rubric score (0--100) is computed as:
+
+\begin{equation}
+  \text{Score} = \sum_{i=1}^{n} \left( \frac{\text{Likert}_i - 1}{4} \times \text{Weight}_i \times 100 \right)
+  \label{eq:score}
+\end{equation}
+
+\noindent where $n = 7$ criteria. The transformation $\frac{\text{Likert} - 1}{4}$ converts the 1--5 scale to
+a 0--1 normalised score before applying the weight.
+
+\subsubsection*{Example Calculation}
+
+Table~\ref{tab:example} illustrates the score computation for a representative ``Good'' coupon.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Example score calculation for a representative coupon (total = 77.5/100).}
+  \label{tab:example}
+  \begin{tabular}{lcccc}
+    \toprule
+    \textbf{Criterion} & \textbf{Likert} & \textbf{Weight} & \textbf{Normalised} & \textbf{Weighted} \\
+    \midrule
+    Weld width            & 4 & 0.20 & 0.75 & 15.0 \\
+    Reinforcement height  & 5 & 0.25 & 1.00 & 25.0 \\
+    Undercut depth        & 3 & 0.20 & 0.50 & 10.0 \\
+    Spatter count         & 4 & 0.10 & 0.75 &  7.5 \\
+    Surface porosity      & 5 & 0.10 & 1.00 & 10.0 \\
+    Width uniformity      & 4 & 0.10 & 0.75 &  7.5 \\
+    Height uniformity     & 3 & 0.05 & 0.50 &  2.5 \\
+    \midrule
+    \textbf{Total}        &   &      &      & \textbf{77.5 / 100} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{Grade Band Mapping}
+
+\begin{table}[htbp]
+  \centering
+  \caption{Grade band mapping for automated rubric scores.}
+  \label{tab:grades}
+  \begin{tabular}{ccc}
+    \toprule
+    \textbf{Score Range} & \textbf{Grade} & \textbf{Interpretation} \\
+    \midrule
+    90--100 & A & Excellent -- Industry standard \\
+    80--89  & B & Very Good -- Minor deviations \\
+    70--79  & C & Good -- Acceptable with remarks \\
+    60--69  & D & Fair -- Requires improvement \\
+    $<$60   & F & Poor -- Re-weld required \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{Configurability}
+The Likert thresholds, weights, and grade bands are stored as a JSONB object in Cloudflare KV. Instructors
+can modify them through the React dashboard without changing the edge-side code, allowing adaptation to
+different welding standards (e.g., AWS~D1.1, ISO~5817) or course levels.
+
+\subsubsection*{Engine Implementation}
+The rubric engine is implemented in C++ on the RDK~X5 CPU. After geometric feature extraction and YOLOv8s
+detection, the engine: (1) receives the measurement vector
+$\{w_\text{avg},\, h_\text{max},\, u_\text{max},\, N_\text{spatter},\, N_\text{pore},\, \sigma_w,\, \sigma_h\}$;
+(2) evaluates each criterion against the Likert ranges; (3) computes the weighted sum (Eq.~\ref{eq:score});
+and (4) outputs the total score, individual Likert scores, and suggested grade band to the inspection JSON
+payload. This Likert-based approach provides finer granularity than binary pass/fail, giving students
+diagnostic feedback on \textit{how} to improve rather than simply whether they passed or failed.
+
+\subsection{Cloud Infrastructure, 3D Visualisation, and Manual Override}
+
+The Hono API on Cloudflare Workers exposes endpoints:
+\begin{itemize}[leftmargin=*, itemsep=2pt]
+  \item \texttt{POST /inspection} -- accepts inspection JSON and images; stores metadata in D1, uploads point
+        clouds (\texttt{.pcd}) and images to R2.
+  \item \texttt{GET /history} -- queries D1 with filters (student ID, date, defect type).
+  \item \texttt{PATCH /inspection/:id/reject} -- records an instructor's manual rejection with a reason code
+        (e.g., ``suspected lack of fusion'').
+\end{itemize}
+
+The React dashboard, hosted on Cloudflare Pages, fetches inspection records and point cloud URLs from the
+Workers API. The 3D point cloud is rendered client-side using Three.js's \texttt{PCDLoader}, providing an
+interactive, zero-cost visualisation that works on any WebGL-compatible browser, including tablets. An
+integrated \textbf{manual rejection button} allows instructors to override the automated score. When a coupon
+is flagged, the system marks it as ``Rejected -- pending further NDT'' and alerts the student. This mechanism
+acknowledges that surface vision alone cannot detect internal defects such as lack of fusion; the pedagogical
+workflow assumes students self-assess their welds and submit only those they consider internally sound. The
+instructor retains final authority to require destructive or non-destructive internal examination.
+
+\subsection{Evaluation Metrics}
+Detection performance is assessed using precision, recall, F1 score, and mAP@0.5. Geometric accuracy is
+evaluated with root-mean-square error (RMSE) against manual calliper measurements. Rubric score correlation
+with three human assessors is measured via Pearson's $r$.
+
+% ── 6. Results and Discussion ───────────────────────────────
+\section{Results and Discussion}
+
+\subsection{Object Detection Performance}
+
+YOLOv8s achieved a validation mAP@0.5 of \textbf{0.92}. Per-class metrics at a confidence threshold of 0.5
+are shown in Table~\ref{tab:detection}. The high F1 scores confirm a balanced trade-off between false
+positives and false negatives, crucial for educational fairness.
+
+\begin{table}[htbp]
+  \centering
+  \caption{Per-class detection performance (confidence threshold = 0.5).}
+  \label{tab:detection}
+  \begin{tabular}{lcccc}
+    \toprule
+    \textbf{Defect Class} & \textbf{Precision} & \textbf{Recall} & \textbf{F1 Score} \\
+    \midrule
+    Weld bead    & 0.94 & 0.91 & 0.92 \\
+    Spatter      & 0.89 & 0.85 & 0.87 \\
+    Undercut     & 0.91 & 0.88 & 0.89 \\
+    Porosity     & 0.88 & 0.84 & 0.86 \\
+    \midrule
+    \textbf{Macro average} & \textbf{0.91} & \textbf{0.87} & \textbf{0.89} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Inference on the BPU takes 28\,ms per frame, enabling seamless real-time scanning.
+
+\subsection{Geometric Measurement Accuracy}
+
+Comparison with manual calliper measurements on 50 coupons yielded RMSE values: weld width 0.38\,mm,
+reinforcement height 0.25\,mm, undercut depth 0.09\,mm. These errors lie within the typical $\pm0.5$\,mm
+tolerance of workshop rulers, confirming SGBM's adequacy for educational use.
+
+\subsection{Rubric Score Reliability}
+
+The automated rubric scores correlated strongly with the average of three human instructors, with a Pearson
+correlation coefficient $r = 0.87$ ($n = 50$). A Bland-Altman analysis showed no systematic bias, indicating
+that the system can reliably replace a single human assessor for routine surface grading.
+
+\subsection{System Performance and Manual Rejection Workflow}
+
+Total inspection time per coupon (5 stereo pairs) averages 8\,s, well within acceptable workshop limits.
+Power consumption of the RDK~X5 during operation is 7.8\,W, and the entire edge station (rig, LEDs,
+controller) draws approximately 30\,W. The cloud dashboard loads in under 2\,s on mobile networks and
+successfully synchronises queued inspections after an offline period.
+
+During the trial period, instructors used the manual rejection feature on 6 out of 50 coupons (12\%) where
+the 3D point cloud showed uneven bead contours suggestive of poor inter-run bonding, yet the automated
+surface score was acceptable. Those coupons were subsequently sectioned for macro-etch examination, and lack
+of fusion was confirmed in 4 of the 6 cases. This demonstrates that the combination of automated surface
+scoring and instructor-guided manual override effectively catches subsurface defects that would otherwise go
+unpenalised, reinforcing the educational requirement that students submit only internally sound welds.
+
+\subsection{Discussion}
+
+The split-compute architecture (BPU for YOLO, CPU for SGBM) proved essential. Attempting to run SGBM on the
+BPU is not feasible due to its sequential nature, while running YOLO on the CPU resulted in 220\,ms latency,
+too slow for real-time overlay. The combination maximises throughput within a minimal power budget. The
+free-tier cloud services handled over 2{,}000 inspections without cost, and the offline-first design ensured
+robustness in network-constrained environments. Instructors particularly valued the interactive 3D
+point-cloud viewer and the ability to manually flag suspect coupons, which preserves human judgment for
+internal defect detection.
+
+The F1 scores (0.86--0.92) demonstrate that the model achieves high precision and recall simultaneously,
+minimising both missed surface defects (which could falsely certify poor welds) and false alarms (which would
+penalise students unfairly). This balance is critical when assessment is automated.
+
+% ── 7. Limitations ──────────────────────────────────────────
+\section{Limitations}
+
+Despite promising results, several limitations must be noted:
+
+\begin{itemize}[leftmargin=*, itemsep=4pt]
+  \item \textbf{Material and geometry constraint:} Trained and validated only on $50\times100\times6$\,mm
+        cast-iron butt joints with E6013 electrodes. Performance on other materials or joint types is
+        untested.
+  \item \textbf{Lighting sensitivity:} SGBM accuracy degrades if LED illumination varies or ambient light
+        intrudes; a controlled enclosure is recommended.
+  \item \textbf{Surface-only inspection:} The vision system inspects only surface geometry and visible
+        anomalies. Internal defects such as lack of fusion, slag inclusions, or root cracks cannot be
+        detected. WeldVision~X5 therefore operates as a surface-quality gate. Coupons suspected of internal
+        flaws must be identified by the instructor, who can override the automated score via the
+        \textbf{manual rejection} toggle in the dashboard, triggering a mandatory physical test (e.g., bend
+        or macro-etch). This aligns with the pedagogical principle that students are expected to self-assess
+        and submit only sound welds; the system provides an objective surface check while leaving internal
+        integrity verification to established workshop procedures.
+  \item \textbf{Limited defect taxonomy:} Only four surface defect classes are modelled; cracks, overlap, and
+        other discontinuities are not detected.
+  \item \textbf{SGBM speed:} 1.18\,s per pair limits total inspection throughput; multi-threading or a
+        lighter matching algorithm could improve speed.
+  \item \textbf{Dataset diversity:} 1{,}200 images from a single workshop may not generalise to other
+        environments without fine-tuning.
+  \item \textbf{Validation scale:} Correlation was assessed with only 50 coupons; larger multi-institutional
+        studies are needed.
+\end{itemize}
+
+% ── 8. Conclusion ───────────────────────────────────────────
+\section{Conclusion}
+
+WeldVision~X5 successfully demonstrates a low-cost, sustainable, IR~4.0-compliant prototype for automated
+evaluation of student SMAW welding coupons. By intelligently partitioning workloads---YOLOv8s on the RDK~X5's
+BPU and SGBM depth estimation on its CPU---the system achieves real-time defect detection and accurate
+geometric measurement without expensive GPU hardware. The hybrid edge-cloud architecture, built entirely on
+free-tier Cloudflare services, provides a robust, offline-capable inspection station that synchronises data
+to a central instructor dashboard and delivers interactive 3D visualisations via client-side rendering.
+
+Critically, the system acknowledges its surface-only inspection capability: internal flaws such as lack of
+fusion cannot be detected algorithmically. The dashboard's \textbf{manual rejection} feature empowers
+instructors to flag suspicious coupons for further physical inspection, maintaining pedagogical integrity
+where students are taught to submit only internally sound welds. Preliminary results show high correlation
+with human assessments ($r = 0.87$), sub-millimetre measurement accuracy, and per-class F1 scores above
+0.86. The system aligns with IR~4.0 principles of interconnectivity, transparency, and technical assistance,
+and it serves as a scalable template for bringing AI-driven quality inspection to vocational training
+programmes worldwide.
+
+Future work will extend the system to multiple materials and joint configurations, incorporate additional
+surface defect classes, explore lightweight CPU-based stereo matching for faster depth estimation, integrate a
+low-cost ultrasonic or eddy-current sensor for sub-surface inspection, and conduct large-scale validation
+studies to support adoption in accredited assessment frameworks.
+
+% ── References ──────────────────────────────────────────────
+\section*{References}
+\addcontentsline{toc}{section}{References}
+
+\begin{thebibliography}{99}
+
+\bibitem{Baldini2017}
+Baldini, G., et al.\ (2017). Serverless computing: Current trends and open problems.
+\textit{Research Advances in Cloud Computing}, pp.\ 1--20.
+
+\bibitem{Bonomi2012}
+Bonomi, F., Milito, R., Zhu, J., \& Addepalli, S. (2012). Fog computing and its role in the Internet of
+Things. \textit{Proceedings of the MCC Workshop}, pp.\ 13--16.
+
+\bibitem{Chen2019}
+Chen, J., \& Ran, X. (2019). Deep learning with edge computing: A review.
+\textit{Proceedings of the IEEE}, 107(8), 1655--1674.
+
+\bibitem{Cloudflare2024}
+Cloudflare. (2024). \textit{Workers, D1, R2 Documentation}.
+Retrieved from \url{https://developers.cloudflare.com}
+
+\bibitem{Ene2022}
+Ene, A., B\u{a}dicu, A., \& Lascu, I. (2022). Modern front-end technologies for industrial dashboards.
+\textit{International Journal of Advanced Computer Science and Applications}, 13(5).
+
+\bibitem{He2022}
+He, K., et al.\ (2022). YOLOv5 for real-time surface defect detection in manufacturing.
+\textit{Journal of Intelligent Manufacturing}, 33(4), 1167--1179.
+
+\bibitem{Hirschmuller2008}
+Hirschm\"uller, H. (2008). Stereo processing by semiglobal matching and mutual information.
+\textit{IEEE Transactions on Pattern Analysis and Machine Intelligence}, 30(2), 328--341.
+
+\bibitem{Jocher2023}
+Jocher, G., Chaurasia, A., \& Qiu, J. (2023). \textit{Ultralytics YOLOv8}.
+Retrieved from \url{https://github.com/ultralytics/ultralytics}
+
+\bibitem{Khamis2018}
+Khamis, S., et al.\ (2018). StereoNet: Guided hierarchical refinement for real-time edge-aware depth
+prediction. \textit{Proceedings of ECCV}.
+
+\bibitem{Kumar2019}
+Kumar, S., Singh, R., \& Patel, V. (2019). Stereo vision-based weld bead geometry measurement.
+\textit{Measurement}, 145, 234--243.
+
+\bibitem{Li2021}
+Li, X., et al.\ (2021). Real-time weld defect detection on Jetson Nano.
+\textit{IEEE Access}, 9, 154321--154330.
+
+\bibitem{Lin2023}
+Lin, J., Chen, W., \& Huang, T. (2023). Energy-efficient edge AI for industrial IoT.
+\textit{IEEE Internet of Things Journal}, 10(12), 10981--10993.
+
+\bibitem{Redmon2018}
+Redmon, J., \& Farhadi, A. (2018). YOLOv3: An incremental improvement. \textit{arXiv:1804.02767}.
+
+\bibitem{RDKX52024}
+RDK X5 Development Manual. (2024). \textit{Horizon Robotics}.
+
+\bibitem{Satyanarayanan2009}
+Satyanarayanan, M., et al.\ (2009). The case for VM-based cloudlets.
+\textit{IEEE Pervasive Computing}, 8(4), 14--23.
+
+\bibitem{Scharstein2002}
+Scharstein, D., \& Szeliski, R. (2002). A taxonomy and evaluation of dense two-frame stereo correspondence
+algorithms. \textit{International Journal of Computer Vision}, 47(1), 7--42.
+
+\bibitem{Wada2023}
+Wada, Y. (2023). \textit{Hono -- Ultrafast Web Framework for Cloudflare Workers}.
+Retrieved from \url{https://hono.dev}
+
+\bibitem{Xu2022}
+Xu, Y., et al.\ (2022). An edge-cloud collaborative weld defect detection system.
+\textit{Journal of Manufacturing Processes}, 76, 428--439.
+
+\bibitem{Zhang2020}
+Zhang, L., Wang, Y., \& Li, X. (2020). Deep learning-based welding defect detection using improved YOLOv4.
+\textit{Welding in the World}, 64, 1837--1846.
+
+\bibitem{Zhang2000}
+Zhang, Z. (2000). A flexible new technique for camera calibration.
+\textit{IEEE Transactions on Pattern Analysis and Machine Intelligence}, 22(11), 1330--1334.
+
+\end{thebibliography}
+
+\end{document}

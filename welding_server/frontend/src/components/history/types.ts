@@ -12,4 +12,8 @@ export interface AssessmentEntry {
     type: 'scan' | 'manual';
     rubric_name?: string;
     passed?: boolean;
+    grade_band?: string;        // A/B/C/D/F from Likert rubric
+    rejected?: boolean;
+    rejection_reason?: string;
+    rubric_id?: number | null;  // which rubric scored this assessment
 }

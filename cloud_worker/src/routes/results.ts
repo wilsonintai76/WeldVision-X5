@@ -4,28 +4,151 @@ import { evaluateWeldImage, WeldEvaluation } from '../ai/evaluate';
 
 const results = new Hono<{ Bindings: Env }>();
 
-// ── Score calculation ─────────────────────────────────────────────────────────
+// ── Likert rubric scoring (§5.5, Table 1) ────────────────────────────────────
 
-function calculateScore(metrics: Record<string, unknown>): number {
-  let score = 100.0;
-  const geometric = (metrics.geometric ?? {}) as Record<string, number>;
-  const visual = (metrics.visual ?? {}) as Record<string, number>;
+interface LikertResult {
+  total_score: number;
+  grade_band: string;
+  likert_scores: {
+    weld_width: number;
+    reinforcement_height: number;
+    undercut_depth: number;
+    spatter_count: number;
+    porosity_count: number;
+    width_uniformity: number;
+    height_uniformity: number;
+  };
+}
 
-  const height = geometric.reinforcement_height_mm ?? 2.0;
-  const width = geometric.bead_width_mm ?? 10.0;
+function likertWeldWidth(mm: number): number {
+  if (mm >= 7 && mm <= 8) return 5;
+  if ((mm >= 6.6 && mm <= 6.9) || (mm >= 8.1 && mm <= 8.4)) return 4;
+  if ((mm >= 6.0 && mm <= 6.5) || (mm >= 8.5 && mm <= 9.0)) return 3;
+  if ((mm >= 5.0 && mm <= 5.9) || (mm >= 9.1 && mm <= 10.0)) return 2;
+  return 1;
+}
 
-  if (!(height >= 1.0 && height <= 3.0)) score -= 15.0;
-  if (!(width >= 8.0 && width <= 12.0)) score -= 15.0;
+function likertReinforcementHeight(mm: number): number {
+  if (mm >= 2.0 && mm <= 3.0) return 5;
+  if ((mm >= 1.6 && mm <= 1.9) || (mm >= 3.1 && mm <= 3.4)) return 4;
+  if ((mm >= 1.0 && mm <= 1.5) || (mm >= 3.5 && mm <= 4.0)) return 3;
+  if ((mm >= 0.1 && mm <= 0.9) || (mm >= 4.1 && mm < 5.0)) return 2;
+  return 1; // ≤0 or ≥5
+}
 
-  const totalDefects =
-    (visual.porosity_count ?? 0) +
-    (visual.spatter_count ?? 0) +
-    (visual.crack_count ?? 0);
-  score -= Math.min(totalDefects * 5, 40);
-  if (visual.undercut_present)       score -= 10;
-  if (visual.lack_of_fusion_present) score -= 15;
+function likertUndercutDepth(mm: number): number {
+  if (mm <= 0.2) return 5;
+  if (mm <= 0.5) return 4;
+  if (mm <= 0.9) return 3;
+  if (mm <= 1.4) return 2;
+  return 1; // ≥1.5
+}
 
-  return Math.max(0, Math.min(100, score));
+function likertSpatterCount(n: number): number {
+  if (n === 0) return 5;
+  if (n <= 2) return 4;
+  if (n <= 5) return 3;
+  if (n <= 10) return 2;
+  return 1;
+}
+
+function likertPorosityCount(n: number): number {
+  if (n === 0) return 5;
+  if (n === 1) return 4;
+  if (n === 2) return 3;
+  if (n <= 5) return 2;
+  return 1;
+}
+
+function likertWidthUniformity(std: number): number {
+  if (std <= 0.4) return 5;
+  if (std <= 0.9) return 4;
+  if (std <= 1.5) return 3;
+  if (std <= 2.4) return 2;
+  return 1; // ≥2.5
+}
+
+function likertHeightUniformity(std: number): number {
+  if (std <= 0.2) return 5;
+  if (std <= 0.5) return 4;
+  if (std <= 1.0) return 3;
+  if (std <= 1.9) return 2;
+  return 1; // ≥2.0
+}
+
+function toGradeBand(score: number): string {
+  if (score >= 90) return 'A';
+  if (score >= 80) return 'B';
+  if (score >= 70) return 'C';
+  if (score >= 60) return 'D';
+  return 'F';
+}
+
+/**
+ * Implements the 7-criterion Likert rubric engine from §5.5.
+ * Accepts both paper-spec flat keys (avg_width, max_reinforcement, …)
+ * and the legacy nested format (geometric.bead_width_mm, visual.spatter_count, …).
+ * Formula: Score = Σ((Likert_i − 1)/4 × Weight_i × 100)
+ */
+function calculateLikertScore(metrics: Record<string, unknown>): LikertResult {
+  const geo = (metrics.geometric ?? {}) as Record<string, number>;
+  const vis = (metrics.visual   ?? {}) as Record<string, number>;
+
+  const avgWidth    = (metrics.avg_width         as number) ?? geo.bead_width_mm          ?? 7.0;
+  const maxReinf    = (metrics.max_reinforcement  as number) ?? geo.reinforcement_height_mm ?? 2.5;
+  const maxUndercut = (metrics.max_undercut       as number) ?? geo.undercut_depth_mm      ?? 0.0;
+  const spatter     = (metrics.spatter_count      as number) ?? vis.spatter_count          ?? 0;
+  const porosity    = (metrics.porosity_count     as number) ?? vis.porosity_count         ?? 0;
+  const stdWidth    = (metrics.std_width          as number) ?? geo.std_width_mm           ?? 0.0;
+  const stdHeight   = (metrics.std_height         as number) ?? geo.std_height_mm          ?? 0.0;
+
+  const scores = {
+    weld_width:           likertWeldWidth(avgWidth),
+    reinforcement_height: likertReinforcementHeight(maxReinf),
+    undercut_depth:       likertUndercutDepth(maxUndercut),
+    spatter_count:        likertSpatterCount(spatter),
+    porosity_count:       likertPorosityCount(porosity),
+    width_uniformity:     likertWidthUniformity(stdWidth),
+    height_uniformity:    likertHeightUniformity(stdHeight),
+  };
+
+  const WEIGHTS: Record<keyof typeof scores, number> = {
+    weld_width:           0.20,
+    reinforcement_height: 0.25,
+    undercut_depth:       0.20,
+    spatter_count:        0.10,
+    porosity_count:       0.10,
+    width_uniformity:     0.10,
+    height_uniformity:    0.05,
+  };
+
+  let total = 0;
+  for (const key of Object.keys(scores) as Array<keyof typeof scores>) {
+    total += ((scores[key] - 1) / 4) * WEIGHTS[key] * 100;
+  }
+  const totalScore = Math.round(total * 10) / 10;
+
+  return { total_score: totalScore, grade_band: toGradeBand(totalScore), likert_scores: scores };
+}
+
+// ── Persist Likert scores → assessment_metrics rows ──────────────────────────
+
+async function insertLikertMetrics(
+  db: D1Database,
+  assessmentId: number,
+  result: LikertResult
+): Promise<void> {
+  const stmt = db.prepare(
+    'INSERT OR REPLACE INTO assessment_metrics (assessment_id, metric_key, metric_value, metric_text, metric_unit) VALUES (?, ?, ?, ?, ?)'
+  );
+  const numericEntries = Object.entries(result.likert_scores).map(([key, val]) =>
+    stmt.bind(assessmentId, `rubric.${key}.likert`, val, null, '')
+  );
+  await db.batch([
+    ...numericEntries,
+    stmt.bind(assessmentId, 'rubric.total_score', result.total_score, null, ''),
+    stmt.bind(assessmentId, 'rubric.grade_band', null, result.grade_band, ''),
+  ]);
 }
 
 // ── Flatten metrics object → assessment_metrics rows ─────────────────────────
@@ -101,6 +224,22 @@ async function storeDetections(
     db.prepare('INSERT OR REPLACE INTO assessment_metrics (assessment_id, metric_key, metric_value, metric_text, metric_unit) VALUES (?, ?, ?, ?, ?)').bind(assessmentId, 'ai.confidence',       ev.confidence,            null, ''),
     db.prepare('INSERT OR REPLACE INTO assessment_metrics (assessment_id, metric_key, metric_value, metric_text, metric_unit) VALUES (?, ?, ?, ?, ?)').bind(assessmentId, 'ai.description',      null, ev.description,       ''),
   ]);
+}
+
+// ── Resolve rubric from model binding ─────────────────────────────────────────
+// Given a model_version string, finds the deployed model record and returns
+// the rubric_id of its default binding (or null if none configured).
+
+async function resolveRubricId(db: D1Database, modelVersion: string): Promise<number | null> {
+  if (!modelVersion) return null;
+  const row = await db.prepare(`
+    SELECT mr.rubric_id
+    FROM model_rubrics mr
+    JOIN ai_models m ON m.id = mr.model_id
+    WHERE m.version = ? AND mr.is_default = 1
+    LIMIT 1
+  `).bind(modelVersion).first<{ rubric_id: number }>();
+  return row?.rubric_id ?? null;
 }
 
 // ── Background AI evaluation ──────────────────────────────────────────────────
@@ -221,38 +360,48 @@ results.post('/', async (c) => {
   if (!student) return c.json({ error: 'Student not found' }, 404);
 
   const metrics = body.metrics ?? {};
-  const finalScore = calculateScore(metrics);
+  const likertResult = calculateLikertScore(metrics);
+  const rubricId = await resolveRubricId(c.env.DB, body.model_version ?? '');
 
   const result = await c.env.DB.prepare(`
     INSERT INTO assessments
-      (student_id, course_id, final_score, image_original_key, image_heatmap_key,
-       notes, device_id, model_version, pointcloud_ply_key, mesh_preview_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (student_id, course_id, final_score, grade_band, image_original_key, image_heatmap_key,
+       notes, device_id, model_version, pointcloud_ply_key, mesh_preview_json, rubric_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     body.student_id,
     body.course_id ?? null,
-    finalScore,
+    likertResult.total_score,
+    likertResult.grade_band,
     body.image_original_key ?? null,
     body.image_heatmap_key ?? null,
     body.notes ?? '',
     body.device_id ?? '',
     body.model_version ?? '',
     body.pointcloud_ply_key ?? null,
-    body.mesh_preview_json ? JSON.stringify(body.mesh_preview_json) : null
+    body.mesh_preview_json ? JSON.stringify(body.mesh_preview_json) : null,
+    rubricId,
   ).run();
 
   const assessmentId = result.meta.last_row_id as number;
 
-  // Persist edge-device metrics into normalized table
+  // Persist edge-device metrics and Likert rubric scores into normalized table
   if (Object.keys(metrics).length > 0) {
     c.executionCtx.waitUntil(insertMetrics(c.env.DB, assessmentId, metrics));
   }
+  c.executionCtx.waitUntil(insertLikertMetrics(c.env.DB, assessmentId, likertResult));
 
   if (body.image_original_key) {
     c.executionCtx.waitUntil(runAIEvaluation(assessmentId, body.image_original_key, c.env));
   }
 
-  return c.json({ id: assessmentId, final_score: finalScore }, 201);
+  return c.json({
+    id: assessmentId,
+    final_score: likertResult.total_score,
+    grade_band: likertResult.grade_band,
+    rubric_id: rubricId,
+    likert_scores: likertResult.likert_scores,
+  }, 201);
 });
 
 // ── POST /api/upload-assessment (multipart — legacy edge device format) ────────
@@ -292,26 +441,34 @@ results.post('/upload-assessment', async (c) => {
     storeFile('pointcloud_ply', 'assessments/pointclouds', 'application/octet-stream'),
   ]);
 
-  const finalScore = calculateScore(metrics);
+  const finalScore = calculateLikertScore(metrics);
+  const rubricId = await resolveRubricId(c.env.DB, modelVersion);
 
   const result = await c.env.DB.prepare(`
     INSERT INTO assessments
-      (student_id, final_score, image_original_key, image_heatmap_key,
-       device_id, model_version, pointcloud_ply_key)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).bind(student.id, finalScore, imageOriginalKey, imageHeatmapKey,
-    deviceId, modelVersion, pointcloudKey).run();
+      (student_id, final_score, grade_band, image_original_key, image_heatmap_key,
+       device_id, model_version, pointcloud_ply_key, rubric_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(student.id, finalScore.total_score, finalScore.grade_band,
+    imageOriginalKey, imageHeatmapKey, deviceId, modelVersion, pointcloudKey, rubricId).run();
 
   const assessmentId = result.meta.last_row_id as number;
 
   if (Object.keys(metrics).length > 0) {
     c.executionCtx.waitUntil(insertMetrics(c.env.DB, assessmentId, metrics));
   }
+  c.executionCtx.waitUntil(insertLikertMetrics(c.env.DB, assessmentId, finalScore));
   if (imageOriginalKey) {
     c.executionCtx.waitUntil(runAIEvaluation(assessmentId, imageOriginalKey, c.env));
   }
 
-  return c.json({ id: assessmentId, final_score: finalScore }, 201);
+  return c.json({
+    id: assessmentId,
+    final_score: finalScore.total_score,
+    grade_band: finalScore.grade_band,
+    rubric_id: rubricId,
+    likert_scores: finalScore.likert_scores,
+  }, 201);
 });
 
 // ── GET /api/assessments/:id/metrics ─────────────────────────────────────────
@@ -334,6 +491,28 @@ results.get('/:id/detections', async (c) => {
     ORDER BY ad.count DESC
   `).bind(c.req.param('id')).all();
   return c.json(rows.results);
+});
+
+// ── PATCH /api/assessments/:id/reject ────────────────────────────────────────
+
+results.patch('/:id/reject', async (c) => {
+  const payload = c.get('jwtPayload') as JWTPayload;
+  if (payload.role === 'student') return c.json({ error: 'Forbidden' }, 403);
+
+  const row = await c.env.DB
+    .prepare('SELECT id FROM assessments WHERE id = ?')
+    .bind(c.req.param('id'))
+    .first();
+  if (!row) return c.json({ error: 'Not found' }, 404);
+
+  const { reason = '' } = await c.req.json<{ reason?: string }>();
+
+  await c.env.DB
+    .prepare('UPDATE assessments SET rejected = 1, rejection_reason = ? WHERE id = ?')
+    .bind(reason, c.req.param('id'))
+    .run();
+
+  return c.json({ message: 'Rejected – pending further NDT' });
 });
 
 // ── DELETE /api/assessments/:id ───────────────────────────────────────────────

@@ -292,4 +292,110 @@ mlops.post('/compile-callback', async (c) => {
   return c.json({ ok: true, model_id: body.model_id, status: body.status });
 });
 
+// ── GET /api/models/:id/rubrics ───────────────────────────────────────────────
+// List all rubrics bound to this model (with rubric context metadata).
+
+mlops.get('/:id/rubrics', async (c) => {
+  const rows = await c.env.DB.prepare(`
+    SELECT mr.id AS binding_id, mr.model_id, mr.rubric_id, mr.is_default, mr.notes, mr.created_at,
+           ar.name, ar.description, ar.rubric_type, ar.is_active, ar.passing_score,
+           ar.material_type, ar.joint_type, ar.weld_process
+    FROM model_rubrics mr
+    JOIN assessment_rubrics ar ON ar.id = mr.rubric_id
+    WHERE mr.model_id = ?
+    ORDER BY mr.is_default DESC, ar.name
+  `).bind(c.req.param('id')).all();
+  return c.json(rows.results);
+});
+
+// ── POST /api/models/:id/rubrics ──────────────────────────────────────────────
+// Bind a rubric to this model.
+// Body: { rubric_id: number, is_default?: boolean, notes?: string }
+// Setting is_default=true clears any existing default for this model first.
+
+mlops.post('/:id/rubrics', async (c) => {
+  const payload = c.get('jwtPayload') as JWTPayload;
+  if (payload.role !== 'admin') return c.json({ error: 'Forbidden: admin only' }, 403);
+
+  const modelId = Number(c.req.param('id'));
+  const { rubric_id, is_default = false, notes = '' } = await c.req.json<{
+    rubric_id?: number;
+    is_default?: boolean;
+    notes?: string;
+  }>();
+  if (!rubric_id) return c.json({ error: 'rubric_id is required' }, 400);
+
+  // Verify model exists
+  const model = await c.env.DB
+    .prepare('SELECT id FROM ai_models WHERE id = ?').bind(modelId).first();
+  if (!model) return c.json({ error: 'Model not found' }, 404);
+
+  // Verify rubric exists
+  const rubric = await c.env.DB
+    .prepare('SELECT id FROM assessment_rubrics WHERE id = ?').bind(rubric_id).first();
+  if (!rubric) return c.json({ error: 'Rubric not found' }, 404);
+
+  if (is_default) {
+    // Clear existing default for this model
+    await c.env.DB
+      .prepare('UPDATE model_rubrics SET is_default = 0 WHERE model_id = ?')
+      .bind(modelId).run();
+  }
+
+  const result = await c.env.DB.prepare(`
+    INSERT INTO model_rubrics (model_id, rubric_id, is_default, notes)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(model_id, rubric_id) DO UPDATE SET
+      is_default = excluded.is_default,
+      notes = excluded.notes
+  `).bind(modelId, rubric_id, is_default ? 1 : 0, notes).run();
+
+  return c.json({ binding_id: result.meta.last_row_id, model_id: modelId, rubric_id, is_default }, 201);
+});
+
+// ── PATCH /api/models/:id/rubrics/:rubric_id ──────────────────────────────────
+// Update an existing binding (e.g. toggle is_default).
+
+mlops.patch('/:id/rubrics/:rubric_id', async (c) => {
+  const payload = c.get('jwtPayload') as JWTPayload;
+  if (payload.role !== 'admin') return c.json({ error: 'Forbidden: admin only' }, 403);
+
+  const modelId = Number(c.req.param('id'));
+  const rubricId = Number(c.req.param('rubric_id'));
+  const { is_default, notes } = await c.req.json<{ is_default?: boolean; notes?: string }>();
+
+  if (is_default === true) {
+    await c.env.DB
+      .prepare('UPDATE model_rubrics SET is_default = 0 WHERE model_id = ?')
+      .bind(modelId).run();
+  }
+
+  const updates: string[] = [];
+  const values: unknown[] = [];
+  if (is_default !== undefined) { updates.push('is_default = ?'); values.push(is_default ? 1 : 0); }
+  if (notes !== undefined) { updates.push('notes = ?'); values.push(notes); }
+  if (updates.length === 0) return c.json({ error: 'Nothing to update' }, 400);
+
+  values.push(modelId, rubricId);
+  await c.env.DB
+    .prepare(`UPDATE model_rubrics SET ${updates.join(', ')} WHERE model_id = ? AND rubric_id = ?`)
+    .bind(...values).run();
+
+  return c.json({ message: 'Binding updated' });
+});
+
+// ── DELETE /api/models/:id/rubrics/:rubric_id ─────────────────────────────────
+// Remove a rubric binding from a model.
+
+mlops.delete('/:id/rubrics/:rubric_id', async (c) => {
+  const payload = c.get('jwtPayload') as JWTPayload;
+  if (payload.role !== 'admin') return c.json({ error: 'Forbidden: admin only' }, 403);
+
+  await c.env.DB
+    .prepare('DELETE FROM model_rubrics WHERE model_id = ? AND rubric_id = ?')
+    .bind(c.req.param('id'), c.req.param('rubric_id')).run();
+
+  return c.json({ message: 'Binding removed' });
+});
+
 export default mlops;

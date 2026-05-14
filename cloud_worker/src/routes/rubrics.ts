@@ -36,11 +36,36 @@ rubrics.get('/:id', async (c) => {
     .first<{ id: number }>();
   if (!rubric) return c.json({ error: 'Not found' }, 404);
 
-  const criteria = await c.env.DB
-    .prepare('SELECT * FROM rubric_criteria WHERE rubric_id = ? ORDER BY display_order, name')
-    .bind(c.req.param('id'))
-    .all();
-  return c.json({ ...rubric, criteria: criteria.results });
+  const [criteria, models] = await Promise.all([
+    c.env.DB
+      .prepare('SELECT * FROM rubric_criteria WHERE rubric_id = ? ORDER BY display_order, name')
+      .bind(c.req.param('id'))
+      .all(),
+    c.env.DB.prepare(`
+      SELECT mr.model_id, mr.is_default, mr.notes AS binding_notes,
+             m.name AS model_name, m.version, m.status, m.is_deployed
+      FROM model_rubrics mr
+      JOIN ai_models m ON m.id = mr.model_id
+      WHERE mr.rubric_id = ?
+      ORDER BY mr.is_default DESC, m.name
+    `).bind(c.req.param('id')).all(),
+  ]);
+  return c.json({ ...rubric, criteria: criteria.results, bound_models: models.results });
+});
+
+// ── GET /api/rubrics/:id/models ───────────────────────────────────────────────
+// List AI models bound to this rubric.
+
+rubrics.get('/:id/models', async (c) => {
+  const rows = await c.env.DB.prepare(`
+    SELECT mr.model_id, mr.is_default, mr.notes AS binding_notes, mr.created_at AS bound_at,
+           m.name, m.version, m.status, m.is_deployed, m.map50, m.map50_95
+    FROM model_rubrics mr
+    JOIN ai_models m ON m.id = mr.model_id
+    WHERE mr.rubric_id = ?
+    ORDER BY mr.is_default DESC, m.name
+  `).bind(c.req.param('id')).all();
+  return c.json(rows.results);
 });
 
 rubrics.post('/', async (c) => {
@@ -50,9 +75,11 @@ rubrics.post('/', async (c) => {
   const {
     name, description = '', rubric_type = 'custom',
     is_active = false, passing_score = 3.0,
+    material_type = '', joint_type = '', weld_process = '',
   } = await c.req.json<{
     name?: string; description?: string; rubric_type?: string;
     is_active?: boolean; passing_score?: number;
+    material_type?: string; joint_type?: string; weld_process?: string;
   }>();
   if (!name) return c.json({ error: 'name is required' }, 400);
 
@@ -60,8 +87,8 @@ rubrics.post('/', async (c) => {
     await c.env.DB.prepare('UPDATE assessment_rubrics SET is_active = 0, updated_at = datetime(\'now\')').run();
   }
   const result = await c.env.DB
-    .prepare('INSERT INTO assessment_rubrics (name, description, rubric_type, is_active, passing_score) VALUES (?, ?, ?, ?, ?)')
-    .bind(name, description, rubric_type, is_active ? 1 : 0, passing_score)
+    .prepare('INSERT INTO assessment_rubrics (name, description, rubric_type, is_active, passing_score, material_type, joint_type, weld_process) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(name, description, rubric_type, is_active ? 1 : 0, passing_score, material_type, joint_type, weld_process)
     .run();
   return c.json({ id: result.meta.last_row_id, name }, 201);
 });
@@ -70,18 +97,22 @@ rubrics.put('/:id', async (c) => {
   const payload = c.get('jwtPayload') as JWTPayload;
   if (!isAdminOrInstructor(payload.role)) return c.json({ error: 'Forbidden' }, 403);
 
-  const { name, description = '', rubric_type = 'custom', is_active = false, passing_score = 3.0 } =
-    await c.req.json<{
-      name?: string; description?: string; rubric_type?: string;
-      is_active?: boolean; passing_score?: number;
-    }>();
+  const {
+    name, description = '', rubric_type = 'custom',
+    is_active = false, passing_score = 3.0,
+    material_type = '', joint_type = '', weld_process = '',
+  } = await c.req.json<{
+    name?: string; description?: string; rubric_type?: string;
+    is_active?: boolean; passing_score?: number;
+    material_type?: string; joint_type?: string; weld_process?: string;
+  }>();
 
   if (is_active) {
     await c.env.DB.prepare('UPDATE assessment_rubrics SET is_active = 0, updated_at = datetime(\'now\')').run();
   }
   await c.env.DB
-    .prepare('UPDATE assessment_rubrics SET name=?, description=?, rubric_type=?, is_active=?, passing_score=?, updated_at=datetime(\'now\') WHERE id=?')
-    .bind(name, description, rubric_type, is_active ? 1 : 0, passing_score, c.req.param('id'))
+    .prepare('UPDATE assessment_rubrics SET name=?, description=?, rubric_type=?, is_active=?, passing_score=?, material_type=?, joint_type=?, weld_process=?, updated_at=datetime(\'now\') WHERE id=?')
+    .bind(name, description, rubric_type, is_active ? 1 : 0, passing_score, material_type, joint_type, weld_process, c.req.param('id'))
     .run();
   return c.json({ message: 'Updated' });
 });

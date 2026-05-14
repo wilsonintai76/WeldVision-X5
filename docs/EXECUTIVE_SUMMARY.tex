@@ -1,0 +1,194 @@
+% ============================================================
+%  WeldVision X5 – Executive Summary
+%  Compile with: pdflatex EXECUTIVE_SUMMARY.tex
+% ============================================================
+\documentclass[11pt,a4paper]{article}
+
+% --- Packages ---
+\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2.8cm, right=2.8cm]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{setspace}
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{microtype}
+\usepackage{caption}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+\usepackage{tikz}
+
+% --- Colours ---
+\definecolor{darkblue}{RGB}{26,58,92}
+\definecolor{medblue}{RGB}{46,109,164}
+\definecolor{lightblue}{RGB}{212,230,241}
+\definecolor{darkgray}{RGB}{51,51,51}
+\definecolor{accentorange}{RGB}{200,100,0}
+
+% --- Font ---
+\usepackage{mathptmx}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+% --- Section styling ---
+\usepackage{titlesec}
+\titleformat{\section}
+  {\large\bfseries\color{darkblue}}
+  {}
+  {0pt}
+  {\colorbox{lightblue}{\parbox{\dimexpr\linewidth-2\fboxsep}{\strut\hspace{4pt}#1\strut}}}
+\titlespacing{\section}{0pt}{14pt}{6pt}
+
+% --- Line spacing ---
+\setstretch{1.2}
+
+% --- Header / Footer ---
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\itshape\color{darkgray} WeldVision X5 -- Executive Summary}
+\fancyhead[R]{\small\itshape\color{darkgray} Politeknik Kuching Sarawak}
+\fancyfoot[C]{\small\color{darkgray}\thepage}
+\renewcommand{\headrulewidth}{0.5pt}
+
+% --- Column types ---
+\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+
+% ============================================================
+\begin{document}
+% ============================================================
+
+% ── Title Banner ─────────────────────────────────────────────
+\begin{center}
+  \begin{tikzpicture}
+    \fill[darkblue] (0,0) rectangle (\textwidth, 2.4cm);
+    \node[white, font=\LARGE\bfseries, anchor=center] at (0.5\textwidth, 1.5cm)
+      {WeldVision X5};
+    \node[white, font=\normalsize, anchor=center] at (0.5\textwidth, 0.7cm)
+      {Automated Vision-Based Evaluation of Student SMAW Welding Coupons};
+  \end{tikzpicture}
+
+  \vspace{6pt}
+  {\normalsize\bfseries\color{darkblue} Politeknik Kuching Sarawak}\\[2pt]
+  {\small Department of Mechanical Engineering \quad|\quad Date: 14 May 2026}
+\end{center}
+
+\vspace{8pt}
+
+% ── Problem Statement ────────────────────────────────────────
+\section{Problem Statement}
+
+Assessment of student Shielded Metal Arc Welding (SMAW) coupons is currently \textbf{manual, subjective, and
+time-consuming}. It produces no permanent digital record, lacks consistency between assessors, and does not
+leverage Industry~4.0 technologies to improve learning outcomes. Instructors spend considerable time per
+coupon using physical gauges and visual checklists, leaving little capacity for targeted student feedback.
+
+% ── Proposed Solution ───────────────────────────────────────
+\section{Proposed Solution}
+
+\textbf{WeldVision X5} is an Industry~4.0 prototype that automates the entire evaluation workflow. A
+low-cost \textbf{RDK~X5} edge device with a stereo camera, mounted on a repurposed Ender~3 motion rig,
+captures images of the welded coupon. On-device AI (YOLOv8s on the BPU) detects surface defects, while
+classical stereo vision (SGBM on the CPU) extracts 3D geometry -- weld width, reinforcement height, and
+undercut depth. These measurements are fed into a digital rubric that mirrors the institution's grading
+criteria, generating a scored assessment in approximately 8 seconds.
+
+All results are synchronised to a serverless Cloudflare backend and displayed on a responsive React
+dashboard, which includes:
+\begin{itemize}[leftmargin=1.5em, itemsep=3pt]
+  \item An interactive \textbf{3D point-cloud viewer} for visual inspection of weld geometry.
+  \item A \textbf{manual rejection mechanism} for instructors to flag suspected internal defects (e.g., lack
+        of fusion) that surface vision cannot detect -- triggering a mandatory physical test.
+  \item \textbf{Historical analytics} for tracking student progress over time.
+\end{itemize}
+
+The entire cloud pipeline (Roboflow, Google Colab, Cloudflare, GitHub Actions) operates within
+\textbf{free-tier limits}, with hardware costs of approximately USD~\$150.
+
+% ── Key Results ─────────────────────────────────────────────
+\section{Key Results}
+
+\begin{center}
+\begin{tabular}{L{5.5cm} L{9cm}}
+  \toprule
+  \textbf{Metric} & \textbf{Result} \\
+  \midrule
+  Detection accuracy & mAP@0.5 = \textbf{0.92}; per-class F1 = 0.86--0.92 across four defect classes \\
+  \addlinespace
+  Geometric accuracy (RMSE) &
+    Weld width: $<0.4$\,mm \quad
+    Reinforcement: $<0.3$\,mm \quad
+    Undercut: $<0.1$\,mm \\
+  \addlinespace
+  Rubric correlation & Pearson's $r = 0.87$ vs.\ average of three human assessors ($n = 50$) \\
+  \addlinespace
+  Inspection speed   & $\approx 8$ seconds per coupon (5 stereo pairs) \\
+  \addlinespace
+  Hardware cost      & $\approx$ USD \$150 (RDK~X5 + camera + repurposed Ender~3 frame) \\
+  \addlinespace
+  Cloud cost         & \$0 (free-tier: Roboflow, Google Colab, Cloudflare, GitHub Actions) \\
+  \addlinespace
+  Edge power draw    & 7.8\,W (RDK~X5), $\approx$30\,W total station \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{6pt}
+\noindent\textbf{Manual rejection effectiveness:} Instructors flagged 6 of 50 coupons (12\%) where automated
+scores appeared acceptable but point-cloud geometry suggested internal bonding issues. Macro-etch examination
+confirmed lack of fusion in 4 of those 6 cases, validating the hybrid human-AI approach.
+
+% ── IR 4.0 & Sustainability ─────────────────────────────────
+\section{IR~4.0 Alignment \& Sustainability}
+
+\begin{minipage}[t]{0.48\textwidth}
+\textbf{\color{medblue}IR~4.0 Pillars Addressed}
+\begin{itemize}[leftmargin=1.2em, itemsep=3pt]
+  \item \textbf{Interconnectivity:} Edge device syncs inspection data to Cloudflare cloud in real time via
+        LAN/Wi-Fi; offline-first buffering ensures no data loss.
+  \item \textbf{Information transparency:} All assessments are centrally logged in D1 with full traceability;
+        instructors view consolidated dashboards.
+  \item \textbf{Technical assistance:} AI grades surface quality, provides Likert-scored criterion breakdown,
+        and suggests grade band with actionable feedback for students.
+  \item \textbf{Decentralised decisions:} Edge device operates autonomously in the workshop without requiring
+        cloud connectivity for each inspection cycle.
+\end{itemize}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+\textbf{\color{medblue}Sustainability Features}
+\begin{itemize}[leftmargin=1.2em, itemsep=3pt]
+  \item \textbf{Hardware reuse:} Ender~3 printer frame repurposed as gantry, reducing e-waste.
+  \item \textbf{Low power:} BPU+CPU architecture consumes $<10$\,W; no GPU server required.
+  \item \textbf{Paperless:} Digital rubrics replace physical checklists and paper records.
+  \item \textbf{Free-tier cloud:} Zero operational cloud cost; no server provisioning or maintenance.
+  \item \textbf{Scalable:} Multi-booth deployment with a single cloud backend incurs no incremental cost.
+\end{itemize}
+\end{minipage}
+
+% ── Conclusion ──────────────────────────────────────────────
+\section{Conclusion}
+
+WeldVision~X5 proves that a fully automated, reliable, and cost-effective digital welding assessment system
+is feasible for educational institutions with limited budgets. By combining on-device AI (YOLOv8s on BPU)
+with classical stereo depth estimation (SGBM on CPU) and a free-tier serverless cloud backend, the prototype
+delivers objective, consistent, and traceable assessment of student SMAW coupons at approximately
+\$150 hardware cost and zero cloud cost.
+
+The system enhances learning through granular Likert-scored feedback, reduces instructor workload by
+automating routine surface grading, and preserves human judgment for internal defect detection via the manual
+rejection mechanism. It demonstrates a practical, scalable template for IR~4.0 integration in vocational
+technical education and aligns with sustainability goals through hardware reuse, low power consumption, and
+paperless digital records.
+
+\vspace{16pt}
+\noindent\rule{\linewidth}{0.8pt}
+{\small\color{darkgray}
+\textit{WeldVision X5} $\cdot$ Politeknik Kuching Sarawak, Department of Mechanical Engineering $\cdot$
+\url{https://weldvision-x5.com}
+}
+
+\end{document}

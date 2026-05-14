@@ -56,6 +56,10 @@ export interface AssessmentRow {
   course_id: number | null;
   timestamp: string;
   final_score: number | null;
+  grade_band: string;
+  rejected: number;
+  rejection_reason: string;
+  rubric_id: number | null;
   image_original_key: string | null;
   image_heatmap_key: string | null;
   notes: string | null;

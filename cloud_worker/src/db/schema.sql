@@ -123,6 +123,10 @@ CREATE TABLE IF NOT EXISTS assessments (
   model_version       TEXT    NOT NULL DEFAULT '',
   pointcloud_ply_key  TEXT,   -- R2 object key
   mesh_preview_json   TEXT,   -- large 3D point cloud (kept as JSON TEXT)
+  grade_band          TEXT    NOT NULL DEFAULT '',  -- A/B/C/D/F from Likert rubric
+  rejected            INTEGER NOT NULL DEFAULT 0,   -- 1 = manually rejected by instructor
+  rejection_reason    TEXT    NOT NULL DEFAULT '',  -- reason supplied on rejection
+  rubric_id           INTEGER REFERENCES assessment_rubrics(id) ON DELETE SET NULL,  -- rubric used to score
   created_at          TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -169,9 +173,25 @@ CREATE TABLE IF NOT EXISTS assessment_rubrics (
   rubric_type   TEXT    NOT NULL DEFAULT 'custom',
   is_active     INTEGER NOT NULL DEFAULT 0,
   passing_score REAL    NOT NULL DEFAULT 3.0,
+  -- Context: what material/joint/process this rubric targets
+  material_type TEXT    NOT NULL DEFAULT '',   -- e.g. 'cast_iron', 'mild_steel'
+  joint_type    TEXT    NOT NULL DEFAULT '',   -- e.g. 'butt', 'fillet', 'lap'
+  weld_process  TEXT    NOT NULL DEFAULT '',   -- e.g. 'SMAW', 'MIG', 'TIG'
   created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at    TEXT    NOT NULL DEFAULT (datetime('now')),
   CHECK(rubric_type IN ('iso_5817', 'aws_d1_1', 'custom'))
+);
+
+-- Bind AI models to assessment rubrics (many-to-many)
+-- is_default = 1 → automatically selected when this model scores a new assessment.
+CREATE TABLE IF NOT EXISTS model_rubrics (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  model_id    INTEGER NOT NULL REFERENCES ai_models(id) ON DELETE CASCADE,
+  rubric_id   INTEGER NOT NULL REFERENCES assessment_rubrics(id) ON DELETE CASCADE,
+  is_default  INTEGER NOT NULL DEFAULT 0,
+  notes       TEXT    NOT NULL DEFAULT '',
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(model_id, rubric_id)
 );
 
 -- Individual rubric criteria (Likert 1-5)
@@ -266,3 +286,6 @@ CREATE INDEX IF NOT EXISTS idx_evaluations_created      ON student_evaluations(c
 CREATE INDEX IF NOT EXISTS idx_criterion_scores_eval    ON criterion_scores(evaluation_id);
 CREATE INDEX IF NOT EXISTS idx_rubric_criteria_rubric   ON rubric_criteria(rubric_id);
 CREATE INDEX IF NOT EXISTS idx_courses_session          ON courses(session_id);
+CREATE INDEX IF NOT EXISTS idx_model_rubrics_model      ON model_rubrics(model_id);
+CREATE INDEX IF NOT EXISTS idx_model_rubrics_rubric     ON model_rubrics(rubric_id);
+CREATE INDEX IF NOT EXISTS idx_assessments_rubric       ON assessments(rubric_id);
