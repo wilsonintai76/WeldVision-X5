@@ -7,15 +7,15 @@
  * Free tier: ~10,000 neurons/day
  */
 
+// YOLOv8 surface-defect classes: porosity | undercut | spatter | cracks | lack_of_fusion
 export interface WeldEvaluation {
   overall_quality: number;                  // 1–5 Likert scale
   defects_detected: string[];               // list of defect type names
-  porosity_count: number;
-  spatter_count: number;
-  undercut_present: boolean;
-  severe_craters_count: number;
-  lack_of_fusion_present: boolean;
-  excessive_reinforcement_present: boolean;
+  porosity_count: number;                   // gas pinholes / pockets
+  undercut_present: boolean;                // groove melted into base metal at weld toe
+  spatter_count: number;                    // metal droplets around the weld
+  crack_count: number;                      // hairline cracks (most critical on cast iron)
+  lack_of_fusion_present: boolean;          // weld metal fails to bond with base metal
   weld_bead_uniformity: number;             // 1–5 (bead quality, not a defect)
   visual_score: number;                     // 0–100 derived score
   confidence: number;                       // 0–1
@@ -23,19 +23,25 @@ export interface WeldEvaluation {
   raw_response: string;
 }
 
-const WELD_EVAL_PROMPT = `You are a certified welding quality inspector (ISO 5817).
+const WELD_EVAL_PROMPT = `You are a certified welding quality inspector (AWS D11.2 — cast iron).
 Analyze the welding image carefully and identify all visible defects.
+
+The five defect classes to detect are:
+1. porosity   — small pinholes / gas pockets on the surface (trapped gas during cooling)
+2. undercut   — groove melted into the base metal at the weld toe, not filled back
+3. spatter    — metal droplets splashed onto the base plate around the weld
+4. cracks     — hairline cracks (dark lines); especially dangerous on brittle cast iron
+5. lack_of_fusion — weld metal fails to bond/merge with the base cast iron (gap or cold overlap)
 
 Respond with ONLY a JSON object in exactly this format, no extra text:
 {
-  "porosity_count": <integer, gas pores/holes in weld>,
-  "spatter_count": <integer, metal droplets around weld>,
+  "porosity_count": <integer, gas pores/holes visible on surface>,
   "undercut_present": <true/false, groove melted into base metal at weld toe>,
-  "severe_craters_count": <integer, crater defects at weld termination>,
-  "lack_of_fusion_present": <true/false, incomplete fusion between weld and base metal>,
-  "excessive_reinforcement_present": <true/false, weld bead height significantly above base metal surface>,
+  "spatter_count": <integer, metal droplets around weld>,
+  "crack_count": <integer, hairline crack lines detected>,
+  "lack_of_fusion_present": <true/false, incomplete bond between weld and base metal>,
   "weld_bead_uniformity": <1-5, 5=very uniform and consistent bead shape>,
-  "overall_quality": <1-5, based on ISO 5817 where 5=excellent>,
+  "overall_quality": <1-5, based on AWS D11.2 where 5=excellent>,
   "description": "<one sentence assessment>"
 }`;
 
@@ -69,38 +75,35 @@ function parseAIResponse(rawText: string): WeldEvaluation {
     const p = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
 
     const porosity = clampInt(p.porosity_count, 0);
-    const spatter = clampInt(p.spatter_count, 0);
     const undercutPresent = Boolean(p.undercut_present);
-    const severeCraters = clampInt(p.severe_craters_count, 0);
+    const spatter = clampInt(p.spatter_count, 0);
+    const cracks = clampInt(p.crack_count, 0);
     const lackOfFusion = Boolean(p.lack_of_fusion_present);
-    const excessiveReinforcement = Boolean(p.excessive_reinforcement_present);
 
     const defects: string[] = [];
     if (porosity > 0) defects.push('porosity');
-    if (spatter > 0) defects.push('spatter');
     if (undercutPresent) defects.push('undercut');
-    if (severeCraters > 0) defects.push('severe_craters');
+    if (spatter > 0) defects.push('spatter');
+    if (cracks > 0) defects.push('cracks');
     if (lackOfFusion) defects.push('lack_of_fusion');
-    if (excessiveReinforcement) defects.push('excessive_reinforcement');
 
-    const totalDefects = porosity + spatter + severeCraters;
     const visualScore = Math.max(0, Math.min(100,
       100
-      - totalDefects * 8
+      - porosity * 8
+      - spatter * 5
+      - cracks * 15
       - (undercutPresent ? 10 : 0)
       - (lackOfFusion ? 15 : 0)
-      - (excessiveReinforcement ? 5 : 0)
     ));
 
     return {
       overall_quality: clampInt(p.overall_quality, 3, 1, 5),
       defects_detected: defects,
       porosity_count: porosity,
-      spatter_count: spatter,
       undercut_present: undercutPresent,
-      severe_craters_count: severeCraters,
+      spatter_count: spatter,
+      crack_count: cracks,
       lack_of_fusion_present: lackOfFusion,
-      excessive_reinforcement_present: excessiveReinforcement,
       weld_bead_uniformity: clampInt(p.weld_bead_uniformity, 3, 1, 5),
       visual_score: visualScore,
       confidence: 0.75,
@@ -117,11 +120,10 @@ function fallbackEvaluation(reason: string): WeldEvaluation {
     overall_quality: 3,
     defects_detected: [],
     porosity_count: 0,
-    spatter_count: 0,
     undercut_present: false,
-    severe_craters_count: 0,
+    spatter_count: 0,
+    crack_count: 0,
     lack_of_fusion_present: false,
-    excessive_reinforcement_present: false,
     weld_bead_uniformity: 3,
     visual_score: 50,
     confidence: 0,

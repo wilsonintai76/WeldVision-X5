@@ -100,12 +100,13 @@ GRID_ROWS = int(os.getenv('WELDVISION_GRID_ROWS', '3'))  # horizontal dividers i
 STUDENT_ID = os.getenv('WELDVISION_STUDENT_ID', 'S001')
 DEVICE_ID = os.getenv('WELDVISION_DEVICE_ID', 'RDK-X5-WORKSHOP-01')
 
-# Defect Class Names (YOLOv8 output classes)
+# Defect Class Names (YOLOv8 output classes — must match model training labels)
 DEFECT_CLASSES = {
     0: 'porosity',
-    1: 'spatter',
-    2: 'slag_inclusion',
-    3: 'burn_through'
+    1: 'undercut',
+    2: 'spatter',
+    3: 'cracks',
+    4: 'lack_of_fusion'
 }
 
 # Processing Configuration
@@ -202,14 +203,16 @@ def calculate_depth(left_image, right_image=None):
     reinforcement_height = np.random.uniform(1.8, 2.4)  # 1-3mm range
     bead_width = np.random.uniform(9.0, 11.5)  # 8-12mm range
     undercut_depth = np.random.uniform(0.1, 0.4)  # mm
+    toe_angle = np.random.uniform(130.0, 150.0)    # degrees; AWS D11.2 min ~135°
     hi_lo_misalignment = np.random.uniform(0.05, 0.25)  # mm
     
-    logger.debug(f"Depth (Mock): Height={reinforcement_height:.2f}mm, Width={bead_width:.2f}mm")
+    logger.debug(f"Depth (Mock): Height={reinforcement_height:.2f}mm, Width={bead_width:.2f}mm, Toe={toe_angle:.1f}°")
     
     return {
         'reinforcement_height_mm': round(reinforcement_height, 2),
         'bead_width_mm': round(bead_width, 2),
         'undercut_depth_mm': round(undercut_depth, 2),
+        'toe_angle_deg': round(toe_angle, 1),
         'hi_lo_misalignment_mm': round(hi_lo_misalignment, 2),
         'z_average_mm': 150.5,
         'focal_length_mm': 3.5,
@@ -826,14 +829,17 @@ def count_defects(detections):
     """
     counts = {
         'porosity_count': 0,
+        'undercut_count': 0,
         'spatter_count': 0,
-        'slag_inclusion_count': 0,
-        'burn_through_count': 0
+        'cracks_count': 0,
+        'lack_of_fusion_count': 0
     }
     
     for det in detections:
         class_name = det['class_name']
-        counts[f"{class_name}_count"] += 1
+        key = f"{class_name}_count"
+        if key in counts:
+            counts[key] += 1
     
     return counts
 

@@ -41,14 +41,15 @@ const Dashboard: FC = () => {
   const [metrics, setMetrics] = useState<Metrics>({
     height: 2.1,
     width: 10.2,
+    toeAngle: 140.0,
     undercut: 0.1,
     score: 95,
     defects: {
       porosity: 0,
+      undercut: 0,
       spatter: 0,
-      severeCraters: 0,
+      cracks: 0,
       lackOfFusion: 0,
-      excessiveReinforcement: 0,
     },
   })
 
@@ -97,7 +98,7 @@ const Dashboard: FC = () => {
     rubric.criteria.forEach(c => {
       const name = c.name.toLowerCase()
 
-      // Weld Bead quality — scored on bead width (8–12 mm ideal)
+      // Weld Bead quality — scored on bead width (8–12 mm ideal, AWS D11.2)
       if (name.includes('weld bead') || name.includes('bead geometry')) {
         const w = currentMetrics.width
         let s = 1
@@ -109,13 +110,12 @@ const Dashboard: FC = () => {
         newSuggested.add(c.id)
       }
 
-      // Excessive Reinforcement — higher height = worse score
-      else if (name.includes('excessive reinforcement') || name.includes('reinforcement')) {
+      // Reinforcement Height — scored on stereo-measured height (1–3 mm spec)
+      else if (name.includes('reinforcement')) {
         const h = currentMetrics.height
-        const er = currentMetrics.defects.excessiveReinforcement
         let s = 1
-        if (er === 0 && h <= 2.5)    s = 5
-        else if (er === 0 && h <= 3.0) s = 4
+        if (h >= 1.0 && h <= 2.5)   s = 5
+        else if (h >= 1.0 && h <= 3.0) s = 4
         else if (h <= 3.5)           s = 3
         else if (h <= 4.0)           s = 2
         updates[c.id] = s
@@ -138,10 +138,10 @@ const Dashboard: FC = () => {
         newSuggested.add(c.id)
       }
 
-      // Severe Craters
-      else if (name.includes('crater')) {
-        const sc = currentMetrics.defects.severeCraters
-        const s = sc === 0 ? 5 : sc === 1 ? 3 : sc === 2 ? 2 : 1
+      // Cracks (most critical on cast iron)
+      else if (name.includes('crack')) {
+        const cr = currentMetrics.defects.cracks
+        const s = cr === 0 ? 5 : cr === 1 ? 2 : 1
         updates[c.id] = s
         newSuggested.add(c.id)
       }
@@ -154,14 +154,14 @@ const Dashboard: FC = () => {
         newSuggested.add(c.id)
       }
 
-      // Undercut  (< 0.5 mm ideal)
+      // Undercut depth (< 0.3 mm ideal, AWS D11.2)
       else if (name.includes('undercut')) {
         const u = currentMetrics.undercut
         let s = 1
-        if (u < 0.2)           s = 5
-        else if (u < 0.5)      s = 4
-        else if (u < 1.0)      s = 3
-        else if (u < 2.0)      s = 2
+        if (u < 0.2)      s = 5
+        else if (u < 0.5) s = 4
+        else if (u < 1.0) s = 3
+        else if (u < 2.0) s = 2
         updates[c.id] = s
         newSuggested.add(c.id)
       }
@@ -237,14 +237,15 @@ const Dashboard: FC = () => {
           const newMetrics: Metrics = {
             height: parseFloat((geo.reinforcement_height_mm ?? 2.1).toFixed(2)),
             width: parseFloat((geo.bead_width_mm ?? 10.2).toFixed(2)),
+            toeAngle: parseFloat((geo.toe_angle_deg ?? 140.0).toFixed(1)),
             undercut: parseFloat((geo.undercut_depth_mm ?? 0.1).toFixed(2)),
             score: geo.overall_score ?? 100,
             defects: {
               porosity: vis.porosity_count ?? 0,
+              undercut: vis.undercut_present ? 1 : 0,
               spatter: vis.spatter_count ?? 0,
-              severeCraters: vis.severe_craters_count ?? 0,
+              cracks: vis.crack_count ?? 0,
               lackOfFusion: vis.lack_of_fusion_present ? 1 : 0,
-              excessiveReinforcement: vis.excessive_reinforcement_present ? 1 : 0,
             },
           }
           setMetrics(newMetrics)
@@ -261,14 +262,15 @@ const Dashboard: FC = () => {
       const newMetrics: Metrics = {
         height: parseFloat((2.1 + (Math.random() - 0.5) * 0.2).toFixed(2)),
         width: parseFloat((10.0 + Math.random() * 2).toFixed(2)),
+        toeAngle: parseFloat((135.0 + Math.random() * 15).toFixed(1)),
         undercut: parseFloat((0.1 + Math.random() * 0.3).toFixed(2)),
         score: Math.floor(80 + Math.random() * 20),
         defects: {
           porosity: Math.floor(Math.random() * 3),
+          undercut: Math.random() < 0.3 ? 1 : 0,
           spatter: Math.floor(Math.random() * 5),
-          severeCraters: Math.floor(Math.random() * 2),
-          lackOfFusion: Math.floor(Math.random() * 2),
-          excessiveReinforcement: Math.floor(Math.random() * 2),
+          cracks: Math.random() < 0.15 ? 1 : 0,
+          lackOfFusion: Math.random() < 0.2 ? 1 : 0,
         },
       }
       setMetrics(newMetrics)
@@ -385,7 +387,7 @@ const Dashboard: FC = () => {
   const undercutStatus = metrics.undercut < 0.5 ? true : metrics.undercut < 1.0 ? 'warning' : false
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       <DashboardHeader 
         courses={courses}
         students={students}

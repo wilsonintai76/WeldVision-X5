@@ -13,7 +13,8 @@ import {
   Shield,
   User,
   LogOut,
-  Cpu
+  Cpu,
+  X
 } from 'lucide-react'
 import { useAppUpdate } from '../../hooks/useAppUpdate'
 
@@ -24,6 +25,8 @@ interface SidebarProps {
   logout: () => Promise<void>;
   permissions: any;
   version: string;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -32,7 +35,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   user,
   logout,
   permissions,
-  version
+  version,
+  isOpen = false,
+  onClose
 }) => {
   const navigate = useNavigate()
   const [expandedSections, setExpandedSections] = useState({
@@ -59,17 +64,33 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isStudent = permissions?.is_student
 
   return (
-    <aside className="w-56 bg-slate-900 border-r border-slate-800 flex flex-col h-screen">
+    <aside className={`
+      bg-slate-900 border-r border-slate-800 flex flex-col h-screen
+      fixed inset-y-0 left-0 z-50 w-72
+      transform transition-transform duration-300 ease-in-out
+      md:relative md:translate-x-0 md:w-56 md:z-auto md:shrink-0
+      ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+    `}>
       {/* Logo/Brand Section */}
       <div className="p-4 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-lg flex items-center justify-center">
-            <Cpu className="w-6 h-6 text-white" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <Cpu className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-white font-bold text-lg leading-tight">WeldVision</h1>
+              <p className="text-slate-500 text-xs">X5 Edge System</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-white font-bold text-lg leading-tight">WeldVision</h1>
-            <p className="text-slate-500 text-xs">X5 Edge System</p>
-          </div>
+          {/* Close button — mobile only */}
+          <button
+            onClick={onClose}
+            className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            aria-label="Close navigation"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
       </div>
 

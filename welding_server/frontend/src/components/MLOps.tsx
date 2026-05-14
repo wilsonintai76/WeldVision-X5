@@ -279,14 +279,14 @@ const MLOps: FC = () => {
   })
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="p-4 md:p-8 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold text-white">AI Pipeline</h2>
           <p className="text-slate-400 mt-1">Roboflow → Colab → R2 → GitHub Actions → RDK X5</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {deployedModel ? (
             <div className="flex items-center gap-2 px-4 py-2 bg-emerald-950/30 border border-emerald-600 rounded-lg">
               <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
@@ -305,7 +305,7 @@ const MLOps: FC = () => {
       </div>
 
       {/* Tab Bar */}
-      <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl w-fit">
+      <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl w-fit max-w-full overflow-x-auto">
         {(['registry', 'compare'] as TabId[]).map(t => (
           <button
             key={t}
@@ -320,7 +320,7 @@ const MLOps: FC = () => {
       </div>
 
       {/* Pipeline Steps */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
           { step: '01', label: 'Label',   sub: 'Roboflow',       url: ROBOFLOW_URL,       color: 'hover:border-violet-600/50' },
           { step: '02', label: 'Train',   sub: 'Google Colab',   url: COLAB_NOTEBOOK_URL, color: 'hover:border-amber-600/50'  },

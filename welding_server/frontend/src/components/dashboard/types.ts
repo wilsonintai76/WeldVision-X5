@@ -36,16 +36,17 @@ export interface Rubric {
 }
 
 export interface Metrics {
-  height: number;
-  width: number;
-  undercut: number;
+  height: number;     // reinforcement_height_mm (geometric)
+  width: number;      // bead_width_mm (geometric)
+  toeAngle: number;   // toe_angle_deg (geometric, AWS D11.2 min 135°)
+  undercut: number;   // undercut_depth_mm (geometric)
   score: number;
   defects: {
-    porosity: number;
-    spatter: number;
-    severeCraters: number;
-    lackOfFusion: number;
-    excessiveReinforcement: number;
+    porosity: number;       // AI: gas pinholes / pockets
+    undercut: number;       // AI: undercut presence (0 or 1)
+    spatter: number;        // AI: metal droplets
+    cracks: number;         // AI: hairline cracks
+    lackOfFusion: number;   // AI: incomplete bond (0 or 1)
   };
 }
 

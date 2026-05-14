@@ -20,9 +20,10 @@ function calculateScore(metrics: Record<string, unknown>): number {
   const totalDefects =
     (visual.porosity_count ?? 0) +
     (visual.spatter_count ?? 0) +
-    (visual.slag_inclusion_count ?? 0) +
-    (visual.burn_through_count ?? 0);
+    (visual.crack_count ?? 0);
   score -= Math.min(totalDefects * 5, 40);
+  if (visual.undercut_present)       score -= 10;
+  if (visual.lack_of_fusion_present) score -= 15;
 
   return Math.max(0, Math.min(100, score));
 }
@@ -73,10 +74,9 @@ async function storeDetections(
   const entries: DetectionEntry[] = [
     { name: 'porosity',       count: ev.porosity_count },
     { name: 'spatter',        count: ev.spatter_count },
-    { name: 'crack',          count: ev.crack_count },
-    { name: 'burn_through',   count: ev.burn_through_count },
-    { name: 'slag_inclusion', count: ev.slag_inclusion_count },
-    ...(ev.undercut_present ? [{ name: 'undercut', count: 1 }] : []),
+    { name: 'cracks',         count: ev.crack_count },
+    ...(ev.undercut_present      ? [{ name: 'undercut',        count: 1 }] : []),
+    ...(ev.lack_of_fusion_present ? [{ name: 'lack_of_fusion', count: 1 }] : []),
   ].filter(e => e.count > 0);
 
   if (entries.length === 0) return;
@@ -95,11 +95,11 @@ async function storeDetections(
 
   // Also persist the AI quality scores as metrics
   await db.batch([
-    db.prepare('INSERT OR REPLACE INTO assessment_metrics (assessment_id, metric_key, metric_value, metric_text, metric_unit) VALUES (?, ?, ?, ?, ?)').bind(assessmentId, 'ai.overall_quality',  ev.overall_quality,  null, ''),
-    db.prepare('INSERT OR REPLACE INTO assessment_metrics (assessment_id, metric_key, metric_value, metric_text, metric_unit) VALUES (?, ?, ?, ?, ?)').bind(assessmentId, 'ai.bead_uniformity',  ev.bead_uniformity,   null, ''),
-    db.prepare('INSERT OR REPLACE INTO assessment_metrics (assessment_id, metric_key, metric_value, metric_text, metric_unit) VALUES (?, ?, ?, ?, ?)').bind(assessmentId, 'ai.visual_score',     ev.visual_score,      null, ''),
-    db.prepare('INSERT OR REPLACE INTO assessment_metrics (assessment_id, metric_key, metric_value, metric_text, metric_unit) VALUES (?, ?, ?, ?, ?)').bind(assessmentId, 'ai.confidence',       ev.confidence,        null, ''),
-    db.prepare('INSERT OR REPLACE INTO assessment_metrics (assessment_id, metric_key, metric_value, metric_text, metric_unit) VALUES (?, ?, ?, ?, ?)').bind(assessmentId, 'ai.description',      null, ev.description, ''),
+    db.prepare('INSERT OR REPLACE INTO assessment_metrics (assessment_id, metric_key, metric_value, metric_text, metric_unit) VALUES (?, ?, ?, ?, ?)').bind(assessmentId, 'ai.overall_quality',  ev.overall_quality,       null, ''),
+    db.prepare('INSERT OR REPLACE INTO assessment_metrics (assessment_id, metric_key, metric_value, metric_text, metric_unit) VALUES (?, ?, ?, ?, ?)').bind(assessmentId, 'ai.bead_uniformity',  ev.weld_bead_uniformity,  null, ''),
+    db.prepare('INSERT OR REPLACE INTO assessment_metrics (assessment_id, metric_key, metric_value, metric_text, metric_unit) VALUES (?, ?, ?, ?, ?)').bind(assessmentId, 'ai.visual_score',     ev.visual_score,          null, ''),
+    db.prepare('INSERT OR REPLACE INTO assessment_metrics (assessment_id, metric_key, metric_value, metric_text, metric_unit) VALUES (?, ?, ?, ?, ?)').bind(assessmentId, 'ai.confidence',       ev.confidence,            null, ''),
+    db.prepare('INSERT OR REPLACE INTO assessment_metrics (assessment_id, metric_key, metric_value, metric_text, metric_unit) VALUES (?, ?, ?, ?, ?)').bind(assessmentId, 'ai.description',      null, ev.description,       ''),
   ]);
 }
 

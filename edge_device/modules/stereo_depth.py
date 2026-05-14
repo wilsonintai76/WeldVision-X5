@@ -230,10 +230,35 @@ class WeldFeatureExtractor:
         else:
             width_mm = 0.0
 
+        # Toe Angle: angle (degrees) where the weld face meets the base plate.
+        # Measured as the interior angle — 180° = perfectly flat transition,
+        # 90° = abrupt perpendicular step (worst). AWS D11.2 requires ≥ 135°.
+        # Estimated from the slope at each weld toe boundary.
+        toe_angle = 90.0  # conservative default
+        if weld_indices.size > 1:
+            mm_per_px = baseline / self.focal_length_px if self.focal_length_px > 0 else 1.0
+
+            def _toe_angle_at(idx: int, direction: int) -> float:
+                """Compute toe angle at one weld edge. direction=-1 for left, +1 for right."""
+                n = 5
+                far_idx = int(np.clip(idx + direction * n, 0, len(profile) - 1))
+                delta_h = abs(float(profile[idx]) - float(profile[far_idx]))
+                delta_x = abs(idx - far_idx) * mm_per_px
+                if delta_h < 0.01 or delta_x < 0.001:
+                    return 90.0
+                # slope angle from horizontal; toe angle = 90° + (90° - slope_angle) = 180° - slope_angle
+                slope_angle_rad = np.arctan2(delta_h, delta_x)
+                return float(180.0 - np.degrees(slope_angle_rad))
+
+            left_angle  = _toe_angle_at(int(weld_indices[0]),  -1)
+            right_angle = _toe_angle_at(int(weld_indices[-1]),  1)
+            toe_angle = round(min(left_angle, right_angle), 1)  # report worst side
+
         return {
             "reinforcement_height_mm": round(height, 2),
             "bead_width_mm": round(width_mm, 2),
             "undercut_depth_mm": round(undercut, 2),
+            "toe_angle_deg": toe_angle,
             "baseline_depth_mm": round(float(baseline), 2)
         }
 
@@ -248,6 +273,7 @@ class WeldFeatureExtractor:
         h = metrics.get("reinforcement_height_mm", 0)
         w = metrics.get("bead_width_mm", 0)
         u = metrics.get("undercut_depth_mm", 0)
+        t = metrics.get("toe_angle_deg", 180.0)
 
         # Rule 1: Excessive Reinforcement (H > 3mm or H > 0.3*W)
         if h > 3.0:
@@ -257,7 +283,7 @@ class WeldFeatureExtractor:
             score -= 15
             violations.append("Poor profile (Height/Width ratio too high)")
 
-        # Rule 2: Undercut
+        # Rule 2: Undercut depth (AWS D11.2)
         if u > 0.8:
             score -= 30
             violations.append("Severe undercut detected")
@@ -269,6 +295,14 @@ class WeldFeatureExtractor:
         if w < 5.0:
             score -= 10
             violations.append("Bead too narrow")
+
+        # Rule 4: Toe Angle (AWS D11.2 — sharp toe creates stress riser)
+        if t < 120.0:
+            score -= 20
+            violations.append(f"Critically sharp toe angle ({t:.1f}° < 120°)")
+        elif t < 135.0:
+            score -= 10
+            violations.append(f"Poor toe angle ({t:.1f}° < 135° AWS D11.2 min)")
 
         return {
             "overall_score": max(0, score),

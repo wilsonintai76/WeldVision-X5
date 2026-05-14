@@ -43,7 +43,7 @@ const Help: FC = () => {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -99,7 +99,7 @@ const Help: FC = () => {
             onToggle={() => toggleSection('shortcuts')}
           >
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <ShortcutCard
                   title="Live Monitoring"
                   description="View real-time camera feed with AI detections"
@@ -161,7 +161,7 @@ const Help: FC = () => {
                 The rubric panel supports both <span className="text-blue-400 font-medium">AI auto-scoring</span> and <span className="text-white font-medium">manual scoring</span> side-by-side.
               </p>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="bg-blue-950/30 border border-blue-600/40 rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-1">
                     <Cpu className="w-4 h-4 text-blue-400" />
@@ -208,7 +208,7 @@ const Help: FC = () => {
               <p className="text-slate-300 text-sm">
                 User Management handles <strong>Instructors and Admins</strong>. Student accounts are automatically created during import.
               </p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="bg-red-900/20 border border-red-600/30 rounded-lg p-3 text-center">
                   <p className="text-red-300 font-medium text-sm">Admin</p>
                   <p className="text-xs text-slate-400 mt-1">Full access, manage users, approve staff</p>
@@ -240,7 +240,7 @@ const Help: FC = () => {
               <p className="text-slate-300 text-sm">
                 The production environment auto-reloads code changes without a full rebuild.
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
                   <p className="text-white font-medium text-sm mb-2">Backend (Python)</p>
                   <p className="text-xs text-slate-400">Gunicorn runs with <code className="text-emerald-400 bg-slate-900 px-1 rounded">--reload</code>. Any <code className="text-slate-300">.py</code> file change restarts workers automatically (~1s).</p>

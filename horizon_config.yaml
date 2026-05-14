@@ -96,9 +96,10 @@ compiler_parameters:
 # DEFECT CLASS MAPPING (informational — matches main.py DEFECT_CLASSES)
 # YOLOv8 output index → class name
 #   0: porosity
-#   1: spatter
-#   2: slag_inclusion
-#   3: burn_through
+#   1: undercut
+#   2: spatter
+#   3: cracks
+#   4: lack_of_fusion
 #
 # The compiled .bin preserves the same output ordering.
 # No changes needed in InferenceEngine._parse_yolo_output().

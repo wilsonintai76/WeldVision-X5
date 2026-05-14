@@ -31,10 +31,10 @@ export const DefectsCard: React.FC<DefectsCardProps> = ({ defects }) => {
       </div>
       <div className="space-y-2">
         <DefectRow label="Porosity" count={defects.porosity} />
+        <DefectRow label="Undercut" count={defects.undercut} />
         <DefectRow label="Spatter" count={defects.spatter} />
-        <DefectRow label="Severe Craters" count={defects.severeCraters} />
+        <DefectRow label="Cracks" count={defects.cracks} />
         <DefectRow label="Lack of Fusion" count={defects.lackOfFusion} />
-        <DefectRow label="Excessive Reinforcement" count={defects.excessiveReinforcement} />
       </div>
     </Card>
   )
