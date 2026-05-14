@@ -82,13 +82,14 @@ TAG="v${NEW_VERSION}"
 
 ok "${OLD_VERSION}  ->  ${NEW_VERSION}  (${BUMP})"
 
-# ── 2. Check working tree ─────────────────────────────────────────────────────
-step "Checking git working tree"
-DIRTY=$(git -C "$ROOT" status --porcelain | grep -E '^[MADRCU]' || true)
-if [[ -n "$DIRTY" ]]; then
-  fail "Working tree has uncommitted changes. Commit or stash before deploying.\n${DIRTY}"
+# ── 2. Show pending changes (informational) ──────────────────────────────────
+step "Pending changes to be included in this release"
+PENDING=$(git -C "$ROOT" status --porcelain || true)
+if [[ -n "$PENDING" ]]; then
+  echo "$PENDING"
+else
+  ok "(none — version bump only)"
 fi
-ok "Working tree is clean"
 
 # ── 3. Bump versions ──────────────────────────────────────────────────────────
 step "Updating package.json files to ${NEW_VERSION}"
@@ -132,16 +133,17 @@ else
   warn "SkipFrontend: skipping Pages deployment"
 fi
 
-# ── 7. Git commit, annotated tag, push ────────────────────────────────────────
-step "Committing version bump + tagging ${TAG}"
+# ── 7. Git commit (all changes + version bump), annotated tag, push ─────────
+step "Committing all changes + version bump, tagging ${TAG}"
 
-git -C "$ROOT" add \
-  "package.json" \
-  "welding_server/frontend/package.json" \
-  "cloud_worker/package.json"
-git -C "$ROOT" commit -m "chore: bump version to ${NEW_VERSION}" || fail "git commit failed"
-git -C "$ROOT" tag -a "${TAG}" -m "${MESSAGE}"                    || fail "git tag failed"
-git -C "$ROOT" push origin main --follow-tags                     || fail "git push failed"
+git -C "$ROOT" add -A
+if git -C "$ROOT" diff --cached --quiet; then
+  warn "Nothing to commit (all files already up to date)"
+else
+  git -C "$ROOT" commit -m "chore: release ${TAG} — ${MESSAGE}" || fail "git commit failed"
+fi
+git -C "$ROOT" tag -a "${TAG}" -m "${MESSAGE}"  || fail "git tag failed (tag ${TAG} may already exist)"
+git -C "$ROOT" push origin main --follow-tags   || fail "git push failed"
 
 ok "Pushed main + ${TAG} to GitHub"
 
