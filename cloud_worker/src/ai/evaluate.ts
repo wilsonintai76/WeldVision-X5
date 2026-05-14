@@ -8,33 +8,33 @@
  */
 
 export interface WeldEvaluation {
-  overall_quality: number;       // 1–5 Likert scale
-  defects_detected: string[];    // list of defect type names
+  overall_quality: number;                  // 1–5 Likert scale
+  defects_detected: string[];               // list of defect type names
   porosity_count: number;
   spatter_count: number;
-  crack_count: number;
-  burn_through_count: number;
-  slag_inclusion_count: number;
   undercut_present: boolean;
-  bead_uniformity: number;       // 1–5
-  visual_score: number;          // 0–100 derived score
-  confidence: number;            // 0–1
+  severe_craters_count: number;
+  lack_of_fusion_present: boolean;
+  excessive_reinforcement_present: boolean;
+  weld_bead_uniformity: number;             // 1–5 (bead quality, not a defect)
+  visual_score: number;                     // 0–100 derived score
+  confidence: number;                       // 0–1
   description: string;
   raw_response: string;
 }
 
 const WELD_EVAL_PROMPT = `You are a certified welding quality inspector (ISO 5817).
-Analyze the welding image carefully and count all visible defects.
+Analyze the welding image carefully and identify all visible defects.
 
 Respond with ONLY a JSON object in exactly this format, no extra text:
 {
-  "porosity_count": <integer, holes/pores in weld>,
+  "porosity_count": <integer, gas pores/holes in weld>,
   "spatter_count": <integer, metal droplets around weld>,
-  "crack_count": <integer, visible cracks>,
-  "burn_through_count": <integer, holes burned through base metal>,
-  "slag_inclusion_count": <integer, trapped slag>,
-  "undercut_present": <true/false, groove at weld toe>,
-  "bead_uniformity": <1-5, 5=very uniform>,
+  "undercut_present": <true/false, groove melted into base metal at weld toe>,
+  "severe_craters_count": <integer, crater defects at weld termination>,
+  "lack_of_fusion_present": <true/false, incomplete fusion between weld and base metal>,
+  "excessive_reinforcement_present": <true/false, weld bead height significantly above base metal surface>,
+  "weld_bead_uniformity": <1-5, 5=very uniform and consistent bead shape>,
   "overall_quality": <1-5, based on ISO 5817 where 5=excellent>,
   "description": "<one sentence assessment>"
 }`;
@@ -70,32 +70,38 @@ function parseAIResponse(rawText: string): WeldEvaluation {
 
     const porosity = clampInt(p.porosity_count, 0);
     const spatter = clampInt(p.spatter_count, 0);
-    const crack = clampInt(p.crack_count, 0);
-    const burnThrough = clampInt(p.burn_through_count, 0);
-    const slag = clampInt(p.slag_inclusion_count, 0);
     const undercutPresent = Boolean(p.undercut_present);
+    const severeCraters = clampInt(p.severe_craters_count, 0);
+    const lackOfFusion = Boolean(p.lack_of_fusion_present);
+    const excessiveReinforcement = Boolean(p.excessive_reinforcement_present);
 
     const defects: string[] = [];
     if (porosity > 0) defects.push('porosity');
     if (spatter > 0) defects.push('spatter');
-    if (crack > 0) defects.push('crack');
-    if (burnThrough > 0) defects.push('burn_through');
-    if (slag > 0) defects.push('slag_inclusion');
     if (undercutPresent) defects.push('undercut');
+    if (severeCraters > 0) defects.push('severe_craters');
+    if (lackOfFusion) defects.push('lack_of_fusion');
+    if (excessiveReinforcement) defects.push('excessive_reinforcement');
 
-    const totalDefects = porosity + spatter + crack + burnThrough + slag;
-    const visualScore = Math.max(0, Math.min(100, 100 - totalDefects * 8 - (undercutPresent ? 10 : 0)));
+    const totalDefects = porosity + spatter + severeCraters;
+    const visualScore = Math.max(0, Math.min(100,
+      100
+      - totalDefects * 8
+      - (undercutPresent ? 10 : 0)
+      - (lackOfFusion ? 15 : 0)
+      - (excessiveReinforcement ? 5 : 0)
+    ));
 
     return {
       overall_quality: clampInt(p.overall_quality, 3, 1, 5),
       defects_detected: defects,
       porosity_count: porosity,
       spatter_count: spatter,
-      crack_count: crack,
-      burn_through_count: burnThrough,
-      slag_inclusion_count: slag,
       undercut_present: undercutPresent,
-      bead_uniformity: clampInt(p.bead_uniformity, 3, 1, 5),
+      severe_craters_count: severeCraters,
+      lack_of_fusion_present: lackOfFusion,
+      excessive_reinforcement_present: excessiveReinforcement,
+      weld_bead_uniformity: clampInt(p.weld_bead_uniformity, 3, 1, 5),
       visual_score: visualScore,
       confidence: 0.75,
       description: String(p.description ?? ''),
@@ -112,11 +118,11 @@ function fallbackEvaluation(reason: string): WeldEvaluation {
     defects_detected: [],
     porosity_count: 0,
     spatter_count: 0,
-    crack_count: 0,
-    burn_through_count: 0,
-    slag_inclusion_count: 0,
     undercut_present: false,
-    bead_uniformity: 3,
+    severe_craters_count: 0,
+    lack_of_fusion_present: false,
+    excessive_reinforcement_present: false,
+    weld_bead_uniformity: 3,
     visual_score: 50,
     confidence: 0,
     description: 'AI evaluation unavailable',

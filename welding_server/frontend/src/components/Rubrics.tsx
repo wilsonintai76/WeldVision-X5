@@ -1,31 +1,14 @@
 import { useState, useEffect, FC } from 'react'
 import { Plus, Star } from 'lucide-react'
+import { authHeaders } from '../services/authAPI'
 
 // Types
-import { Rubric, Criterion, RubricForm as RubricFormType } from './rubrics/types'
+import { Rubric, RubricForm as RubricFormType } from './rubrics/types'
 
 // Components
 import RubricList from './rubrics/RubricList'
 import RubricCriteriaEditor from './rubrics/RubricCriteriaEditor'
 import RubricModal from './rubrics/RubricModal'
-import CriterionModal from './rubrics/CriterionModal'
-
-// Helper to get CSRF token
-function getCSRFToken(): string | null {
-  const name = 'csrftoken';
-  let cookieValue: string | null = null;
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === (name + '=')) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
-      }
-    }
-  }
-  return cookieValue;
-}
 
 const Rubrics: FC = () => {
   const [rubrics, setRubrics] = useState<Rubric[]>([])
@@ -34,9 +17,7 @@ const Rubrics: FC = () => {
 
   // Modal states
   const [showRubricModal, setShowRubricModal] = useState(false)
-  const [showCriterionModal, setShowCriterionModal] = useState(false)
   const [editingRubric, setEditingRubric] = useState<Rubric | null>(null)
-  const [editingCriterion, setEditingCriterion] = useState<Criterion | null>(null)
 
   // Forms
   const [rubricForm, setRubricForm] = useState<RubricFormType>({
@@ -46,30 +27,13 @@ const Rubrics: FC = () => {
     passing_score: 3.0
   })
 
-  const [criterionForm, setCriterionForm] = useState<Criterion>({
-    name: '',
-    category: 'visual',
-    weight: 1.0,
-    order: 0,
-    score_1_label: 'Poor',
-    score_1_description: '',
-    score_2_label: 'Below Average',
-    score_2_description: '',
-    score_3_label: 'Acceptable',
-    score_3_description: '',
-    score_4_label: 'Good',
-    score_4_description: '',
-    score_5_label: 'Excellent',
-    score_5_description: ''
-  })
-
   useEffect(() => {
     fetchRubrics()
   }, [])
 
   const fetchRubrics = async () => {
     try {
-      const res = await fetch('/api/assessment-rubrics/', { credentials: 'include' })
+      const res = await fetch('/api/rubrics', { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
         setRubrics(Array.isArray(data) ? data : (data.results || []))
@@ -82,11 +46,10 @@ const Rubrics: FC = () => {
   const handleRubricSubmit = async () => {
     setLoading(true)
     try {
-      const url = editingRubric ? `/api/assessment-rubrics/${editingRubric.id}/` : '/api/assessment-rubrics/'
-      const csrfToken = getCSRFToken();
+      const url = editingRubric ? `/api/rubrics/${editingRubric.id}` : '/api/rubrics'
       const res = await fetch(url, {
-        credentials: 'include', method: editingRubric ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken || '' },
+        method: editingRubric ? 'PUT' : 'POST',
+        headers: authHeaders(),
         body: JSON.stringify(rubricForm)
       })
       if (res.ok) {
@@ -102,10 +65,9 @@ const Rubrics: FC = () => {
   const deleteRubric = async (id: number) => {
     if (!confirm('Delete this rubric?')) return
     try {
-      const csrfToken = getCSRFToken();
-      await fetch(`/api/assessment-rubrics/${id}/`, {
-        credentials: 'include', method: 'DELETE',
-        headers: { 'X-CSRFToken': csrfToken || '' }
+      await fetch(`/api/rubrics/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders()
       })
       fetchRubrics()
       if (selectedRubric?.id === id) setSelectedRubric(null)
@@ -116,10 +78,12 @@ const Rubrics: FC = () => {
 
   const activateRubric = async (id: number) => {
     try {
-      const csrfToken = getCSRFToken();
-      await fetch(`/api/assessment-rubrics/${id}/activate/`, {
-        credentials: 'include', method: 'POST',
-        headers: { 'X-CSRFToken': csrfToken || '' }
+      // Use PUT with is_active=true; Worker handles deactivating others
+      const current = rubrics.find(r => r.id === id)
+      if (!current) return
+      await fetch(`/api/rubrics/${id}/activate`, {
+        method: 'POST',
+        headers: authHeaders()
       })
       fetchRubrics()
       if (selectedRubric?.id === id) setSelectedRubric({ ...selectedRubric, is_active: true })
@@ -131,10 +95,9 @@ const Rubrics: FC = () => {
   const createISO5817 = async () => {
     setLoading(true)
     try {
-      const csrfToken = getCSRFToken();
-      const res = await fetch('/api/assessment-rubrics/create_iso_5817/', {
-        credentials: 'include', method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken || '' },
+      const res = await fetch('/api/rubrics/create-iso-5817', {
+        method: 'POST',
+        headers: authHeaders(),
         body: JSON.stringify({ name: `ISO 5817 - ${new Date().toLocaleDateString()}` })
       })
       if (res.ok) {
@@ -145,47 +108,6 @@ const Rubrics: FC = () => {
       console.error('Error creating ISO rubric:', error)
     }
     setLoading(false)
-  }
-
-  const handleCriterionSubmit = async () => {
-    if (!selectedRubric) return
-    setLoading(true)
-    try {
-      const url = editingCriterion ? `/api/rubric-criteria/${editingCriterion.id}/` : `/api/assessment-rubrics/${selectedRubric.id}/add_criterion/`
-      const csrfToken = getCSRFToken();
-      const res = await fetch(url, {
-        credentials: 'include', method: editingCriterion ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken || '' },
-        body: JSON.stringify(criterionForm)
-      })
-      if (res.ok) {
-        fetchRubrics()
-        setShowCriterionModal(false)
-        const updatedRes = await fetch(`/api/assessment-rubrics/${selectedRubric.id}/`, { credentials: 'include' })
-        if (updatedRes.ok) setSelectedRubric(await updatedRes.json())
-      }
-    } catch (error) {
-      console.error('Error saving criterion:', error)
-    }
-    setLoading(false)
-  }
-
-  const deleteCriterion = async (id: number) => {
-    if (!confirm('Delete this criterion?')) return
-    try {
-      const csrfToken = getCSRFToken();
-      await fetch(`/api/rubric-criteria/${id}/`, {
-        credentials: 'include', method: 'DELETE',
-        headers: { 'X-CSRFToken': csrfToken || '' }
-      })
-      if (selectedRubric) {
-        const res = await fetch(`/api/assessment-rubrics/${selectedRubric.id}/`, { credentials: 'include' })
-        if (res.ok) setSelectedRubric(await res.json())
-      }
-      fetchRubrics()
-    } catch (error) {
-      console.error('Error deleting criterion:', error)
-    }
   }
 
   const openRubricModal = (rubric: Rubric | null = null) => {
@@ -199,23 +121,6 @@ const Rubrics: FC = () => {
     setShowRubricModal(true)
   }
 
-  const openCriterionModal = (criterion: Criterion | null = null) => {
-    if (criterion) {
-      setEditingCriterion(criterion)
-      setCriterionForm({ ...criterion })
-    } else {
-      setEditingCriterion(null)
-      setCriterionForm({
-        name: '', category: 'visual', weight: 1.0, order: 0,
-        score_1_label: 'Poor', score_1_description: '',
-        score_2_label: 'Below Average', score_2_description: '',
-        score_3_label: 'Acceptable', score_3_description: '',
-        score_4_label: 'Good', score_4_description: '',
-        score_5_label: 'Excellent', score_5_description: ''
-      })
-    }
-    setShowCriterionModal(true)
-  }
 
   return (
     <div className="p-8 space-y-6">
@@ -247,8 +152,6 @@ const Rubrics: FC = () => {
           <RubricCriteriaEditor
             selectedRubric={selectedRubric}
             activateRubric={activateRubric}
-            openCriterionModal={openCriterionModal}
-            deleteCriterion={deleteCriterion}
           />
         </div>
       </div>
@@ -260,16 +163,6 @@ const Rubrics: FC = () => {
         rubricForm={rubricForm}
         setRubricForm={setRubricForm}
         onSubmit={handleRubricSubmit}
-        loading={loading}
-      />
-
-      <CriterionModal
-        show={showCriterionModal}
-        onClose={() => setShowCriterionModal(false)}
-        editingCriterion={editingCriterion}
-        criterionForm={criterionForm}
-        setCriterionForm={setCriterionForm}
-        onSubmit={handleCriterionSubmit}
         loading={loading}
       />
     </div>

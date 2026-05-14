@@ -2,7 +2,8 @@ import React, { useState, FC, ChangeEvent, FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import authAPI from '../services/authAPI';
-import { Eye, EyeOff, LogIn, KeyRound, X } from 'lucide-react';
+import { Eye, EyeOff, LogIn, KeyRound, X, ArrowLeft } from 'lucide-react';
+import packageJson from '../../package.json';
 
 const Login: FC = () => {
   const [formData, setFormData] = useState({
@@ -127,6 +128,14 @@ const Login: FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 py-12 px-4 sm:px-6 lg:px-8">
+      {/* Back to Landing Page */}
+      <Link
+        to="/"
+        className="absolute top-6 left-6 flex items-center gap-2 text-slate-500 hover:text-white text-sm transition-colors group"
+      >
+        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+        Back to Home
+      </Link>
       <div className="max-w-md w-full">
         {/* Logo/Brand */}
         <div className="text-center mb-8">
@@ -136,9 +145,9 @@ const Login: FC = () => {
           <h2 className="text-3xl font-bold text-white">
             WeldVision X5
           </h2>
-          <div className="flex justify-center mt-1">
-            <span className="text-[10px] font-bold text-emerald-500/50 uppercase tracking-[0.2em]">
-              System Version 1.2.0-STABLE
+          <div className="flex justify-center mt-2">
+            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-0.5 rounded-full tracking-widest uppercase">
+              v{packageJson.version}
             </span>
           </div>
           <p className="mt-4 text-slate-400">
@@ -257,6 +266,7 @@ const Login: FC = () => {
               </div>
               <button
                 onClick={closeForgotPasswordModal}
+                aria-label="Close"
                 className="text-slate-400 hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />

@@ -24,12 +24,12 @@ COPY . /app/
 
 # Environment defaults for Simulation Mode
 ENV WELDVISION_SIMULATION=1
-ENV WELDVISION_SERVER_URL=http://backend:8000
+ENV BACKEND_URL=https://api.weldvision-x5.com
 ENV WELDVISION_STREAM_HOST=0.0.0.0
-ENV WELDVISION_STREAM_PORT=8554
+ENV WELDVISION_STREAM_PORT=8080
 
 # Expose MJPEG stream port
-EXPOSE 8554
+EXPOSE 8080
 
 # Run main application
 CMD ["python", "main.py"]

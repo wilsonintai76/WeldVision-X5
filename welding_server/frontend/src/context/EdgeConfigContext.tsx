@@ -58,9 +58,15 @@ export const EdgeConfigProvider: FC<{ children: ReactNode }> = ({ children }) =>
     const cloudUrl = `${import.meta.env.VITE_API_URL ?? ''}/health`
     const edgeUrl  = `http://${edgeConfig.device_ip}:${edgeConfig.device_port}/health`
 
+    // Browsers block HTTP fetches from HTTPS pages (mixed content). When served
+    // over HTTPS, skip the edge health check — it will always be blocked.
+    const isHttps = window.location.protocol === 'https:'
+
     const [cloudResult, edgeResult] = await Promise.allSettled([
-      fetch(cloudUrl,  { signal: AbortSignal.timeout(4000) }).then(r => r.ok),
-      fetch(edgeUrl,   { signal: AbortSignal.timeout(2500) }).then(r => r.ok),
+      fetch(cloudUrl, { signal: AbortSignal.timeout(4000) }).then(r => r.ok),
+      isHttps
+        ? Promise.resolve(false)
+        : fetch(edgeUrl, { signal: AbortSignal.timeout(2500) }).then(r => r.ok),
     ])
 
     const cloudOnline = cloudResult.status === 'fulfilled' && cloudResult.value === true

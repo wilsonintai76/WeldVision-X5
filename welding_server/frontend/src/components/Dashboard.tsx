@@ -10,22 +10,13 @@ import { RubricPanel } from './dashboard/RubricPanel'
 
 // Types
 import { Course, Student, Rubric, Metrics, EvaluationResult } from './dashboard/types'
+import { getStoredToken } from '../services/authAPI'
 
-// Helper to get CSRF token
-function getCSRFToken(): string | null {
-  const name = 'csrftoken';
-  let cookieValue: string | null = null;
-  if (document.cookie && document.cookie !== '') {
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.substring(0, name.length + 1) === (name + '=')) {
-        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-        break;
-      }
-    }
-  }
-  return cookieValue;
+function authHeaders(): Record<string, string> {
+  const token = getStoredToken();
+  return token
+    ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+    : { 'Content-Type': 'application/json' };
 }
 
 const Dashboard: FC = () => {
@@ -55,8 +46,9 @@ const Dashboard: FC = () => {
     defects: {
       porosity: 0,
       spatter: 0,
-      slagInclusion: 0,
-      burnThrough: 0,
+      severeCraters: 0,
+      lackOfFusion: 0,
+      excessiveReinforcement: 0,
     },
   })
 
@@ -69,7 +61,7 @@ const Dashboard: FC = () => {
 
   const fetchRubrics = async () => {
     try {
-      const res = await fetch('/api/assessment-rubrics/', { credentials: 'include' })
+      const res = await fetch('/api/rubrics', { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
         const rubricList = (Array.isArray(data) ? data : (data.results || [])) as Rubric[]
@@ -105,26 +97,27 @@ const Dashboard: FC = () => {
     rubric.criteria.forEach(c => {
       const name = c.name.toLowerCase()
 
-      // Reinforcement Height  (1–3 mm ideal)
-      if (name.includes('height') || name.includes('reinforcement')) {
-        const h = currentMetrics.height
-        let s = 1
-        if (h >= 1.5 && h <= 2.5)      s = 5
-        else if (h >= 1.0 && h <= 3.0)  s = 4
-        else if (h >= 0.5 && h <= 3.5)  s = 3
-        else if (h >= 0.0 && h <= 4.0)  s = 2
-        updates[c.id] = s
-        newSuggested.add(c.id)
-      }
-
-      // Bead Width  (8–12 mm ideal)
-      else if (name.includes('width') || name.includes('bead width')) {
+      // Weld Bead quality — scored on bead width (8–12 mm ideal)
+      if (name.includes('weld bead') || name.includes('bead geometry')) {
         const w = currentMetrics.width
         let s = 1
         if (w >= 9 && w <= 11)      s = 5
         else if (w >= 8 && w <= 12)  s = 4
         else if (w >= 7 && w <= 13)  s = 3
         else if (w >= 6 && w <= 14)  s = 2
+        updates[c.id] = s
+        newSuggested.add(c.id)
+      }
+
+      // Excessive Reinforcement — higher height = worse score
+      else if (name.includes('excessive reinforcement') || name.includes('reinforcement')) {
+        const h = currentMetrics.height
+        const er = currentMetrics.defects.excessiveReinforcement
+        let s = 1
+        if (er === 0 && h <= 2.5)    s = 5
+        else if (er === 0 && h <= 3.0) s = 4
+        else if (h <= 3.5)           s = 3
+        else if (h <= 4.0)           s = 2
         updates[c.id] = s
         newSuggested.add(c.id)
       }
@@ -141,6 +134,22 @@ const Dashboard: FC = () => {
       else if (name.includes('spatter')) {
         const sp = currentMetrics.defects.spatter
         const s = sp === 0 ? 5 : sp <= 2 ? 4 : sp <= 4 ? 3 : sp <= 7 ? 2 : 1
+        updates[c.id] = s
+        newSuggested.add(c.id)
+      }
+
+      // Severe Craters
+      else if (name.includes('crater')) {
+        const sc = currentMetrics.defects.severeCraters
+        const s = sc === 0 ? 5 : sc === 1 ? 3 : sc === 2 ? 2 : 1
+        updates[c.id] = s
+        newSuggested.add(c.id)
+      }
+
+      // Lack of Fusion
+      else if (name.includes('fusion')) {
+        const lof = currentMetrics.defects.lackOfFusion
+        const s = lof === 0 ? 5 : 1
         updates[c.id] = s
         newSuggested.add(c.id)
       }
@@ -172,7 +181,7 @@ const Dashboard: FC = () => {
   const fetchCourses = async () => {
     try {
       // First get active session
-      const sessRes = await fetch('/api/sessions/active/', { credentials: 'include' })
+      const sessRes = await fetch('/api/sessions/active', { headers: authHeaders() })
       let sessionId = null
       if (sessRes.ok) {
         const sessData = await sessRes.json()
@@ -180,8 +189,8 @@ const Dashboard: FC = () => {
       }
 
       // Then get courses for that session
-      const url = sessionId ? `/api/courses/?session=${sessionId}` : '/api/courses/'
-      const res = await fetch(url, { credentials: 'include' })
+      const url = sessionId ? `/api/courses?session_id=${sessionId}` : '/api/courses'
+      const res = await fetch(url, { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
         setCourses((Array.isArray(data) ? data : (data.results || [])) as Course[])
@@ -193,13 +202,9 @@ const Dashboard: FC = () => {
 
   const fetchStudents = async (courseId: number | null = null) => {
     try {
-      let url = '/api/students/'
-      
-      if (courseId) {
-        url = `/api/courses/${courseId}/students/`
-      }
+      const url = courseId ? `/api/students?course_id=${courseId}` : '/api/students'
 
-      const res = await fetch(url, { credentials: 'include' })
+      const res = await fetch(url, { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
         const studentList = (Array.isArray(data) ? data : (data.results || [])) as Student[]
@@ -217,8 +222,8 @@ const Dashboard: FC = () => {
     const pollMetrics = async () => {
       try {
         const res = await fetch(
-          `/api/students/${selectedStudent.student_id}/assessments/?limit=1`,
-          { credentials: 'include' }
+          `/api/students/${selectedStudent.student_id}/assessments?limit=1`,
+          { headers: authHeaders() }
         )
         if (!res.ok) throw new Error('fetch failed')
 
@@ -237,8 +242,9 @@ const Dashboard: FC = () => {
             defects: {
               porosity: vis.porosity_count ?? 0,
               spatter: vis.spatter_count ?? 0,
-              slagInclusion: vis.slag_inclusion_count ?? 0,
-              burnThrough: vis.burn_through_count ?? 0,
+              severeCraters: vis.severe_craters_count ?? 0,
+              lackOfFusion: vis.lack_of_fusion_present ? 1 : 0,
+              excessiveReinforcement: vis.excessive_reinforcement_present ? 1 : 0,
             },
           }
           setMetrics(newMetrics)
@@ -260,8 +266,9 @@ const Dashboard: FC = () => {
         defects: {
           porosity: Math.floor(Math.random() * 3),
           spatter: Math.floor(Math.random() * 5),
-          slagInclusion: Math.floor(Math.random() * 2),
-          burnThrough: Math.floor(Math.random() * 2),
+          severeCraters: Math.floor(Math.random() * 2),
+          lackOfFusion: Math.floor(Math.random() * 2),
+          excessiveReinforcement: Math.floor(Math.random() * 2),
         },
       }
       setMetrics(newMetrics)
@@ -315,14 +322,9 @@ const Dashboard: FC = () => {
 
       let savedEvaluationId: number | null = null
       try {
-        const csrfToken = getCSRFToken();
-        const res = await fetch('/api/student-evaluations/', {
+        const res = await fetch('/api/rubrics/evaluations', {
           method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(csrfToken ? { 'X-CSRFToken': csrfToken } : {})
-          },
+          headers: authHeaders(),
           body: JSON.stringify({
             student: selectedStudent.id,
             rubric: selectedRubric.id,

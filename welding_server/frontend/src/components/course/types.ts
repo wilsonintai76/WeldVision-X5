@@ -10,8 +10,9 @@ export interface Session {
 export interface Instructor {
   id: number;
   username: string;
-  first_name: string;
-  last_name: string;
+  name?: string;
+  first_name?: string;
+  last_name?: string;
   email: string;
 }
 

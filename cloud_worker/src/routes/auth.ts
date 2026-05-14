@@ -68,12 +68,27 @@ function makeStudentToken(student: StudentRow, secret: string): Promise<string> 
   } as unknown as Record<string, unknown>, secret, 'HS256');
 }
 
+function buildPermissions(role: string) {
+  const isAdmin      = role === 'admin';
+  const isInstructor = role === 'instructor';
+  const isStudent    = role === 'student';
+  return {
+    is_admin:             isAdmin,
+    is_instructor:        isInstructor,
+    is_student:           isStudent,
+    can_access_mlops:     isAdmin || isInstructor,
+    can_manage_users:     isAdmin,
+    can_create_evaluation: isAdmin || isInstructor,
+  };
+}
+
 function publicUser(user: UserRow) {
   return {
     id: user.id,
     username: user.staff_id ?? user.username,
     email: user.email,
     role: user.role,
+    name: [user.first_name, user.last_name].filter(Boolean).join(' '),
     first_name: user.first_name,
     last_name: user.last_name,
     is_approved: Boolean(user.is_approved),
@@ -81,18 +96,16 @@ function publicUser(user: UserRow) {
     student_profile_id: user.student_profile_id,
     staff_id: user.staff_id,
     account_type: 'user',
+    permissions: buildPermissions(user.role),
   };
 }
 
 function publicStudent(student: StudentRow) {
-  const [first_name = '', ...rest] = student.name.split(' ');
   return {
     id: student.id,
     username: student.student_id,
     student_id: student.student_id,
     name: student.name,
-    first_name,
-    last_name: rest.join(' '),
     email: student.email ?? '',
     role: 'student',
     account_type: 'student',
@@ -100,6 +113,7 @@ function publicStudent(student: StudentRow) {
     is_approved: true,
     must_change_password: false,
     student_profile_id: student.id,
+    permissions: buildPermissions('student'),
   };
 }
 
@@ -109,71 +123,81 @@ function publicStudent(student: StudentRow) {
 // Accepts: { identifier, pin }  — student (student_id) or staff (staff_id)
 // Fallback: { identifier, password } or { username, password } — admin PBKDF2 (migration path)
 auth.post('/login', async (c) => {
-  const body = await c.req.json<{
-    identifier?: string; pin?: string;
-    username?: string;   password?: string; // backward-compat fields
-  }>();
+  try {
+    const body = await c.req.json<{
+      identifier?: string; pin?: string;
+      username?: string;   password?: string; // backward-compat fields
+    }>();
 
-  const identifier = (body.identifier ?? body.username ?? '').trim();
-  const secret     = (body.pin ?? body.password ?? '').trim();
+    const identifier = (body.identifier ?? body.username ?? '').trim();
+    const secret     = (body.pin ?? body.password ?? '').trim();
 
-  if (!identifier || !secret) {
-    return c.json({ error: 'identifier and pin are required' }, 400);
-  }
-
-  // ── 1. Try students table by student_id ─────────────────────────────────
-  const student = await c.env.DB
-    .prepare('SELECT * FROM students WHERE student_id = ?')
-    .bind(identifier)
-    .first<StudentRow>();
-
-  if (student) {
-    if (!student.pin_hash) {
-      return c.json({ error: 'PIN not set. Please contact your instructor.' }, 403);
+    if (!identifier || !secret) {
+      return c.json({ error: 'identifier and pin are required' }, 400);
     }
-    if (!(await verifyPassword(secret, student.pin_hash))) {
+
+    if (!c.env.JWT_SECRET) {
+      console.error('[login] JWT_SECRET is not configured');
+      return c.json({ error: 'Server configuration error. Please contact admin.' }, 500);
+    }
+
+    // ── 1. Try students table by student_id ─────────────────────────────────
+    const student = await c.env.DB
+      .prepare('SELECT * FROM students WHERE student_id = ?')
+      .bind(identifier)
+      .first<StudentRow>();
+
+    if (student) {
+      if (!student.pin_hash) {
+        return c.json({ error: 'PIN not set. Please contact your instructor.' }, 403);
+      }
+      if (!(await verifyPassword(secret, student.pin_hash))) {
+        return c.json({ error: 'Invalid credentials' }, 401);
+      }
+      const token = await makeStudentToken(student, c.env.JWT_SECRET);
+      return c.json({ token, user: publicStudent(student) });
+    }
+
+    // ── 2. Try users table by staff_id ──────────────────────────────────────
+    const userByStaff = await c.env.DB
+      .prepare('SELECT * FROM users WHERE staff_id = ?')
+      .bind(identifier)
+      .first<UserRow>();
+
+    if (userByStaff) {
+      if (!userByStaff.pin_hash) {
+        return c.json({ error: 'PIN not set. Please contact admin.' }, 403);
+      }
+      if (!(await verifyPassword(secret, userByStaff.pin_hash))) {
+        return c.json({ error: 'Invalid credentials' }, 401);
+      }
+      if (!userByStaff.is_approved) {
+        return c.json({ error: 'Account pending admin approval' }, 403);
+      }
+      const token = await makeUserToken(userByStaff, c.env.JWT_SECRET);
+      return c.json({ token, user: publicUser(userByStaff) });
+    }
+
+    // ── 3. Fallback: users table by username/email + PBKDF2 password ─────────
+    //    (for admin accounts that haven't migrated to PIN yet)
+    const userByUsername = await c.env.DB
+      .prepare('SELECT * FROM users WHERE username = ? OR email = ?')
+      .bind(identifier, identifier)
+      .first<UserRow>();
+
+    if (!userByUsername || !(await verifyPassword(secret, userByUsername.password_hash))) {
       return c.json({ error: 'Invalid credentials' }, 401);
     }
-    const token = await makeStudentToken(student, c.env.JWT_SECRET);
-    return c.json({ token, user: publicStudent(student) });
-  }
-
-  // ── 2. Try users table by staff_id ──────────────────────────────────────
-  const userByStaff = await c.env.DB
-    .prepare('SELECT * FROM users WHERE staff_id = ?')
-    .bind(identifier)
-    .first<UserRow>();
-
-  if (userByStaff) {
-    if (!userByStaff.pin_hash) {
-      return c.json({ error: 'PIN not set. Please contact admin.' }, 403);
-    }
-    if (!(await verifyPassword(secret, userByStaff.pin_hash))) {
-      return c.json({ error: 'Invalid credentials' }, 401);
-    }
-    if (!userByStaff.is_approved) {
+    if (!userByUsername.is_approved) {
       return c.json({ error: 'Account pending admin approval' }, 403);
     }
-    const token = await makeUserToken(userByStaff, c.env.JWT_SECRET);
-    return c.json({ token, user: publicUser(userByStaff) });
-  }
 
-  // ── 3. Fallback: users table by username/email + PBKDF2 password ─────────
-  //    (for admin accounts that haven't migrated to PIN yet)
-  const userByUsername = await c.env.DB
-    .prepare('SELECT * FROM users WHERE username = ? OR email = ?')
-    .bind(identifier, identifier)
-    .first<UserRow>();
-
-  if (!userByUsername || !(await verifyPassword(secret, userByUsername.password_hash))) {
-    return c.json({ error: 'Invalid credentials' }, 401);
+    const token = await makeUserToken(userByUsername, c.env.JWT_SECRET);
+    return c.json({ token, user: publicUser(userByUsername) });
+  } catch (err: any) {
+    console.error('[login]', err);
+    return c.json({ error: 'Login failed. Please try again.' }, 500);
   }
-  if (!userByUsername.is_approved) {
-    return c.json({ error: 'Account pending admin approval' }, 403);
-  }
-
-  const token = await makeUserToken(userByUsername, c.env.JWT_SECRET);
-  return c.json({ token, user: publicUser(userByUsername) });
 });
 
 // POST /api/auth/forgot-pin  (public — resets student PIN back to their student_id)
@@ -200,48 +224,130 @@ auth.post('/forgot-pin', async (c) => {
 });
 
 // POST /api/auth/register
+// Accepts staff/instructor self-registration with a 4-digit PIN.
+// Fields: staff_id (or username), pin (or password), full_name, role, email (optional)
 auth.post('/register', async (c) => {
-  const body = await c.req.json<{
-    username?: string; password?: string; email?: string;
-    first_name?: string; last_name?: string; role?: string;
-  }>();
-  const { username, password, email, first_name = '', last_name = '', role = 'student' } = body;
+  try {
+    const body = await c.req.json<{
+      username?: string;     // staff_id field from the form
+      staff_id?: string;
+      pin?: string;          // 4-digit PIN
+      password?: string;     // backward-compat alias for pin
+      email?: string;
+      full_name?: string;    // form sends full_name, not first/last
+      first_name?: string;
+      last_name?: string;
+      role?: string;
+      class_id?: number | null;
+    }>();
 
-  if (!username || !password || !email) {
-    return c.json({ error: 'username, password, email are required' }, 400);
+    // Normalise staff_id — form sends it as `username`
+    const staffId = (body.staff_id ?? body.username ?? '').trim();
+    const pinSecret = (body.pin ?? body.password ?? '').trim();
+
+    if (!staffId || !pinSecret) {
+      return c.json({ error: 'Staff ID and PIN are required' }, 400);
+    }
+    if (!/^\d{4}$/.test(pinSecret)) {
+      return c.json({ error: 'PIN must be exactly 4 numeric digits' }, 400);
+    }
+
+    // Parse full_name → first_name / last_name
+    const fullName = (body.full_name ?? '').trim();
+    let firstName = (body.first_name ?? '').trim();
+    let lastName  = (body.last_name  ?? '').trim();
+    if (!firstName && fullName) {
+      const parts = fullName.split(/\s+/);
+      firstName = parts[0] ?? '';
+      lastName  = parts.slice(1).join(' ');
+    }
+
+    // Email is optional — synthesise a placeholder if absent
+    const email = (body.email ?? '').trim() || `${staffId}@weldvision.local`;
+
+    const safeRole = ['admin', 'instructor', 'student'].includes(body.role ?? '')
+      ? (body.role as string)
+      : 'instructor';
+
+    const pinHash = await hashPassword(pinSecret);
+
+    // Students go into the `students` table; staff/admin go into `users`
+    if (safeRole === 'student') {
+      // Check for duplicate student_id
+      const existing = await c.env.DB
+        .prepare('SELECT id FROM students WHERE student_id = ?')
+        .bind(staffId)
+        .first();
+      if (existing) {
+        return c.json({ error: 'Registration number already registered' }, 409);
+      }
+
+      const classGroupId = body.class_id ?? null;
+      const result = await c.env.DB
+        .prepare(
+          'INSERT INTO students (student_id, name, class_group_id, email, pin_hash) VALUES (?, ?, ?, ?, ?)'
+        )
+        .bind(staffId, fullName || staffId, classGroupId, email === `${staffId}@weldvision.local` ? null : email, pinHash)
+        .run();
+
+      return c.json(
+        {
+          id: result.meta.last_row_id,
+          username: staffId,
+          student_id: staffId,
+          role: 'student',
+          message: 'Student registration successful. You can now log in.',
+        },
+        201
+      );
+    }
+
+    // Staff / Admin registration
+    // Check for duplicate staff_id or username
+    const existing = await c.env.DB
+      .prepare('SELECT id FROM users WHERE username = ? OR staff_id = ?')
+      .bind(staffId, staffId)
+      .first();
+    if (existing) {
+      return c.json({ error: 'Staff ID already registered' }, 409);
+    }
+
+    // password_hash is NOT NULL in schema — store a sentinel so fallback PBKDF2 login
+    // won't accidentally succeed (PIN-auth accounts must use staff_id path).
+    const result = await c.env.DB
+      .prepare(
+        'INSERT INTO users (username, email, password_hash, pin_hash, staff_id, role, first_name, last_name, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)'
+      )
+      .bind(staffId, email, 'pin-auth:v1', pinHash, staffId, safeRole, firstName, lastName)
+      .run();
+
+    return c.json(
+      {
+        id: result.meta.last_row_id,
+        username: staffId,
+        staff_id: staffId,
+        role: safeRole,
+        message: 'Registration successful. Awaiting admin approval.',
+      },
+      201
+    );
+  } catch (err: any) {
+    console.error('[register]', err);
+    return c.json({ error: err?.message ?? 'Registration failed' }, 500);
   }
-  if (password.length < 8) {
-    return c.json({ error: 'Password must be at least 8 characters' }, 400);
+});
+
+// GET /api/auth/available-classes  (public — returns class groups for student registration)
+auth.get('/available-classes', async (c) => {
+  try {
+    const result = await c.env.DB
+      .prepare('SELECT id, name, description FROM class_groups ORDER BY name')
+      .all<{ id: number; name: string; description: string }>();
+    return c.json(result.results ?? []);
+  } catch (err: any) {
+    console.error('[available-classes]', err);
+    return c.json([], 200); // return empty list on error — form still works
   }
-
-  const existing = await c.env.DB
-    .prepare('SELECT id FROM users WHERE username = ? OR email = ?')
-    .bind(username, email)
-    .first();
-  if (existing) {
-    return c.json({ error: 'Username or email already in use' }, 409);
-  }
-
-  const safeRole = ['admin', 'instructor', 'student'].includes(role) ? role : 'student';
-  const passwordHash = await hashPassword(password);
-
-  const result = await c.env.DB
-    .prepare(
-      'INSERT INTO users (username, email, password_hash, role, first_name, last_name, is_approved) VALUES (?, ?, ?, ?, ?, ?, 0)'
-    )
-    .bind(username, email, passwordHash, safeRole, first_name, last_name)
-    .run();
-
-  return c.json(
-    {
-      id: result.meta.last_row_id,
-      username,
-      email,
-      role: safeRole,
-      message: 'Registration successful. Awaiting admin approval.',
-    },
-    201
-  );
 });
 
 // ── Protected routes (auth middleware applied at app level) ───────────────────

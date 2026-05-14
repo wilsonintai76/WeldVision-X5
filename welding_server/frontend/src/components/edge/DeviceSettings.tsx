@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { RefreshCw, Power, Settings, CheckCircle, Camera, Trash2, Edit2, X, Save } from 'lucide-react'
 import { DeviceInfo, EdgeConfig, Calibration } from './types'
+import { getStoredToken } from '../../services/authAPI'
+
+function authHeaders(json = false): Record<string, string> {
+  const token = getStoredToken();
+  const h: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
+  if (json) h['Content-Type'] = 'application/json';
+  return h;
+}
 
 interface DeviceSettingsProps {
   edgeConfig: EdgeConfig;
@@ -44,7 +52,7 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
 
   const fetchCalibrations = async () => {
     try {
-      const res = await fetch('/api/stereo-calibrations/', { credentials: 'include' })
+      const res = await fetch('/api/stereo-calibrations', { headers: authHeaders() })
       if (res.ok) {
         const data = await res.json()
         setCalibrations((Array.isArray(data) ? data : (data.results || [])) as Calibration[])
@@ -56,10 +64,9 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
 
   const activateCalibration = async (id: number) => {
     try {
-      const res = await fetch(`/api/stereo-calibrations/${id}/deploy/`, { 
-        credentials: 'include', 
+      const res = await fetch(`/api/stereo-calibrations/${id}/deploy`, { 
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(true),
         body: JSON.stringify({ 
           ip: edgeConfig.device_ip,
           port: edgeConfig.device_port
@@ -77,7 +84,7 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
   const deleteCalibration = async (id: number) => {
     if (!confirm('Delete this calibration?')) return
     try {
-      const res = await fetch(`/api/stereo-calibrations/${id}/`, { credentials: 'include', method: 'DELETE' })
+      const res = await fetch(`/api/stereo-calibrations/${id}`, { method: 'DELETE', headers: authHeaders() })
       if (res.ok) fetchCalibrations()
     } catch (error) {
       console.error('Error deleting calibration:', error)
@@ -89,10 +96,9 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
     if (!editingCalibration) return
     
     try {
-      const res = await fetch(`/api/stereo-calibrations/${editingCalibration.id}/`, {
-        credentials: 'include',
+      const res = await fetch(`/api/stereo-calibrations/${editingCalibration.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(true),
         body: JSON.stringify(editingCalibration)
       })
       if (res.ok) {

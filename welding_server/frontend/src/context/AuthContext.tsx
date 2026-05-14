@@ -19,6 +19,14 @@ export interface User {
   username: string;
   email: string;
   role: string;
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+  staff_id?: string;
+  student_id?: string;
+  is_approved?: boolean;
+  must_change_password?: boolean;
+  account_type?: 'user' | 'student';
   permissions: Permissions;
 }
 

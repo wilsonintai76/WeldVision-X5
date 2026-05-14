@@ -67,7 +67,7 @@ function Update-PackageVersion([string]$path, [string]$newVer) {
     if (-not (Test-Path $path)) { Fail "package.json not found: $path" }
     $content = Get-Content $path -Raw -Encoding UTF8
     $updated = $content -replace '("version"\s*:\s*")[^"]+(")', "`${1}$newVer`${2}"
-    Set-Content $path $updated -Encoding UTF8 -NoNewline
+    [System.IO.File]::WriteAllText($path, $updated, [System.Text.UTF8Encoding]::new($false))
     Ok "Updated $path"
 }
 
@@ -85,8 +85,9 @@ Ok "Git remote: $remote"
 # ── 1. Read and bump version ──────────────────────────────────────────────────
 Step "Bumping version ($Bump)"
 
-$rootPkg  = Join-Path $Root "package.json"
-$frontPkg = Join-Path $Root "welding_server\frontend\package.json"
+$rootPkg    = Join-Path $Root "package.json"
+$frontPkg   = Join-Path $Root "welding_server\frontend\package.json"
+$workerPkg  = Join-Path $Root "cloud_worker\package.json"
 
 $pkgJson     = Get-Content $rootPkg -Raw | ConvertFrom-Json
 $oldVersion  = $pkgJson.version
@@ -106,8 +107,9 @@ Ok "Working tree is clean"
 
 # ── 3. Update version in package.json files ──────────────────────────────────
 Step "Updating package.json versions to $newVersion"
-Update-PackageVersion $rootPkg  $newVersion
-Update-PackageVersion $frontPkg $newVersion
+Update-PackageVersion $rootPkg   $newVersion
+Update-PackageVersion $frontPkg  $newVersion
+Update-PackageVersion $workerPkg $newVersion
 
 # ── 4. Build frontend ─────────────────────────────────────────────────────────
 if (-not $SkipFrontend) {
@@ -154,7 +156,7 @@ if (-not $SkipFrontend) {
 # ── 7. Git commit, annotated tag, push ────────────────────────────────────────
 Step "Committing version bump + tagging $tag"
 
-git -C $Root add "package.json" "welding_server/frontend/package.json"
+git -C $Root add "package.json" "welding_server/frontend/package.json" "cloud_worker/package.json"
 git -C $Root commit -m "chore: bump version to $newVersion"
 if ($LASTEXITCODE -ne 0) { Fail "git commit failed" }
 

@@ -36,6 +36,7 @@ const PUBLIC_PATHS = new Set([
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/forgot-pin',
+  '/api/auth/available-classes',
   '/api/webhooks/edge-impulse',
 ]);
 
@@ -112,7 +113,7 @@ app.route('/api/models', mlopsRouter);
 
 // ── Edge Impulse webhook  →  POST /api/webhooks/edge-impulse?token=<secret> ──
 // Edge Impulse POSTs here after pipeline steps complete.
-// If the payload contains a model export (.pt), auto-trigger GitHub compile.
+// If the payload contains a model export (.onnx), auto-trigger GitHub compile.
 app.post('/api/webhooks/edge-impulse', async (c) => {
   // Validate shared secret from query string
   const token = c.req.query('token');
@@ -125,13 +126,13 @@ app.post('/api/webhooks/edge-impulse', async (c) => {
 
   // Edge Impulse webhook payload varies by step; look for an exported model key
   // Expecting: { project: { id }, files: [{ name, download_url }] } or similar
-  // If there's a .pt file key in R2, dispatch compile. Otherwise just ack.
+  // If there's a .onnx file key in R2, dispatch compile. Otherwise just ack.
   const modelKey: string | undefined = (
     (body as { model_r2_key?: string }).model_r2_key ||
     undefined
   );
 
-  if (modelKey && modelKey.endsWith('.pt')) {
+  if (modelKey && modelKey.endsWith('.onnx')) {
     const resp = await fetch(
       'https://api.github.com/repos/wilsonintai76/WeldVision-X5/actions/workflows/compile_model.yml/dispatches',
       {
@@ -155,7 +156,7 @@ app.post('/api/webhooks/edge-impulse', async (c) => {
     return c.json({ received: true, dispatched: false, error: err }, 502);
   }
 
-  return c.json({ received: true, dispatched: false, note: 'No .pt model_r2_key in payload' });
+    return c.json({ received: true, dispatched: false, note: 'No .onnx model_r2_key in payload' });
 });
 
 // Storage (file uploads)  →  /api/storage/*
@@ -193,7 +194,7 @@ export default {
     for (const msg of batch.messages) {
       const key = msg.body?.object?.key ?? '';
 
-      if (!key.endsWith('.pt')) {
+      if (!key.endsWith('.onnx')) {
         msg.ack();
         continue;
       }

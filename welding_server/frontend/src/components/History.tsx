@@ -14,8 +14,14 @@ import { AssessmentEntry } from './history/types'
 import AssessmentFilters from './history/AssessmentFilters'
 import AssessmentTable from './history/AssessmentTable'
 import Assessment3DModal from './history/Assessment3DModal'
+import { getStoredToken } from '../services/authAPI'
 
 const API_BASE = '/api'
+
+function authHeaders(): Record<string, string> {
+  const token = getStoredToken();
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
 
 const History: FC = () => {
     const [assessments, setAssessments] = useState<AssessmentEntry[]>([])
@@ -42,8 +48,8 @@ const History: FC = () => {
         setError(null)
         try {
             const [assessmentsRes, evaluationsRes] = await Promise.all([
-                fetch(`${API_BASE}/assessments/`),
-                fetch(`${API_BASE}/student-evaluations/`, { credentials: 'include' })
+                fetch(`${API_BASE}/assessments`, { headers: authHeaders() }),
+                fetch(`${API_BASE}/rubrics/evaluations`, { headers: authHeaders() })
             ])
             if (!assessmentsRes.ok) throw new Error('Failed to fetch assessments')
             const assessmentsData = await assessmentsRes.json()

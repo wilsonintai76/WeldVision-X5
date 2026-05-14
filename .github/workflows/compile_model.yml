@@ -1,73 +1,65 @@
-name: Compile YOLOv8 → Horizon BPU (.bin)
+name: Compile YOLOv8 - Horizon BPU (.bin)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TRIGGER
-# Triggered from the WeldVision MLOps frontend via the Worker's
-# POST /api/models/github-compile endpoint, which calls the GitHub
-# workflow_dispatch API with the R2 key of the uploaded .pt file.
+# Triggered from the WeldVision MLOps frontend via POST /api/models/github-compile.
 # Can also be run manually from the GitHub Actions UI.
-# ─────────────────────────────────────────────────────────────────────────────
+
 on:
   workflow_dispatch:
     inputs:
       model_r2_key:
-        description: 'R2 object key of the .pt file to compile (e.g. models/uploads/…_best.pt)'
+        description: 'R2 object key of the .onnx file to compile (e.g. models/uploads/..._yolov8_weld.onnx)'
+        required: true
+        default: ''
+      model_id:
+        description: 'ai_models.id to update compile status in D1'
         required: true
         default: ''
 
 jobs:
   build_and_deploy:
-    name: Download → ONNX → BPU .bin → R2
+    name: Download .onnx - BPU .bin - R2
     runs-on: ubuntu-latest
 
+    # Use Node.js 24 for all JavaScript actions (actions/checkout, etc.)
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       MODEL_R2_KEY: ${{ inputs.model_r2_key }}
+      MODEL_ID: ${{ inputs.model_id }}
 
     steps:
-      # ── 1. Checkout repo ────────────────────────────────────────────────
-      # We need horizon_config.yaml and calibration_data/ from the repo.
+      # 1. Checkout repo (we need horizon_config.yaml and calibration_data/)
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Python + Ultralytics ─────────────────────────────────────────
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Ultralytics (ONNX export)
-        run: pip install --quiet ultralytics onnx onnxsim
-
-      # ── 3. Download trained model from Cloudflare R2 ────────────────────
-      - name: Download model from Cloudflare R2
+      # 2. Download .onnx from Cloudflare R2
+      #    R2 is S3-compatible. AWS CLI requires a non-empty region string;
+      #    'us-east-1' is the conventional dummy value R2 accepts.
+      #    Do NOT use '--region auto' — the AWS CLI rejects that string.
+      - name: Download ONNX model from Cloudflare R2
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID:     ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_KEY }}
+          AWS_DEFAULT_REGION:    us-east-1
         run: |
-          echo "Downloading $MODEL_R2_KEY from R2 ..."
-          aws s3 cp "s3://weldvision-media/$MODEL_R2_KEY" best.pt \
+          echo "=== AWS CLI version ==="
+          aws --version
+
+          echo "=== Downloading: $MODEL_R2_KEY ==="
+          aws s3 cp "s3://weldvision-media/$MODEL_R2_KEY" yolov8_weld.onnx \
             --endpoint-url "https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com" \
-            --region auto
-          ls -lh best.pt
+            --no-progress
 
-      # ── 4. Export PyTorch → ONNX ─────────────────────────────────────────
-      # opset=11 is required by Horizon's hb_mapper.
-      # simplify=True folds constants and removes dead nodes before BPU compile.
-      - name: Export to ONNX (opset 11, simplified)
-        run: |
-          yolo export model=best.pt format=onnx opset=11 simplify=True imgsz=640
-          mv best.onnx yolov8_weld.onnx
+          echo "=== Download complete ==="
           ls -lh yolov8_weld.onnx
+          # Fail fast if the file is empty / missing
+          [ -s yolov8_weld.onnx ] || { echo "ERROR: Downloaded file is empty!"; exit 1; }
 
-      # ── 5. Compile ONNX → Horizon BPU .bin ──────────────────────────────
-      # openexplorer/horizon_oe_toolchain is Horizon's official Docker image.
-      # It contains hb_mapper, which quantises the 32-bit float weights to
-      # Int8 using the 50 weld calibration images in calibration_data/.
-      # The output is written to model_output/yolov8_weld.bin.
+      # 3. Pull Horizon toolchain Docker image
       - name: Pull Horizon Open Explorer toolchain image
         run: docker pull openexplorer/horizon_oe_toolchain:latest
 
-      - name: Compile to Horizon .bin (Int8 quantisation for BPU)
+      # 4. Compile ONNX -> Horizon BPU .bin (Int8 quantisation)
+      - name: Compile to Horizon .bin
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/workspace" \
@@ -77,18 +69,30 @@ jobs:
               --model-type onnx
           ls -lh "${{ github.workspace }}/model_output/"
 
-      # ── 6. Rename output for the RDK X5 ModelWatchdog ───────────────────
-      # ModelWatchdog.download_from_r2() saves the file as model_update.bin.
-      # Storing it under that name in R2 keeps the edge-device code simple.
+      # 5. Resolve output prefix dynamically from horizon_config.yaml (Fix D)
+      #    Falls back to 'yolov8_weld' if the key is absent or yq is unavailable.
+      - name: Resolve output model prefix
+        id: cfg
+        run: |
+          PREFIX=$(grep 'output_model_file_prefix' horizon_config.yaml \
+                     | head -1 | sed "s/.*output_model_file_prefix:[[:space:]]*'\?//;s/'\?[[:space:]]*$//")
+          PREFIX=${PREFIX:-yolov8_weld}
+          echo "prefix=$PREFIX" >> "$GITHUB_OUTPUT"
+          echo "Resolved output prefix: $PREFIX"
+
+      # 6. Rename output for the RDK X5 ModelWatchdog
       - name: Prepare model_update.bin
         run: |
-          cp model_output/yolov8_weld.bin model_update.bin
+          BIN="model_output/${{ steps.cfg.outputs.prefix }}.bin"
+          if [ ! -f "$BIN" ]; then
+            echo "ERROR: Expected $BIN not found. Contents of model_output/:" && ls model_output/ && exit 1
+          fi
+          cp "$BIN" model_update.bin
           echo "BPU model size: $(du -sh model_update.bin | cut -f1)"
 
-      # ── 7. Upload model_update.bin → Cloudflare R2 ──────────────────────
-      # The RDK X5 polls models/model_update.bin in the weldvision-media
-      # bucket on every boot via ModelWatchdog.download_from_r2().
-      - name: Upload to Cloudflare R2 (weldvision-media/models/)
+      # 7. Upload compiled .bin to Cloudflare R2
+      #    ModelWatchdog on the RDK X5 polls models/model_update.bin on every boot.
+      - name: Upload to Cloudflare R2
         uses: ryand56/r2-upload-action@latest
         with:
           r2-account-id:        ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -98,33 +102,50 @@ jobs:
           source-dir:           model_update.bin
           destination-dir:      models/
 
-      # ── 8. Tag the release in Git ────────────────────────────────────────
+      # 8. Tag release in Git
       - name: Tag release
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          TAG="model-$(date +'%Y%m%d%H%M%S')"
+          TAG="model-$(date +'%Y%m%d%H%M%S')-${{ steps.cfg.outputs.prefix }}"
           git tag "$TAG"
           git push origin "$TAG"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── 9. Summary ───────────────────────────────────────────────────────
+      # 9. Pipeline summary
       - name: Print pipeline summary
         run: |
           echo "## MLOps Pipeline Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Stage | Result |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Source model | \`$MODEL_R2_KEY\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| ONNX export | ✅ yolov8_weld.onnx |" >> $GITHUB_STEP_SUMMARY
-          echo "| BPU compilation | ✅ yolov8_weld.bin (Int8, Bayes-e) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Source model (.onnx) | \`$MODEL_R2_KEY\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Output prefix | \`${{ steps.cfg.outputs.prefix }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| BPU compilation | ${{ steps.cfg.outputs.prefix }}.bin (Int8) |" >> $GITHUB_STEP_SUMMARY
           echo "| R2 upload path | \`weldvision-media/models/model_update.bin\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| RDK X5 pickup | Next boot → ModelWatchdog hot-swap |" >> $GITHUB_STEP_SUMMARY
+          echo "| RDK X5 pickup | Next boot — ModelWatchdog hot-swap |" >> $GITHUB_STEP_SUMMARY
 
-# ─────────────────────────────────────────────────────────────────────────────
-# REQUIRED GITHUB SECRETS (Settings → Secrets → Actions):
-#   CLOUDFLARE_ACCOUNT_ID — b6f9b4c33511b3e607595a0993dfdcd4
-#   R2_ACCESS_KEY_ID      — R2 API token Access Key ID
-#   R2_SECRET_KEY         — R2 API token Secret Access Key
-# ─────────────────────────────────────────────────────────────────────────────
+      # 10. Notify worker that compile succeeded (includes bin_r2_key so D1 is updated)
+      - name: Callback success to Worker
+        if: success()
+        run: |
+          curl -sS -X POST "https://api.weldvision-x5.com/api/models/compile-callback" \
+            -H "Content-Type: application/json" \
+            -H "X-Compile-Secret: ${{ secrets.COMPILE_CALLBACK_SECRET }}" \
+            -d "{\"model_id\":$MODEL_ID,\"status\":\"compiled\",\"bin_r2_key\":\"models/model_update.bin\"}"
+
+      # 11. Notify worker that compile failed
+      - name: Callback failure to Worker
+        if: failure()
+        run: |
+          curl -sS -X POST "https://api.weldvision-x5.com/api/models/compile-callback" \
+            -H "Content-Type: application/json" \
+            -H "X-Compile-Secret: ${{ secrets.COMPILE_CALLBACK_SECRET }}" \
+            -d "{\"model_id\":$MODEL_ID,\"status\":\"failed\",\"error\":\"compile workflow failed\"}"
+
+# Required GitHub Secrets (Settings -> Secrets -> Actions):
+#   CLOUDFLARE_ACCOUNT_ID
+#   R2_ACCESS_KEY_ID
+#   R2_SECRET_KEY
+#   COMPILE_CALLBACK_SECRET

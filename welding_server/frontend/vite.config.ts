@@ -1,9 +1,28 @@
 import path from "path"
+import { readFileSync, writeFileSync } from "fs"
 import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
+import { defineConfig, type Plugin } from "vite"
+
+const pkg = JSON.parse(readFileSync('./package.json', 'utf-8')) as { version: string }
+
+/** Writes dist/version.json after every build so the running app can poll it. */
+const versionJsonPlugin = (): Plugin => ({
+  name: 'version-json',
+  writeBundle(options) {
+    const outDir = options.dir ?? 'dist'
+    writeFileSync(
+      path.resolve(outDir, 'version.json'),
+      JSON.stringify({ version: pkg.version, buildTime: new Date().toISOString() })
+    )
+  },
+})
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), versionJsonPlugin()],
+  define: {
+    // Injected at build time — available as __APP_VERSION__ in source code
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -16,11 +35,10 @@ export default defineConfig({
       usePolling: true,
     },
     proxy: {
+      // All /api/* → Cloudflare Worker (D1 + R2 + KV + Worker AI + Hono)
+      // Django has been fully removed from the infrastructure.
       '/api': {
-        // Cloud migration: point proxy to Cloudflare Worker in dev
-        // Set VITE_API_URL=https://weldvision-api.<subdomain>.workers.dev in .env.local
-        // or keep the local Django backend URL for legacy dev mode
-        target: process.env.VITE_API_URL || 'http://backend:8000',
+        target: process.env.VITE_WORKER_URL || 'http://localhost:8787',
         changeOrigin: true,
       },
     },

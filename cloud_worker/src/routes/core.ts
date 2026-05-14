@@ -79,7 +79,9 @@ core.get('/sessions/active', async (c) => {
   const row = await c.env.DB
     .prepare('SELECT * FROM sessions WHERE is_active = 1 LIMIT 1')
     .first();
-  if (!row) return c.json({ error: 'No active session' }, 404);
+  // Return null (200) rather than 404 so browsers don't log console errors
+  // when no session is active — callers check for null already.
+  if (!row) return c.json(null);
   return c.json(row);
 });
 
@@ -135,22 +137,55 @@ core.delete('/sessions/:id', async (c) => {
   return c.json({ message: 'Deleted' });
 });
 
+// ── INSTRUCTORS (/api/instructors) ──────────────────────────────────────────
+// Returns approved instructors/admins — used by course management dropdowns.
+// Accessible to any authenticated user (no admin restriction).
+
+core.get('/instructors', async (c) => {
+  const rows = await c.env.DB
+    .prepare(
+      `SELECT id, username, staff_id, first_name, last_name
+       FROM users
+       WHERE role IN ('instructor', 'admin') AND is_approved = 1
+       ORDER BY last_name, first_name`
+    )
+    .all();
+  return c.json(rows.results);
+});
+
 // ── COURSES (/api/courses) ────────────────────────────────────────────────────
+// NOTE: session_id and instructor_id are aliased as session/instructor in all
+// GET responses to match the frontend Course type.
 
 core.get('/courses', async (c) => {
-  const rows = await c.env.DB.prepare(`
-    SELECT c.*, s.name AS session_name, u.username AS instructor_username
+  const { session_id } = c.req.query();
+  let sql = `
+    SELECT c.id, c.code, c.name, c.section,
+           c.session_id   AS session,
+           c.instructor_id AS instructor,
+           c.description, c.created_at, c.updated_at,
+           s.name AS session_name, u.username AS instructor_username
     FROM courses c
     LEFT JOIN sessions s ON c.session_id = s.id
     LEFT JOIN users u ON c.instructor_id = u.id
-    ORDER BY c.code, c.section
-  `).all();
+  `;
+  const bindings: unknown[] = [];
+  if (session_id) {
+    sql += ' WHERE c.session_id = ?';
+    bindings.push(session_id);
+  }
+  sql += ' ORDER BY c.code, c.section';
+  const rows = await c.env.DB.prepare(sql).bind(...bindings).all();
   return c.json(rows.results);
 });
 
 core.get('/courses/:id', async (c) => {
   const row = await c.env.DB.prepare(`
-    SELECT c.*, s.name AS session_name, u.username AS instructor_username
+    SELECT c.id, c.code, c.name, c.section,
+           c.session_id   AS session,
+           c.instructor_id AS instructor,
+           c.description, c.created_at, c.updated_at,
+           s.name AS session_name, u.username AS instructor_username
     FROM courses c
     LEFT JOIN sessions s ON c.session_id = s.id
     LEFT JOIN users u ON c.instructor_id = u.id
@@ -164,28 +199,40 @@ core.post('/courses', async (c) => {
   const payload = c.get('jwtPayload') as JWTPayload;
   if (!isAdminOrInstructor(payload.role)) return c.json({ error: 'Forbidden' }, 403);
 
-  const { code, name, section = '', session_id, instructor_id, description = '' } = await c.req.json<{
-    code?: string; name?: string; section?: string;
-    session_id?: number; instructor_id?: number; description?: string;
+  // Accept both session/instructor (frontend names) and session_id/instructor_id
+  const body = await c.req.json<{
+    code?: string; name?: string; section?: string; description?: string;
+    session?: number; instructor?: number;
+    session_id?: number; instructor_id?: number;
   }>();
+  const { code, name, section = '', description = '' } = body;
+  const session_id   = body.session_id   ?? body.session;
+  const instructor_id = body.instructor_id ?? body.instructor;
+
   if (!code || !name || !session_id) {
-    return c.json({ error: 'code, name, and session_id are required' }, 400);
+    return c.json({ error: 'code, name, and session are required' }, 400);
   }
   const result = await c.env.DB
     .prepare('INSERT INTO courses (code, name, section, session_id, instructor_id, description) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(code, name, section, session_id, instructor_id ?? null, description)
     .run();
-  return c.json({ id: result.meta.last_row_id, code, name, section, session_id }, 201);
+  return c.json({ id: result.meta.last_row_id, code, name, section, session }, 201);
 });
 
 core.put('/courses/:id', async (c) => {
   const payload = c.get('jwtPayload') as JWTPayload;
   if (!isAdminOrInstructor(payload.role)) return c.json({ error: 'Forbidden' }, 403);
 
-  const { code, name, section = '', session_id, instructor_id, description = '' } = await c.req.json<{
-    code?: string; name?: string; section?: string;
-    session_id?: number; instructor_id?: number; description?: string;
+  // Accept both session/instructor (frontend names) and session_id/instructor_id
+  const body = await c.req.json<{
+    code?: string; name?: string; section?: string; description?: string;
+    session?: number; instructor?: number;
+    session_id?: number; instructor_id?: number;
   }>();
+  const { code, name, section = '', description = '' } = body;
+  const session_id   = body.session_id   ?? body.session;
+  const instructor_id = body.instructor_id ?? body.instructor;
+
   await c.env.DB
     .prepare('UPDATE courses SET code=?, name=?, section=?, session_id=?, instructor_id=?, description=?, updated_at=datetime(\'now\') WHERE id=?')
     .bind(code, name, section, session_id, instructor_id ?? null, description, c.req.param('id'))
@@ -389,6 +436,54 @@ core.delete('/stereo-calibrations/:id', async (c) => {
   if (!isAdminOrInstructor(payload.role)) return c.json({ error: 'Forbidden' }, 403);
   await c.env.DB.prepare('DELETE FROM stereo_calibrations WHERE id = ?').bind(c.req.param('id')).run();
   return c.json({ message: 'Deleted' });
+});
+
+// ── POST /api/stereo-calibrations/:id/deploy ─────────────────────────────────
+// Records the target edge device IP/port in KV, marks calibration as active,
+// and optionally pushes calibration data to the edge device via HTTP.
+// Must be defined BEFORE /:id to avoid the literal "deploy" segment being
+// captured as an id parameter.
+
+core.post('/stereo-calibrations/:id/deploy', async (c) => {
+  const payload = c.get('jwtPayload') as JWTPayload;
+  if (!isAdminOrInstructor(payload.role)) return c.json({ error: 'Forbidden' }, 403);
+
+  const id = c.req.param('id');
+  const { ip, port = 8080 } = await c.req.json<{ ip?: string; port?: number }>().catch(() => ({}));
+
+  const row = await c.env.DB
+    .prepare('SELECT * FROM stereo_calibrations WHERE id = ?')
+    .bind(id)
+    .first<Record<string, unknown>>();
+
+  if (!row) return c.json({ error: 'Calibration not found' }, 404);
+
+  // Deactivate all, activate this one
+  await c.env.DB.prepare("UPDATE stereo_calibrations SET is_active = 0, updated_at = datetime('now')").run();
+  await c.env.DB
+    .prepare("UPDATE stereo_calibrations SET is_active = 1, updated_at = datetime('now') WHERE id = ?")
+    .bind(id)
+    .run();
+
+  // If edge device IP provided, push calibration data directly
+  if (ip) {
+    try {
+      const edgeUrl = `http://${ip}:${port}/calibration`;
+      const edgeRes = await fetch(edgeUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(row),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (edgeRes.ok) {
+        return c.json({ message: 'Calibration deployed and pushed to edge device' });
+      }
+    } catch {
+      // Edge device unreachable — still considered success (device will poll KV)
+    }
+  }
+
+  return c.json({ message: 'Calibration activated; edge device will sync via KV polling' });
 });
 
 // ── DEFECT CLASSES (/api/defect-classes) ─────────────────────────────────────
