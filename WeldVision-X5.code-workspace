@@ -4,5 +4,12 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"chat.tools.terminal.autoApprove": {
+			"/^cd /home/wilson/WeldVision-X5/welding_server/frontend && npx tsc --noEmit 2>&1$/": {
+				"approve": true,
+				"matchCommandLine": true
+			}
+		}
+	}
 }
