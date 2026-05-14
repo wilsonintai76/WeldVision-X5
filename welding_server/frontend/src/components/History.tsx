@@ -52,8 +52,8 @@ const History: FC = () => {
                 fetch(`${API_BASE}/rubrics/evaluations`, { headers: authHeaders() })
             ])
             if (!assessmentsRes.ok) throw new Error('Failed to fetch assessments')
-            const assessmentsData = await assessmentsRes.json()
-            const evaluationsData = evaluationsRes.ok ? await evaluationsRes.json() : []
+            const assessmentsData = await assessmentsRes.json() as any
+            const evaluationsData = (evaluationsRes.ok ? await evaluationsRes.json() : []) as any
 
             const evaluationMap = new Map<number, AssessmentEntry>()
             const manuals = (Array.isArray(evaluationsData) ? evaluationsData : evaluationsData.results || []).map((e: any) => {

@@ -64,7 +64,7 @@ const Dashboard: FC = () => {
     try {
       const res = await fetch('/api/rubrics', { headers: authHeaders() })
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json() as any
         const rubricList = (Array.isArray(data) ? data : (data.results || [])) as Rubric[]
         setRubrics(rubricList)
         // Auto-select active rubric
@@ -184,7 +184,7 @@ const Dashboard: FC = () => {
       const sessRes = await fetch('/api/sessions/active', { headers: authHeaders() })
       let sessionId = null
       if (sessRes.ok) {
-        const sessData = await sessRes.json()
+        const sessData = await sessRes.json() as any
         sessionId = sessData.id
       }
 
@@ -192,7 +192,7 @@ const Dashboard: FC = () => {
       const url = sessionId ? `/api/courses?session_id=${sessionId}` : '/api/courses'
       const res = await fetch(url, { headers: authHeaders() })
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json() as any
         setCourses((Array.isArray(data) ? data : (data.results || [])) as Course[])
       }
     } catch (error) {
@@ -206,7 +206,7 @@ const Dashboard: FC = () => {
 
       const res = await fetch(url, { headers: authHeaders() })
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json() as any
         const studentList = (Array.isArray(data) ? data : (data.results || [])) as Student[]
         setStudents(studentList)
       }
@@ -227,7 +227,7 @@ const Dashboard: FC = () => {
         )
         if (!res.ok) throw new Error('fetch failed')
 
-        const data = await res.json()
+        const data = await res.json() as any
         const latest = (data.assessments || [])[0]
 
         if (latest?.metrics_json) {
@@ -340,7 +340,7 @@ const Dashboard: FC = () => {
           })
         })
         if (res.ok) {
-          const data = await res.json()
+          const data = await res.json() as any
           savedEvaluationId = data.id
         }
       } catch (error) {

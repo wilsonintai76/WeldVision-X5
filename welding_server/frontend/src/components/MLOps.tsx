@@ -61,7 +61,7 @@ const MLOps: FC = () => {
     try {
       const res = await fetch('/api/models', { headers: authHeaders() })
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json() as any
         setModels(Array.isArray(data) ? data : (data.results || []))
       }
     } catch { /* silent */ }
@@ -71,7 +71,7 @@ const MLOps: FC = () => {
     try {
       const res = await fetch('/api/models/next-version', { headers: authHeaders() })
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json() as any
         setNextVersion(data.next_version)
       }
     } catch { /* silent */ }
@@ -109,10 +109,10 @@ const MLOps: FC = () => {
         body: form,
       })
       if (!r2Res.ok) {
-        const err = await r2Res.json().catch(() => ({}))
+        const err = await r2Res.json().catch(() => ({})) as any
         return alert(`Upload failed: ${err.error || r2Res.statusText}`)
       }
-      const { key } = await r2Res.json()
+      const { key } = await r2Res.json() as any
 
       setUploadStatus('Registering in D1...')
       const regRes = await fetch('/api/models', {
@@ -130,10 +130,10 @@ const MLOps: FC = () => {
         }),
       })
       if (!regRes.ok) {
-        const err = await regRes.json().catch(() => ({}))
+        const err = await regRes.json().catch(() => ({})) as any
         return alert(`Registration failed: ${err.error || regRes.statusText}`)
       }
-      const { version } = await regRes.json()
+      const { version } = await regRes.json() as any
 
       setUploadFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -164,7 +164,7 @@ const MLOps: FC = () => {
         body: JSON.stringify({ model_id: Number(modelId) }),
       })
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
+        const err = await res.json().catch(() => ({})) as any
         const msg = `Dispatch failed: ${err.error || res.statusText}`
         setCompileError(msg)
         return alert(msg)
@@ -195,7 +195,7 @@ const MLOps: FC = () => {
         body: JSON.stringify({ device_id: 'rdk-x5' }),
       })
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
+        const err = await res.json().catch(() => ({})) as any
         return alert(`Deploy failed: ${err.error || res.statusText}`)
       }
       await fetchModels()
@@ -259,7 +259,7 @@ const MLOps: FC = () => {
         headers: authHeaders(),
       })
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
+        const err = await res.json().catch(() => ({})) as any
         return alert(`Delete failed: ${err.error || res.statusText}`)
       }
       await fetchModels()

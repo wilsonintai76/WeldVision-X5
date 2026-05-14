@@ -35,7 +35,7 @@ const Rubrics: FC = () => {
     try {
       const res = await fetch('/api/rubrics', { headers: authHeaders() })
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json() as any
         setRubrics(Array.isArray(data) ? data : (data.results || []))
       }
     } catch (error) {

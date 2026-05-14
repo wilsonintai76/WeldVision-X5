@@ -46,7 +46,7 @@ const Analytics: FC = () => {
     try {
       const res = await fetch('/api/models', { headers: authHeaders() })
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json() as any
         setModels(Array.isArray(data) ? data : (data.results || []))
       }
     } catch { /* silent */ }

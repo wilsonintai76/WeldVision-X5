@@ -46,7 +46,7 @@ const CalibrationWizard: React.FC<CalibrationWizardProps> = ({ deviceIp, onCompl
         body: JSON.stringify({ rows: checkerboardConfig.rows, cols: checkerboardConfig.cols })
       })
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json() as any
         setCapturedImages(prev => [...prev, {
           id: Date.now(),
           left: data.left_image || null,
@@ -88,7 +88,7 @@ const CalibrationWizard: React.FC<CalibrationWizardProps> = ({ deviceIp, onCompl
         })
       })
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json() as any
         setCalibrationResults(data)
         setCalibrationStep(4)
       }

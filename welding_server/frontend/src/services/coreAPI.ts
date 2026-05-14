@@ -133,7 +133,7 @@ export const coreAPI = {
     });
 
     if (!response.ok) {
-      const data = await response.json();
+      const data = await response.json() as any;
       throw new Error(data.error || 'Failed to import students');
     }
     return response.json();
@@ -293,7 +293,7 @@ export const coreAPI = {
     });
     
     if (!response.ok) {
-      const data = await response.json();
+      const data = await response.json() as any;
       throw new Error(data.error || 'Failed to import PDF');
     }
     return response.json();

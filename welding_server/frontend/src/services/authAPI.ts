@@ -77,7 +77,7 @@ export const authAPI = {
       method: 'POST',
       body: JSON.stringify(body),
     });
-    const data = await response.json();
+    const data = await response.json() as any;
     if (!response.ok) {
       const msg =
         data.error ||
@@ -103,7 +103,7 @@ export const authAPI = {
       method: 'POST',
       body: JSON.stringify(userData),
     });
-    const data = await response.json();
+    const data = await response.json() as any;
     if (!response.ok) {
       const errors: string[] = [];
       for (const [field, messages] of Object.entries(data)) {
@@ -141,7 +141,7 @@ export const authAPI = {
       method: 'POST',
       body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
     });
-    const data = await response.json();
+    const data = await response.json() as any;
     if (!response.ok) {
       throw new Error(data.error || data.old_password?.[0] || data.new_password?.[0] || 'Password change failed');
     }
@@ -209,7 +209,7 @@ export const authAPI = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier }),
     });
-    const data = await response.json();
+    const data = await response.json() as any;
     if (!response.ok) throw new Error(data.error || 'PIN reset failed');
     return data;
   },
@@ -225,7 +225,7 @@ export const authAPI = {
       method: 'POST',
       body: JSON.stringify({ new_pin: newPassword, new_password: newPassword }),
     });
-    const data = await response.json();
+    const data = await response.json() as any;
     if (!response.ok) {
       const msg =
         (Array.isArray(data.new_password) ? data.new_password[0] : null) ||

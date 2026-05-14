@@ -41,7 +41,7 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
     try {
       const res = await fetch(`http://${edgeConfig.device_ip}:${edgeConfig.device_port}/health`)
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json() as any
         setDeviceInfo(data)
       }
     } catch (error) {
@@ -54,7 +54,7 @@ const DeviceSettings: React.FC<DeviceSettingsProps> = ({
     try {
       const res = await fetch('/api/stereo-calibrations', { headers: authHeaders() })
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json() as any
         setCalibrations((Array.isArray(data) ? data : (data.results || [])) as Calibration[])
       }
     } catch (error) {

@@ -209,7 +209,7 @@ const WeldViewer3D: FC<WeldViewer3DProps> = ({
           )
         }
         
-        const result = await response.json()
+        const result = await response.json() as any
         setData(result.mesh)
         
         if (onLoad) {
