@@ -32,11 +32,10 @@ const RegisterModal: FC<RegisterModalProps> = ({ isOpen, onClose }) => {
   const { register, loading, error, clearError } = useAuth()
 
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
+    staff_id: '',
     full_name: '',
-    password: '',
-    password_confirm: '',
+    pin: '',
+    pin_confirm: '',
     role: 'student' as 'student' | 'instructor',
     class_id: '',
   })
@@ -51,8 +50,8 @@ const RegisterModal: FC<RegisterModalProps> = ({ isOpen, onClose }) => {
     if (isOpen) {
       loadClasses()
       setFormData({
-        username: '', email: '', full_name: '', password: '',
-        password_confirm: '', role: 'student', class_id: '',
+        staff_id: '', full_name: '', pin: '',
+        pin_confirm: '', role: 'student', class_id: '',
       })
       setLocalError('')
       setSuccess(false)
@@ -83,25 +82,25 @@ const RegisterModal: FC<RegisterModalProps> = ({ isOpen, onClose }) => {
     clearError()
 
     if (!formData.full_name.trim()) { setLocalError('Full name is required'); return }
-    if (!formData.username.trim()) {
+    if (!formData.staff_id.trim()) {
       setLocalError(formData.role === 'student' ? 'Matric number is required' : 'Staff ID is required')
       return
     }
-    if (formData.role === 'instructor' && !/^\d{4}$/.test(formData.username.trim())) {
+    if (formData.role === 'instructor' && !/^\d{4}$/.test(formData.staff_id.trim())) {
       setLocalError('Staff ID must be exactly 4 digits (e.g., 1891)'); return
     }
-    if (formData.role === 'student' && !/^[A-Za-z0-9]{5,}$/.test(formData.username.trim())) {
+    if (formData.role === 'student' && !/^[A-Za-z0-9]{5,}$/.test(formData.staff_id.trim())) {
       setLocalError('Matric number must be alphanumeric with at least 5 characters (e.g., 05DKM23F2014)'); return
     }
     if (formData.role === 'student' && !formData.class_id) {
       setLocalError('Students must select a class'); return
     }
-    if (!formData.password) { setLocalError('PIN is required'); return }
-    if (!/^\d{4}$/.test(formData.password)) { setLocalError('PIN must be exactly 4 numeric digits'); return }
-    if (formData.password !== formData.password_confirm) { setLocalError('PINs do not match'); return }
+    if (!formData.pin) { setLocalError('PIN is required'); return }
+    if (!/^\d{4}$/.test(formData.pin)) { setLocalError('PIN must be exactly 4 numeric digits'); return }
+    if (formData.pin !== formData.pin_confirm) { setLocalError('PINs do not match'); return }
 
     try {
-      const dataToSubmit = { ...formData, class_id: formData.class_id ? parseInt(formData.class_id) : null }
+      const dataToSubmit = { staff_id: formData.staff_id, full_name: formData.full_name, pin: formData.pin, role: formData.role, class_id: formData.class_id ? parseInt(formData.class_id) : null }
       await register(dataToSubmit)
       setRegisteredRole(formData.role)
       setSuccess(true)
@@ -226,8 +225,8 @@ const RegisterModal: FC<RegisterModalProps> = ({ isOpen, onClose }) => {
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input
                     type="text"
-                    name="username"
-                    value={formData.username}
+                    name="staff_id"
+                    value={formData.staff_id}
                     onChange={handleChange}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors text-sm"
                     placeholder={formData.role === 'student' ? 'e.g., 05DKM23F2014' : 'e.g., 1891'}
@@ -279,8 +278,8 @@ const RegisterModal: FC<RegisterModalProps> = ({ isOpen, onClose }) => {
                     inputMode="numeric"
                     maxLength={4}
                     pattern="\d{4}"
-                    name="password"
-                    value={formData.password}
+                    name="pin"
+                    value={formData.pin}
                     onChange={handleChange}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-10 pr-10 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors text-sm"
                     placeholder="Enter 4-digit PIN"
@@ -307,8 +306,8 @@ const RegisterModal: FC<RegisterModalProps> = ({ isOpen, onClose }) => {
                     inputMode="numeric"
                     maxLength={4}
                     pattern="\d{4}"
-                    name="password_confirm"
-                    value={formData.password_confirm}
+                    name="pin_confirm"
+                    value={formData.pin_confirm}
                     onChange={handleChange}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors text-sm"
                     placeholder="Repeat your PIN"
