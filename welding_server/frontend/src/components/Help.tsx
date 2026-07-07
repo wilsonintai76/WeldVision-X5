@@ -144,7 +144,7 @@ const Help: FC = () => {
 
               <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
                 <p className="text-white font-medium text-sm mb-1">Model Requirements</p>
-                <p className="text-xs text-slate-400">Models must be in ONNX format for BPU conversion. Use third-party tools (e.g. Ultralytics HUB, Roboflow) for labeling and training.</p>
+                <p className="text-xs text-slate-400">Models must be in ONNX format for BPU conversion. Use third-party tools (e.g. Ultralytics HUB, CVAT) for labeling and training.</p>
               </div>
             </div>
           </Section>
@@ -281,7 +281,7 @@ const Help: FC = () => {
               />
               <TroubleshootItem
                 issue="Training fails to start"
-                solution="Check system hardware requirements or use cloud training option (Colab/Roboflow)."
+                solution="Check system hardware requirements or use cloud training option (Kaggle/CVAT)."
               />
               <TroubleshootItem
                 issue="Camera feed not showing"

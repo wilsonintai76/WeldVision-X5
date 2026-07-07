@@ -1,10 +1,10 @@
 import { FC } from 'react'
 import { ExternalLink, ChevronRight } from 'lucide-react'
-import { GITHUB_ACTIONS_URL, COLAB_NOTEBOOK_URL, ROBOFLOW_URL } from './types'
+import { GITHUB_ACTIONS_URL, KAGGLE_URL, CVAT_URL } from './types'
 
 const STEPS = [
-  { step: '01', label: 'Label',   sub: 'Roboflow',       url: ROBOFLOW_URL,       color: 'hover:border-violet-600/50' },
-  { step: '02', label: 'Train',   sub: 'Google Colab',   url: COLAB_NOTEBOOK_URL, color: 'hover:border-amber-600/50'  },
+  { step: '01', label: 'Label',   sub: 'CVAT',           url: CVAT_URL,           color: 'hover:border-violet-600/50' },
+  { step: '02', label: 'Train',   sub: 'Kaggle',         url: KAGGLE_URL,         color: 'hover:border-blue-500/50' },
   { step: '03', label: 'Compile', sub: 'GitHub Actions', url: GITHUB_ACTIONS_URL, color: 'hover:border-slate-500'     },
   { step: '04', label: 'Deploy',  sub: 'RDK X5 Edge',   url: null,               color: ''                           },
 ]
@@ -27,16 +27,5 @@ export const PipelineSteps: FC = () => (
       ))}
     </div>
 
-    {/* Colab save warning */}
-    <div className="p-3 bg-amber-950/20 border border-amber-800/30 rounded-xl flex items-start gap-3 text-xs">
-      <span className="text-amber-500 text-base shrink-0">☁</span>
-      <div className="space-y-1">
-        <p className="text-amber-300 font-semibold">Important: Save a copy of the notebook</p>
-        <p className="text-amber-400/70">
-          The Colab notebook loads read-only from GitHub. If you see a "Failed to save" error, go to{' '}
-          <strong className="text-amber-200">File → Save a copy in Drive</strong> in Colab to create your own editable copy.
-        </p>
-      </div>
-    </div>
   </>
 )

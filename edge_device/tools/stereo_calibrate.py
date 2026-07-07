@@ -10,6 +10,10 @@ This is intentionally a minimal scaffold; you can expand it for your camera.
 Usage (example):
   python stereo_calibrate.py --left-glob "calib/left/*.png" --right-glob "calib/right/*.png" --out stereo_calib.json
 
+Ender 3 bed sizing (220×220mm):
+  Default: 9×6 inner corners, 20mm squares → 200×140mm printed pattern (10mm margin each side)
+  Both cameras must see the ENTIRE board — 20mm ensures visibility even when tilted 45° for Pitch/Yaw.
+
 Calibration Image Capture Procedure for RDK X5:
 -----------------------------------------------
 Capture 20-30 pairs of images in these specific poses:
@@ -76,7 +80,9 @@ IMPORTANT: Both cameras must see the ENTIRE checkerboard in every shot!
     ap.add_argument("--right-glob", required=True)
     ap.add_argument("--board-w", type=int, default=9)
     ap.add_argument("--board-h", type=int, default=6)
-    ap.add_argument("--square-mm", type=float, default=25.0)
+    # 20mm squares: 10×7 squares = 200×140mm — fits Ender 3 bed (220×220mm)
+    # Provides sufficient coverage for Yaw (±45°), Pitch (±45°), Roll (±20°) poses
+    ap.add_argument("--square-mm", type=float, default=20.0)
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 

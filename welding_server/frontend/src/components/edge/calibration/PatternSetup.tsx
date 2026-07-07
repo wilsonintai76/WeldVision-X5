@@ -17,8 +17,9 @@ const PatternSetup: React.FC<PatternSetupProps> = ({ config, onChange, onNext })
           <div>
             <h4 className="text-white font-medium mb-1 text-lg">Checkerboard Pattern Required</h4>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Print a checkerboard calibration pattern. The pattern should be mounted flat on a rigid surface.
-              Move the pattern to different positions and angles in view of both cameras.
+              Print a checkerboard calibration pattern on an Ender 3 (220×220mm bed).
+              Default 9×6 inner corners at <span className="text-blue-400 font-semibold">20mm squares</span> produces a 200×140mm board — 10mm margin on all sides.
+              Mount flat on a rigid surface and vary <span className="text-amber-400 font-semibold">Yaw (±45°)</span>, <span className="text-green-400 font-semibold">Pitch (±45°)</span>, and <span className="text-purple-400 font-semibold">Roll (±20°)</span> for full calibration coverage.
             </p>
           </div>
         </div>
@@ -43,7 +44,7 @@ const PatternSetup: React.FC<PatternSetupProps> = ({ config, onChange, onNext })
             onChange={(e) => onChange({ ...config, square_size: Number(e.target.value) })}
             className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
           />
-          <p className="text-xs text-slate-500 mt-2 italic">Physical size of each square on your printed pattern</p>
+          <p className="text-xs text-slate-500 mt-2 italic">20mm → 200×140mm total (fits Ender 3 220×220mm bed)</p>
         </div>
       </div>
 

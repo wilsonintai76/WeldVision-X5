@@ -12,6 +12,26 @@ mlops.get('/', async (c) => {
   return c.json(rows.results);
 });
 
+// ── GET /api/models/tunnel-status ─────────────────────────────────────────────
+
+mlops.get('/tunnel-status', async (c) => {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    // Ping CVAT to check if tunnel is up
+    const resp = await fetch(c.env.CVAT_URL, { signal: controller.signal });
+    clearTimeout(timeout);
+    
+    // Cloudflare returns 5xx if tunnel or origin is down
+    if (resp.status >= 500) {
+      return c.json({ status: 'offline', error: `Tunnel returned ${resp.status}` });
+    }
+    return c.json({ status: 'online' });
+  } catch (err: any) {
+    return c.json({ status: 'offline', error: err.message });
+  }
+});
+
 // ── GET /api/models/deployed ──────────────────────────────────────────────────
 
 mlops.get('/deployed', async (c) => {
@@ -396,6 +416,66 @@ mlops.delete('/:id/rubrics/:rubric_id', async (c) => {
     .bind(c.req.param('id'), c.req.param('rubric_id')).run();
 
   return c.json({ message: 'Binding removed' });
+});
+
+// ── POST /api/models/github-export-cvat ──────────────────────────────────────
+mlops.post('/github-export-cvat', async (c) => {
+  const payload = c.get('jwtPayload') as JWTPayload;
+  if (payload.role !== 'admin') return c.json({ error: 'Forbidden: admin only' }, 403);
+  
+  const { batch } = await c.req.json<{ batch?: string }>();
+  if (!batch) return c.json({ error: 'batch is required' }, 400);
+
+  const resp = await fetch(
+    'https://api.github.com/repos/wilsonintai76/weldvision-pipeline/actions/workflows/export-cvat.yml/dispatches',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${c.env.GITHUB_PAT}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json',
+        'User-Agent': 'WeldVision-Worker/1.0',
+      },
+      body: JSON.stringify({ ref: 'main', inputs: { batch } }),
+    }
+  );
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    return c.json({ error: `GitHub API error (${resp.status}): ${err}` }, 502);
+  }
+  return c.json({ dispatched: true, batch });
+});
+
+// ── POST /api/models/github-train-kaggle ─────────────────────────────────────
+mlops.post('/github-train-kaggle', async (c) => {
+  const payload = c.get('jwtPayload') as JWTPayload;
+  if (payload.role !== 'admin') return c.json({ error: 'Forbidden: admin only' }, 403);
+  
+  const { batch } = await c.req.json<{ batch?: string }>();
+  if (!batch) return c.json({ error: 'batch is required' }, 400);
+
+  const resp = await fetch(
+    'https://api.github.com/repos/wilsonintai76/weldvision-pipeline/actions/workflows/train-kaggle.yml/dispatches',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${c.env.GITHUB_PAT}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json',
+        'User-Agent': 'WeldVision-Worker/1.0',
+      },
+      body: JSON.stringify({ ref: 'main', inputs: { batch } }),
+    }
+  );
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    return c.json({ error: `GitHub API error (${resp.status}): ${err}` }, 502);
+  }
+  return c.json({ dispatched: true, batch });
 });
 
 export default mlops;

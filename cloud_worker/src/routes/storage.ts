@@ -34,6 +34,28 @@ storage.post('/upload', async (c) => {
   return c.json({ key, url: `/api/media/${key}` }, 201);
 });
 
+// ── GET /api/storage/batches ──────────────────────────────────────────────────
+// Returns a list of available R2 batches (subdirectories under raw/)
+storage.get('/batches', async (c) => {
+  const list = await c.env.STORAGE.list({ prefix: 'raw/', delimiter: '/' });
+  const batches = list.delimitedPrefixes
+    .map(p => p.split('/')[1])
+    .filter(Boolean);
+  return c.json({ batches });
+});
+
+// ── GET /api/storage/files ────────────────────────────────────────────────────
+// Returns a list of files for a given prefix.
+storage.get('/files', async (c) => {
+  const prefix = c.req.query('prefix') || '';
+  if (!prefix) return c.json({ error: 'prefix is required' }, 400);
+
+  const list = await c.env.STORAGE.list({ prefix });
+  // Map to just the key names
+  const files = list.objects.map(o => o.key);
+  return c.json({ files });
+});
+
 // ── GET /api/media/:key*  — R2 object proxy ───────────────────────────────────
 // Streams the R2 object through the Worker with proper Content-Type.
 // This is mounted at app level as /api/media/* so it works for all paths.

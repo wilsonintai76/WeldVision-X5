@@ -21,9 +21,8 @@ export interface Model {
 export type TabId = 'registry' | 'compare'
 
 export const GITHUB_ACTIONS_URL = 'https://github.com/wilsonintai76/WeldVision-X5/actions'
-// Open training notebook directly from GitHub — avoids Colab reset losing the file
-export const COLAB_NOTEBOOK_URL = 'https://colab.research.google.com/github/wilsonintai76/WeldVision-X5/blob/main/.github/workflows/training.ipynb'
-export const ROBOFLOW_URL = 'https://app.roboflow.com/jwai/weldvision-ribcd'
+export const KAGGLE_URL = 'https://www.kaggle.com'
+export const CVAT_URL = 'https://cvat.weldvision-x5.com'
 
 export interface UploadMetadata {
   map50: string

@@ -31,7 +31,7 @@ const CalibrationWizard: React.FC<CalibrationWizardProps> = ({ deviceIp, onCompl
   const [checkerboardConfig, setCheckerboardConfig] = useState<CheckerboardConfig>({
     rows: 6,
     cols: 9,
-    square_size: 25,
+    square_size: 20,  // 20mm: 10×7 squares = 200×140mm — fits Ender 3 bed (220×220mm)
     name: ''
   })
 

@@ -3,10 +3,10 @@ import { HardDrive, RefreshCw } from 'lucide-react'
 import { getStoredToken } from '../services/authAPI'
 import type { Model, TabId, UploadMetadata } from './mlops/types'
 import { PipelineSteps } from './mlops/PipelineSteps'
-import { UploadOnnxPanel } from './mlops/UploadOnnxPanel'
 import { ModelRegistryTable } from './mlops/ModelRegistryTable'
 import { ModelCompareTable } from './mlops/ModelCompareTable'
 import { DeployOptions } from './mlops/DeployOptions'
+import { DataPipeline } from './mlops/DataPipeline'
 
 function authHeaders(json = false): Record<string, string> {
   const token = getStoredToken()
@@ -23,7 +23,7 @@ const MLOps: FC = () => {
   const [lanIp, setLanIp] = useState('')
   const [activeAction, setActiveAction] = useState<string | number | null>(null)
   const [compileError, setCompileError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<TabId>('registry')
+  const [activeTab, setActiveTab] = useState<'pipeline' | 'registry' | 'compare'>('pipeline')
   const [sortKey, setSortKey] = useState<keyof Model>('map50')
 
   const fetchModels = async () => {
@@ -52,61 +52,6 @@ const MLOps: FC = () => {
     const t = setInterval(fetchModels, 10000)
     return () => clearInterval(t)
   }, [])
-
-  // Upload ONNX to R2, then register metadata in D1
-  const uploadModel = async (file: File, metadata: UploadMetadata): Promise<boolean> => {
-    setUploading(true)
-    setUploadStatus('Uploading to Cloudflare R2...')
-    try {
-      const form = new FormData()
-      form.append('file', file)
-      form.append('folder', 'models')
-      const token = getStoredToken()
-      const r2Res = await fetch('/api/storage/upload', {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        body: form,
-      })
-      if (!r2Res.ok) {
-        const err = await r2Res.json().catch(() => ({})) as any
-        alert(`Upload failed: ${err.error || r2Res.statusText}`)
-        return false
-      }
-      const { key } = await r2Res.json() as any
-
-      setUploadStatus('Registering in D1...')
-      const regRes = await fetch('/api/models', {
-        method: 'POST',
-        headers: authHeaders(true),
-        body: JSON.stringify({
-          model_file_key: key,
-          status: 'uploaded',
-          map50: metadata.map50 ? parseFloat(metadata.map50) : undefined,
-          map50_95: metadata.map50_95 ? parseFloat(metadata.map50_95) : undefined,
-          epochs: metadata.epochs ? parseInt(metadata.epochs) : undefined,
-          dataset_version: metadata.datasetVersion || undefined,
-          framework_version: metadata.frameworkVersion || undefined,
-          model_size_bytes: file.size,
-        }),
-      })
-      if (!regRes.ok) {
-        const err = await regRes.json().catch(() => ({})) as any
-        alert(`Registration failed: ${err.error || regRes.statusText}`)
-        return false
-      }
-      const { version } = await regRes.json() as any
-      await fetchModels()
-      await fetchNextVersion()
-      alert(`✓ yolov8_weld ${version} uploaded to R2.\n\nNext: click "Compile" in the table to trigger GitHub Actions → Horizon BPU .bin.`)
-      return true
-    } catch (err) {
-      alert(`Error: ${(err as Error).message}`)
-      return false
-    } finally {
-      setUploading(false)
-      setUploadStatus('')
-    }
-  }
 
   // Trigger GitHub Actions: ONNX → Horizon BPU .bin
   const compileModel = async (modelId: string | number) => {
@@ -236,7 +181,7 @@ const MLOps: FC = () => {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold text-white">AI Pipeline</h2>
-          <p className="text-slate-400 mt-1">Roboflow → Colab → R2 → GitHub Actions → RDK X5</p>
+          <p className="text-slate-400 mt-1">CVAT → Kaggle → R2 → GitHub Actions → RDK X5</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {deployedModel ? (
@@ -258,7 +203,7 @@ const MLOps: FC = () => {
 
       {/* Tab Bar */}
       <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl w-fit max-w-full overflow-x-auto">
-        {(['registry', 'compare'] as TabId[]).map(t => (
+        {(['pipeline', 'registry', 'compare'] as const).map(t => (
           <button
             key={t}
             onClick={() => setActiveTab(t)}
@@ -266,19 +211,18 @@ const MLOps: FC = () => {
               activeTab === t ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
             }`}
           >
-            {t === 'registry' ? 'Model Registry' : 'Compare Versions'}
+            {t === 'pipeline' ? 'Data Pipeline' : t === 'registry' ? 'Model Registry' : 'Compare Versions'}
           </button>
         ))}
       </div>
 
-      <PipelineSteps />
+      {activeTab === 'pipeline' && <DataPipeline />}
 
-      <UploadOnnxPanel
-        nextVersion={nextVersion}
-        uploading={uploading}
-        uploadStatus={uploadStatus}
-        onUpload={uploadModel}
-      />
+      {activeTab !== 'pipeline' && (
+        <>
+          <PipelineSteps />
+        </>
+      )}
 
       {activeTab === 'compare' && (
         <ModelCompareTable models={models} sortKey={sortKey} onSortChange={setSortKey} />

@@ -292,7 +292,7 @@ const LandingPage = ({ onLoginSuccess }: LandingPageProps) => {
               <div className="space-y-2">
                 <FooterLink href="https://docs.ultralytics.com/">YOLO Docs</FooterLink>
                 <FooterLink href="https://hub.ultralytics.com/">Ultralytics HUB</FooterLink>
-                <FooterLink href="https://roboflow.com/">Roboflow</FooterLink>
+                <FooterLink href="https://cvat.ai/">CVAT</FooterLink>
                 <FooterLink href="https://colab.research.google.com/">Google Colab</FooterLink>
               </div>
             </div>

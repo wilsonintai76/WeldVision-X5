@@ -44,7 +44,10 @@ binding = "AI"
 [vars]
 ENVIRONMENT = "production"
 # Allowed CORS origins — add your Pages domain once deployed
-ALLOWED_ORIGINS = "https://weldvision-x5.com,https://www.weldvision-x5.com,http://localhost:3000,http://localhost:5173"
+ALLOWED_ORIGINS = "https://weldvision-x5.com,https://www.weldvision-x5.com,https://weldvision-x5-frontend.pages.dev,http://localhost:3000,http://localhost:5173"
+# Local pipeline tunnel endpoints (via Cloudflare Tunnel)
+PIPELINE_URL = "https://pipeline.weldvision-x5.com"
+CVAT_URL = "https://cvat.weldvision-x5.com"
 # JWT_SECRET must be set as a secret, not here:
 # wrangler secret put JWT_SECRET
 

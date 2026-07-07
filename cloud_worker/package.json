@@ -1,10 +1,11 @@
 {
   "name": "weldvision-cloud-worker",
-  "version": "1.1.45",
+  "version": "1.1.49",
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "bump:patch": "npm version patch",
+    "deploy": "npm run bump:patch && wrangler deploy",
     "type-check": "tsc --noEmit",
     "db:create": "wrangler d1 create weldvision",
     "db:migrate:local": "wrangler d1 execute weldvision --local --file=src/db/schema.sql",

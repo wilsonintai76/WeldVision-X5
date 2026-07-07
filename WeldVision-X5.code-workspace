@@ -1,7 +1,12 @@
 {
 	"folders": [
 		{
+			"name": "🌐 WeldVision-X5 (Cloud App)",
 			"path": "."
+		},
+		{
+			"name": "🔬 WeldVision Pipeline (Local Training)",
+			"path": "../weldvision-pipeline"
 		}
 	],
 	"settings": {
@@ -10,6 +15,53 @@
 				"approve": true,
 				"matchCommandLine": true
 			}
+		},
+		"python.defaultInterpreterPath": "${workspaceFolder:🔬 WeldVision Pipeline (Local Training)}/.venv/Scripts/python.exe",
+		"[python]": {
+			"editor.defaultFormatter": "ms-python.black-formatter"
+		},
+		"[typescript]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode"
+		},
+		"[javascript]": {
+			"editor.defaultFormatter": "esbenp.prettier-vscode"
+		},
+		"files.exclude": {
+			"**/node_modules": true,
+			"**/.venv": true,
+			"**/__pycache__": true,
+			"**/.wrangler": true
 		}
+	},
+	"extensions": {
+		"recommendations": [
+			"ms-python.python",
+			"ms-python.black-formatter",
+			"esbenp.prettier-vscode",
+			"ms-azuretools.vscode-docker",
+			"eamodio.gitlens"
+		]
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "▶ Pipeline WebApp (localhost:8501)",
+				"type": "python",
+				"request": "launch",
+				"module": "uvicorn",
+				"args": ["scripts.webapp:app", "--host", "0.0.0.0", "--port", "8501", "--reload"],
+				"cwd": "${workspaceFolder:🔬 WeldVision Pipeline (Local Training)}",
+				"envFile": "${workspaceFolder:🔬 WeldVision Pipeline (Local Training)}/.env"
+			},
+			{
+				"name": "▶ Cloud Worker Dev (localhost:8787)",
+				"type": "node",
+				"request": "launch",
+				"runtimeExecutable": "npx",
+				"runtimeArgs": ["wrangler", "dev"],
+				"cwd": "${workspaceFolder:🌐 WeldVision-X5 (Cloud App)}/cloud_worker"
+			}
+		]
 	}
-}
+}

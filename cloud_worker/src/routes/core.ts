@@ -410,7 +410,7 @@ core.post('/stereo-calibrations', async (c) => {
 
   const {
     name, image_width = 1280, image_height = 720,
-    board_width = 9, board_height = 6, square_size_mm = 25.0,
+    board_width = 9, board_height = 6, square_size_mm = 20.0,  // 20mm: 200×140mm fits Ender 3 bed
     calibration_data, is_active = false,
   } = await c.req.json<{
     name?: string; image_width?: number; image_height?: number;

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, FC } from 'react'
+import React, { useState, useEffect, FC } from 'react'
 import {
   ExternalLink,
   Database,
@@ -27,15 +27,14 @@ interface Model {
   model_file_key?: string
 }
 
-const ROBOFLOW_URL = 'https://roboflow.com'
-const COLAB_NOTEBOOK = 'https://colab.research.google.com'
+const CVAT_URL = 'https://cvat.weldvision-x5.com'
+const KAGGLE_URL = 'https://www.kaggle.com'
 const GITHUB_ACTIONS_URL = 'https://github.com/wilsonintai76/WeldVision-X5/actions'
 
 const Analytics: FC = () => {
   const [models, setModels] = useState<Model[]>([])
   const [loading, setLoading] = useState(false)
-  const [rfWorkspace, setRfWorkspace] = useState(() => localStorage.getItem('rf_workspace') || '')
-  const [rfProject, setRfProject] = useState(() => localStorage.getItem('rf_project') || '')
+  const [cvatProject, setCvatProject] = useState(() => localStorage.getItem('cvat_project') || '')
 
   useEffect(() => {
     fetchModels()
@@ -53,16 +52,12 @@ const Analytics: FC = () => {
     setLoading(false)
   }
 
-  const saveRoboflowConfig = () => {
-    localStorage.setItem('rf_workspace', rfWorkspace)
-    localStorage.setItem('rf_project', rfProject)
+  const saveCvatConfig = () => {
+    localStorage.setItem('cvat_project', cvatProject)
   }
 
-  const openRoboflow = () => {
-    const url = rfWorkspace && rfProject
-      ? `${ROBOFLOW_URL}/${rfWorkspace}/${rfProject}`
-      : ROBOFLOW_URL
-    window.open(url, '_blank')
+  const openCvat = () => {
+    window.open(CVAT_URL, '_blank')
   }
 
   const deployedModel = models.find(m => m.is_deployed)
@@ -75,7 +70,7 @@ const Analytics: FC = () => {
       {/* Header */}
       <div>
         <h2 className="text-3xl font-bold text-white">ML Pipeline</h2>
-        <p className="text-slate-400 mt-1">Roboflow → Google Colab → R2 → GitHub Actions → RDK X5</p>
+        <p className="text-slate-400 mt-1">CVAT → Kaggle → R2 → GitHub Actions → RDK X5</p>
       </div>
 
       {/* Pipeline Status Cards */}
@@ -88,7 +83,7 @@ const Analytics: FC = () => {
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
           <Tag className="w-7 h-7 text-amber-400 mb-3" />
           <div className="text-2xl font-black text-white mb-1">{onnxCount}</div>
-          <div className="text-xs text-slate-500 uppercase font-bold">ONNX (Colab)</div>
+          <div className="text-xs text-slate-500 uppercase font-bold">ONNX (Kaggle)</div>
         </div>
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
           <Zap className="w-7 h-7 text-blue-400 mb-3" />
@@ -104,7 +99,7 @@ const Analytics: FC = () => {
         </div>
       </div>
 
-      {/* Roboflow Integration */}
+      {/* CVAT Integration */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
@@ -112,46 +107,37 @@ const Analytics: FC = () => {
               <Tag className="w-5 h-5 text-purple-400" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Roboflow — Annotation & Dataset</h3>
-              <p className="text-xs text-slate-500">Label weld images, augment dataset, export YOLO format</p>
+              <h3 className="text-lg font-bold text-white">CVAT — Annotation & Dataset</h3>
+              <p className="text-xs text-slate-500">Label weld images and export YOLO format</p>
             </div>
           </div>
           <button
-            onClick={openRoboflow}
+            onClick={openCvat}
             className="flex items-center gap-2 px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white text-sm font-semibold rounded-lg transition-colors"
           >
-            Open Roboflow <ExternalLink className="w-3.5 h-3.5" />
+            Open CVAT <ExternalLink className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 gap-4 mb-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Workspace Slug</label>
+            <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Project ID</label>
             <input
-              value={rfWorkspace}
-              onChange={e => { setRfWorkspace(e.target.value); saveRoboflowConfig() }}
-              placeholder="your-workspace"
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-600 focus:outline-none focus:border-purple-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Project Name</label>
-            <input
-              value={rfProject}
-              onChange={e => { setRfProject(e.target.value); saveRoboflowConfig() }}
-              placeholder="weld-defect-detection"
+              value={cvatProject}
+              onChange={e => { setCvatProject(e.target.value); saveCvatConfig() }}
+              placeholder="e.g. 1"
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-600 focus:outline-none focus:border-purple-500"
             />
           </div>
         </div>
 
-        {/* Roboflow Workflow Steps */}
+        {/* CVAT Workflow Steps */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
           {[
-            { step: '1', title: 'Upload Images', desc: 'Drag & drop weld photos' },
+            { step: '1', title: 'Upload Images', desc: 'Sync from R2 Cloud Storage' },
             { step: '2', title: 'Annotate', desc: 'Label defects with bounding boxes' },
-            { step: '3', title: 'Augment', desc: 'Apply transforms to grow dataset' },
-            { step: '4', title: 'Export YOLO', desc: 'Download YOLOv8 format for Colab' },
+            { step: '3', title: 'Review', desc: 'Approve annotations' },
+            { step: '4', title: 'Export YOLO', desc: 'Push YOLOv8 format to R2' },
           ].map(s => (
             <div key={s.step} className="p-3 bg-purple-950/20 border border-purple-800/20 rounded-lg">
               <div className="text-xs font-black text-purple-500 uppercase mb-1">Step {s.step}</div>
@@ -162,7 +148,7 @@ const Analytics: FC = () => {
         </div>
       </div>
 
-      {/* Colab Training */}
+      {/* Kaggle Training */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -170,24 +156,23 @@ const Analytics: FC = () => {
               <span className="text-lg">🔬</span>
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Google Colab Training</h3>
+              <h3 className="text-lg font-bold text-white">Kaggle Training</h3>
               <p className="text-xs text-slate-500">YOLOv8 training with free GPU — export to ONNX</p>
             </div>
           </div>
           <button
-            onClick={() => window.open(COLAB_NOTEBOOK, '_blank')}
+            onClick={() => window.open(KAGGLE_URL, '_blank')}
             className="flex items-center gap-2 px-4 py-2 bg-amber-700 hover:bg-amber-600 text-white text-sm font-semibold rounded-lg transition-colors"
           >
-            Open Colab <ExternalLink className="w-3.5 h-3.5" />
+            Open Kaggle <ExternalLink className="w-3.5 h-3.5" />
           </button>
         </div>
         <div className="bg-slate-800/50 rounded-lg p-4 font-mono text-xs text-slate-300 space-y-1 select-all">
-          <div className="text-slate-500"># In Colab notebook:</div>
+          <div className="text-slate-500"># In Kaggle notebook:</div>
           <div><span className="text-amber-400">from</span> ultralytics <span className="text-amber-400">import</span> YOLO</div>
           <div>model = YOLO(<span className="text-emerald-400">'yolov8n.pt'</span>)</div>
           <div>model.train(data=<span className="text-emerald-400">'data.yaml'</span>, epochs=<span className="text-blue-400">100</span>, imgsz=<span className="text-blue-400">640</span>)</div>
           <div>model.export(format=<span className="text-emerald-400">'onnx'</span>)  <span className="text-slate-500"># → runs/detect/train/weights/best.onnx</span></div>
-          <div className="text-slate-500"># Then upload best.onnx in the AI Pipeline tab</div>
         </div>
       </div>
 

@@ -51,11 +51,13 @@ const ImageCapture: React.FC<ImageCaptureProps> = ({
       <div className="p-4 bg-amber-950/20 border border-amber-600/30 rounded-xl flex gap-4">
         <AlertTriangle className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
         <div className="text-amber-200/70 text-sm">
-          <h4 className="text-amber-400 font-bold mb-1">Expert Capture Tips</h4>
+          <h4 className="text-amber-400 font-bold mb-1">Pose Guide — Pitch · Roll · Yaw</h4>
           <ul className="space-y-1 opacity-80">
-            <li>• Aim for <span className="text-amber-300 font-bold">15-20</span> high-quality image pairs.</li>
-            <li>• Vary the tilt and rotation of the pattern for better extrinsic data.</li>
-            <li>• Ensure no glare or reflections are present on the checkerboard.</li>
+            <li>• <span className="text-yellow-300 font-bold">Yaw ±45°</span> — Rotate board left/right (horizontal). Captures <em>f<sub>x</sub></em>.</li>
+            <li>• <span className="text-green-300 font-bold">Pitch ±45°</span> — Tilt top/bottom edge toward cameras. Captures <em>f<sub>y</sub></em>.</li>
+            <li>• <span className="text-purple-300 font-bold">Roll ±20°</span> — Turn board like a steering wheel. Captures distortion k₁ k₂ k₃.</li>
+            <li>• Aim for <span className="text-amber-300 font-bold">15–20</span> pairs covering all poses + corner positions.</li>
+            <li>• Ender 3 board (200×140mm) must be <span className="text-amber-300 font-bold">fully visible</span> in both cameras every shot.</li>
           </ul>
         </div>
       </div>

@@ -1,7 +1,7 @@
 {
   "name": "weldvision-x5-frontend",
   "private": true,
-  "version": "1.1.45",
+  "version": "1.1.51",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,8 @@
     "type-check": "tsc --noEmit",
     "build:watch": "vite build --watch",
     "preview": "vite preview",
-    "bump:patch": "npm version patch"
+    "bump:patch": "npm version patch",
+    "deploy": "npm run bump:patch && npm run build && npx wrangler pages deploy dist --project-name weldvision-x5-frontend"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

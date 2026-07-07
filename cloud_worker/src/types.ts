@@ -10,6 +10,8 @@ export interface Env {
   COMPILE_CALLBACK_SECRET?: string;
   ENVIRONMENT: string;
   ALLOWED_ORIGINS: string;
+  PIPELINE_URL: string;
+  CVAT_URL: string;
 }
 
 export interface JWTPayload {
